@@ -1,0 +1,657 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<title>Kijk Samen — samen op afstand een film kijken</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Bricolage+Grotesque:opsz,wght@12..96,300..800&display=swap" rel="stylesheet" />
+<style>
+  :root{
+    --bg:#0b0a0c; --panel:#161219; --panel-2:#1e1923; --line:rgba(255,255,255,.09);
+    --txt:#efe7dd; --muted:#a59a90; --amber:#f4b14a; --amber-2:#ffcf86;
+    --good:#7bd88f; --bad:#e8736b; --shadow:0 22px 60px rgba(0,0,0,.6);
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%}
+  body{
+    margin:0; color:var(--txt);
+    background:
+      radial-gradient(1200px 700px at 50% -120px, rgba(244,177,74,.10), transparent 60%),
+      radial-gradient(900px 600px at 90% 110%, rgba(120,90,200,.07), transparent 60%), var(--bg);
+    font-family:'Bricolage Grotesque', ui-sans-serif, system-ui, sans-serif;
+    display:flex; flex-direction:column; overflow:hidden;
+  }
+  .grain{
+    position:fixed; inset:0; z-index:9999; pointer-events:none; opacity:.045; mix-blend-mode:soft-light;
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  }
+
+  .topbar{
+    flex:0 0 auto; display:flex; align-items:center; gap:18px; flex-wrap:wrap; padding:14px 20px;
+    background:linear-gradient(180deg, rgba(22,18,25,.92), rgba(22,18,25,.72));
+    border-bottom:1px solid var(--line); backdrop-filter:blur(10px);
+    animation:drop .6s cubic-bezier(.2,.8,.2,1) both;
+  }
+  @keyframes drop{from{transform:translateY(-100%);opacity:0}to{transform:none;opacity:1}}
+  .brand{display:flex; align-items:center; gap:11px; user-select:none}
+  .bulb{
+    width:11px; height:11px; border-radius:50%;
+    background:radial-gradient(circle at 35% 30%, var(--amber-2), var(--amber));
+    box-shadow:0 0 0 3px rgba(244,177,74,.12), 0 0 16px 2px rgba(244,177,74,.5);
+    animation:flick 4s ease-in-out infinite;
+  }
+  @keyframes flick{0%,100%{opacity:1}48%{opacity:1}50%{opacity:.55}52%{opacity:1}}
+  .brand b{
+    font-family:'Bebas Neue', sans-serif; font-weight:400; font-size:27px; letter-spacing:2.5px; line-height:1;
+    background:linear-gradient(180deg,#fff,#d9cdbf); -webkit-background-clip:text; background-clip:text; color:transparent;
+  }
+  .status{
+    display:flex; align-items:center; gap:8px; padding:6px 12px; border-radius:999px;
+    background:var(--panel-2); border:1px solid var(--line); font-size:13px; color:var(--muted); white-space:nowrap;
+  }
+  .dot{width:8px; height:8px; border-radius:50%; background:var(--muted); box-shadow:0 0 8px currentColor}
+  .dot.waiting{color:var(--amber); background:var(--amber); animation:pulse 1.6s ease-in-out infinite}
+  .dot.peer-present{color:var(--amber-2); background:var(--amber-2); animation:pulse 1s ease-in-out infinite}
+  .dot.connected{color:var(--good); background:var(--good)}
+  @keyframes pulse{0%,100%{transform:scale(1);opacity:1}50%{transform:scale(.6);opacity:.5}}
+
+  .grow{flex:1 1 280px; min-width:220px; display:flex; gap:10px}
+  .urlrow{display:flex; flex:1; gap:10px}
+  input.url{
+    flex:1; min-width:0; background:var(--panel); border:1px solid var(--line); color:var(--txt);
+    border-radius:11px; padding:11px 14px; font-size:14px; font-family:inherit; transition:border-color .15s, box-shadow .15s;
+  }
+  input.url::placeholder{color:#796f66}
+  input.url:focus{outline:none; border-color:rgba(244,177,74,.7); box-shadow:0 0 0 3px rgba(244,177,74,.16)}
+
+  .btn{
+    font-family:inherit; font-size:14px; font-weight:600; cursor:pointer; border-radius:11px; padding:11px 16px; white-space:nowrap;
+    border:1px solid var(--line); background:var(--panel-2); color:var(--txt); transition:transform .12s, background .15s, border-color .15s, color .15s;
+  }
+  .btn:hover{transform:translateY(-1px); border-color:rgba(255,255,255,.2)}
+  .btn:active{transform:translateY(0)}
+  .btn.primary{background:linear-gradient(180deg, var(--amber-2), var(--amber)); color:#2a1c06; border-color:transparent; box-shadow:0 6px 18px rgba(244,177,74,.28)}
+  .btn.primary:hover{box-shadow:0 10px 26px rgba(244,177,74,.4)}
+  .btn.ok{color:var(--good); border-color:rgba(123,216,143,.5)}
+
+  .share{display:flex; align-items:center; gap:8px; min-width:0}
+  .linkpill{
+    display:flex; align-items:center; gap:8px; min-width:0; max-width:340px;
+    background:var(--panel); border:1px dashed rgba(244,177,74,.4); border-radius:11px; padding:8px 12px;
+  }
+  .linkpill .lbl{font-size:11px; letter-spacing:.5px; text-transform:uppercase; color:var(--amber); white-space:nowrap}
+  .linkpill .val{font-size:13px; color:var(--muted); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; user-select:all}
+
+  .stage{
+    position:relative; flex:1 1 auto; min-height:0;
+    background:radial-gradient(120% 120% at 50% 50%, #000 40%, #060507 100%); overflow:hidden;
+    animation:fade .9s ease .15s both;
+  }
+  @keyframes fade{from{opacity:0}to{opacity:1}}
+  .stage::after{content:""; position:absolute; inset:0; pointer-events:none; box-shadow:inset 0 0 220px 40px rgba(0,0,0,.75); z-index:2}
+
+  video#movie, #ytwrap, #framewrap{position:absolute; inset:0; z-index:1}
+  video#movie{width:100%; height:100%; object-fit:contain; background:#000; display:none}
+  #ytwrap{display:none; background:#000}
+  #ytwrap iframe{width:100%; height:100%; border:0; display:block}
+  #framewrap{display:none; background:#000}
+  #frame{width:100%; height:100%; border:0; display:block}
+
+  .placeholder{position:absolute; inset:0; display:flex; align-items:center; justify-content:center; padding:24px; z-index:3}
+  .ph-card{
+    max-width:600px; width:100%;
+    background:linear-gradient(180deg, rgba(31,25,36,.85), rgba(20,16,24,.85));
+    border:1px solid var(--line); border-radius:20px; padding:34px 34px 30px; box-shadow:var(--shadow); backdrop-filter:blur(6px);
+  }
+  .ph-card .kicker{font-size:12px; letter-spacing:2px; text-transform:uppercase; color:var(--amber); margin:0 0 8px}
+  .ph-card h2{font-family:'Bebas Neue', sans-serif; font-weight:400; letter-spacing:1px; font-size:34px; margin:0 0 16px; line-height:1.05}
+  .steps{list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:13px}
+  .steps li{display:flex; gap:13px; align-items:flex-start; color:#d7cdc3; font-size:14.5px; line-height:1.45}
+  .steps .tag{
+    flex:0 0 auto; padding:3px 9px; border-radius:8px; font-size:11px; font-weight:700; letter-spacing:.3px; white-space:nowrap;
+    background:rgba(244,177,74,.14); color:var(--amber-2); border:1px solid rgba(244,177,74,.35);
+  }
+  .ph-note{margin:20px 0 0; font-size:12.5px; color:var(--muted); line-height:1.5; border-top:1px solid var(--line); padding-top:15px}
+  .ph-note code{background:rgba(255,255,255,.06); padding:1px 6px; border-radius:6px; color:#e9cfa0; font-size:12px}
+
+  /* zwevende bediening (altijd zichtbaar; werkt ook over een ingebed venster) */
+  .floatctrls{position:absolute; left:18px; bottom:18px; z-index:55; display:flex; gap:10px; opacity:.92}
+  .floatctrls:hover{opacity:1}
+  .fbtn{
+    position:relative; width:46px; height:46px; border-radius:50%; display:grid; place-items:center; cursor:pointer;
+    background:rgba(20,16,24,.72); color:var(--txt); border:1px solid var(--line); backdrop-filter:blur(8px);
+    transition:transform .12s, background .15s, color .15s, border-color .15s;
+  }
+  .fbtn:hover{transform:translateY(-2px); background:rgba(34,28,40,.9); border-color:rgba(255,255,255,.22)}
+  .fbtn svg{width:21px; height:21px}
+  .fbtn.off{color:var(--bad); border-color:rgba(232,115,107,.5)}
+  .fbtn.off::after{content:""; position:absolute; left:8px; right:8px; top:50%; height:2px; background:var(--bad); transform:rotate(-32deg); border-radius:2px}
+  .fbtn[disabled]{opacity:.4; cursor:not-allowed}
+  .fbtn.has-unread::before{
+    content:attr(data-unread); position:absolute; top:-4px; right:-4px; min-width:16px; height:16px; padding:0 4px;
+    border-radius:9px; background:var(--bad); color:#fff; font-size:10px; font-weight:700; display:grid; place-items:center; box-shadow:0 0 0 2px var(--bg);
+  }
+
+  /* camera-vensters, versleepbaar */
+  .cams{position:absolute; right:18px; bottom:18px; z-index:40; display:flex; flex-direction:column; gap:10px; touch-action:none; cursor:grab; transition:right .2s}
+  .stage.chat-open .cams{right:338px}
+  .cams.dragging{cursor:grabbing}
+  .cam{position:relative; width:200px; aspect-ratio:4/3; border-radius:14px; overflow:hidden; background:#0d0b0f; border:1px solid rgba(255,255,255,.14); box-shadow:var(--shadow)}
+  .cam video{width:100%; height:100%; object-fit:cover; display:block; background:#0d0b0f}
+  .cam video.camoff{visibility:hidden}
+  .cam .camlabel{position:absolute; left:8px; bottom:7px; font-size:11px; letter-spacing:.4px; padding:2px 8px; border-radius:7px; background:rgba(0,0,0,.55); color:#fff; backdrop-filter:blur(4px)}
+  .cam.self{border-color:rgba(244,177,74,.45)}
+  .cam.self video{transform:scaleX(-1)}
+
+  /* "klik om af te spelen" als de browser autoplay blokkeert (alleen voor bestand-modus) */
+  .playgate{position:absolute; inset:0; z-index:50; display:flex; align-items:center; justify-content:center; background:rgba(0,0,0,.45); backdrop-filter:blur(3px)}
+  .playgate[hidden]{display:none}
+  .playgate button{display:flex; align-items:center; gap:12px; font-family:inherit; font-size:16px; font-weight:600; cursor:pointer; color:#2a1c06; background:linear-gradient(180deg, var(--amber-2), var(--amber)); border:none; border-radius:999px; padding:15px 26px; box-shadow:0 12px 30px rgba(244,177,74,.4)}
+  .playgate svg{width:22px; height:22px}
+
+  /* aftel-tellertje (alleen bij ingebedde sites) */
+  .cdwidget{
+    position:absolute; left:18px; top:50%; transform:translateY(-50%); z-index:48; width:214px;
+    display:flex; flex-direction:column; gap:11px; padding:18px;
+    background:linear-gradient(180deg, rgba(31,25,36,.93), rgba(20,16,24,.94));
+    border:1px solid var(--line); border-radius:18px; box-shadow:var(--shadow); backdrop-filter:blur(8px);
+  }
+  .cdwidget[hidden]{display:none}
+  .cd-head{display:flex; align-items:center; justify-content:space-between; gap:8px}
+  .cd-title{font-family:'Bebas Neue',sans-serif; letter-spacing:1.5px; font-size:21px; color:var(--amber-2)}
+  .cd-x{background:none; border:none; color:var(--muted); font-size:22px; line-height:1; cursor:pointer; padding:0 2px}
+  .cd-x:hover{color:var(--txt)}
+  .cd-num{font-family:'Bebas Neue',sans-serif; font-size:62px; line-height:1; text-align:center; color:#fff; padding:2px 0}
+  .cd-num.go{color:var(--good); animation:pop .4s ease}
+  @keyframes pop{0%{transform:scale(.6)}60%{transform:scale(1.18)}100%{transform:scale(1)}}
+  .cd-hint{font-size:11.5px; color:var(--muted); line-height:1.45}
+  .cdwidget .btn{width:100%; text-align:center}
+  .cdwidget a.btn{text-decoration:none; display:block}
+
+  /* chat-lade */
+  .chat{
+    position:absolute; right:0; top:0; bottom:0; z-index:60; width:320px; max-width:86vw; display:flex; flex-direction:column;
+    background:linear-gradient(180deg, rgba(24,20,29,.96), rgba(17,13,20,.97));
+    border-left:1px solid var(--line); box-shadow:-20px 0 50px rgba(0,0,0,.5); backdrop-filter:blur(10px); animation:slidein .25s ease;
+  }
+  .chat[hidden]{display:none}
+  @keyframes slidein{from{transform:translateX(100%)}to{transform:none}}
+  .chat-head{display:flex; align-items:center; justify-content:space-between; padding:14px 16px; border-bottom:1px solid var(--line); font-family:'Bebas Neue',sans-serif; letter-spacing:1.5px; font-size:19px}
+  .chat-x{background:none; border:none; color:var(--muted); font-size:26px; cursor:pointer; line-height:1}
+  .chat-x:hover{color:var(--txt)}
+  .chat-log{flex:1; overflow-y:auto; padding:14px; display:flex; flex-direction:column; gap:10px}
+  .chat-empty{margin:auto; color:#6f655c; font-size:13px; text-align:center; line-height:1.5}
+  .msg{display:flex; flex-direction:column; max-width:85%}
+  .msg .who{font-size:10.5px; letter-spacing:.4px; color:var(--muted); margin:0 4px 3px}
+  .msg .bub{padding:9px 12px; border-radius:13px; font-size:14px; line-height:1.4; overflow-wrap:anywhere}
+  .msg.me{align-self:flex-end; align-items:flex-end}
+  .msg.me .bub{background:linear-gradient(180deg,var(--amber-2),var(--amber)); color:#2a1c06; border-bottom-right-radius:5px}
+  .msg.them{align-self:flex-start}
+  .msg.them .bub{background:var(--panel-2); border:1px solid var(--line); border-bottom-left-radius:5px}
+  .chat-input{display:flex; gap:8px; padding:12px; border-top:1px solid var(--line)}
+  .chat-input input{flex:1; min-width:0; background:var(--panel); border:1px solid var(--line); color:var(--txt); border-radius:10px; padding:10px 12px; font-family:inherit; font-size:14px}
+  .chat-input input:focus{outline:none; border-color:rgba(244,177,74,.6)}
+
+  .toast{
+    position:fixed; left:50%; bottom:26px; transform:translate(-50%, 30px); z-index:9998; max-width:min(560px, 90vw);
+    background:var(--panel-2); color:var(--txt); border:1px solid var(--line); border-left:3px solid var(--amber);
+    border-radius:12px; padding:13px 18px; font-size:14px; line-height:1.45; box-shadow:var(--shadow); opacity:0; pointer-events:none; transition:opacity .3s, transform .3s;
+  }
+  .toast.show{opacity:1; transform:translate(-50%,0)}
+
+  @media (max-width:720px){
+    .linkpill{max-width:200px}
+    .cam{width:128px}
+    .brand b{font-size:23px}
+    .stage.chat-open .cams{right:18px; bottom:auto; top:14px}
+    .cdwidget{width:170px; padding:14px}
+    .cd-num{font-size:50px}
+  }
+</style>
+</head>
+<body>
+  <div class="grain" aria-hidden="true"></div>
+
+  <header class="topbar">
+    <div class="brand"><span class="bulb"></span><b>Kijk&nbsp;Samen</b></div>
+    <div class="status"><span class="dot waiting" id="statusDot"></span><span id="statusText">Wachten op de ander…</span></div>
+    <div class="grow">
+      <div class="urlrow">
+        <input class="url" id="urlInput" type="text" inputmode="url" spellcheck="false"
+               placeholder="Plak een filmbestand (.mp4/.webm), een YouTube-link, of een andere video-pagina…" />
+        <button class="btn primary" id="loadBtn">Laden</button>
+      </div>
+    </div>
+    <div class="share">
+      <div class="linkpill" title="Deel deze link met de persoon met wie je kijkt">
+        <span class="lbl">Deel-link</span><span class="val" id="linkText">…</span>
+      </div>
+      <button class="btn" id="copyBtn">Kopieer link</button>
+    </div>
+  </header>
+
+  <main class="stage" id="stage">
+    <video id="movie" playsinline controls controlsList="nofullscreen nodownload noremoteplayback" preload="metadata"></video>
+    <div id="ytwrap"></div>
+    <div id="framewrap"><iframe id="frame" allow="autoplay; fullscreen; encrypted-media; picture-in-picture" allowfullscreen referrerpolicy="no-referrer-when-downgrade" sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox allow-presentation"></iframe></div>
+
+    <div class="placeholder" id="placeholder">
+      <div class="ph-card">
+        <p class="kicker">Privé bioscoop voor twee</p>
+        <h2>Klaar voor de filmavond?</h2>
+        <ul class="steps">
+          <li><span class="tag">Stap 1</span><span><b>Stuur de deel-link</b> (rechtsboven) naar de ander. Jullie komen via dezelfde link in dezelfde kamer.</span></li>
+          <li><span class="tag">.mp4 / .webm</span><span><b>Direct filmbestand:</b> volledig automatisch synchroon — wat de één doet (play/pauze/spoelen) gebeurt bij de ander ook.</span></li>
+          <li><span class="tag">YouTube</span><span>Plak een <b>YouTube-link</b> en ook dat loopt automatisch gelijk over allebei jullie schermen.</span></li>
+          <li><span class="tag">Andere site</span><span>Bij een <b>andere video-pagina</b> krijgt ieder z'n eigen speler plus een <b>aftel-tellertje</b> aan de zijkant, zodat jullie tegelijk op play drukken.</span></li>
+        </ul>
+        <p class="ph-note">
+          Gebruik dit alleen voor materiaal dat je <b>mag bekijken</b>. Veel sites staan niet toe getoond te worden in een venster — daarvoor zit er een <b>“openen in nieuw tabblad”</b>-knop bij.
+          Voor betaalde diensten bestaan officiële “samen kijken”-functies (Teleparty, Disney+ GroupWatch, Prime Watch Party). Tip: zet een koptelefoon op tegen galm.
+        </p>
+      </div>
+    </div>
+
+    <div class="playgate" id="playgate" hidden>
+      <button id="playgateBtn"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg> Klik om mee te kijken</button>
+    </div>
+
+    <!-- aftel-tellertje, alleen zichtbaar bij ingebedde sites -->
+    <div class="cdwidget" id="cdwidget" hidden>
+      <div class="cd-head"><span class="cd-title">Samen starten</span><button class="cd-x" id="cdClose" aria-label="Wegklikken">×</button></div>
+      <div class="cd-num" id="cdNum">▶</div>
+      <div class="cd-hint">Eén van jullie klikt op aftellen. Bij <b>NU</b> drukken jullie allebei op play in de speler.</div>
+      <button class="btn primary" id="cdBtn">3 · 2 · 1 — Aftellen</button>
+      <a class="btn" id="openTab" target="_blank" rel="noopener noreferrer">Openen in nieuw tabblad ↗</a>
+    </div>
+
+    <div class="floatctrls" id="floatctrls">
+      <button class="fbtn" id="micBtn" title="Microfoon aan/uit" aria-label="Microfoon aan/uit">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
+      </button>
+      <button class="fbtn" id="camBtn" title="Camera aan/uit" aria-label="Camera aan/uit">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg>
+      </button>
+      <button class="fbtn" id="chatBtn" title="Chat tonen/verbergen" aria-label="Chat tonen/verbergen">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
+      </button>
+      <button class="fbtn" id="fsBtn" title="Volledig scherm" aria-label="Volledig scherm">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M21 8V5a2 2 0 0 0-2-2h-3"/><path d="M3 16v3a2 2 0 0 0 2 2h3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/></svg>
+      </button>
+    </div>
+
+    <div class="cams" id="cams">
+      <div class="cam"><video id="peerVideo" autoplay playsinline></video><span class="camlabel" id="peerLabel">De ander</span></div>
+      <div class="cam self"><video id="selfVideo" autoplay playsinline muted></video><span class="camlabel">Jij</span></div>
+    </div>
+
+    <!-- chat-lade -->
+    <aside class="chat" id="chat" hidden>
+      <div class="chat-head"><span>Chat</span><button class="chat-x" id="chatClose" aria-label="Chat sluiten">×</button></div>
+      <div class="chat-log" id="chatLog"><div class="chat-empty" id="chatEmpty">Nog geen berichten.<br>Zeg hallo 👋</div></div>
+      <div class="chat-input"><input id="chatText" placeholder="Typ een bericht…" maxlength="2000" /><button class="btn primary" id="chatSend">Stuur</button></div>
+    </aside>
+  </main>
+
+  <div class="toast" id="toast"></div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/peerjs/1.5.5/peerjs.min.js"></script>
+  <script>
+  (function () {
+    "use strict";
+
+    // ---------- Elementen ----------
+    var $ = function(id){ return document.getElementById(id); };
+    var stage=$("stage"), movie=$("movie"), ytwrap=$("ytwrap"), framewrap=$("framewrap"), frame=$("frame");
+    var placeholder=$("placeholder"), playgate=$("playgate"), playgateBtn=$("playgateBtn");
+    var cams=$("cams"), selfVideo=$("selfVideo"), peerVideo=$("peerVideo");
+    var urlInput=$("urlInput"), loadBtn=$("loadBtn"), copyBtn=$("copyBtn"), linkText=$("linkText");
+    var statusDot=$("statusDot"), statusText=$("statusText");
+    var micBtn=$("micBtn"), camBtn=$("camBtn"), chatBtn=$("chatBtn"), fsBtn=$("fsBtn");
+    var cdwidget=$("cdwidget"), cdNum=$("cdNum"), cdBtn=$("cdBtn"), openTab=$("openTab"), cdClose=$("cdClose");
+    var chat=$("chat"), chatLog=$("chatLog"), chatEmpty=$("chatEmpty"), chatText=$("chatText"), chatSend=$("chatSend"), chatClose=$("chatClose");
+    var toastEl=$("toast"), copyLabel=copyBtn.textContent;
+
+    // ---------- Kamer & deel-link ----------
+    var params=new URLSearchParams(location.search);
+    var roomCode=params.get("room");
+    if(!roomCode){ roomCode=rand5()+rand5(); params.set("room",roomCode); history.replaceState(null,"",location.pathname+"?"+params.toString()); }
+    var shareUrl=location.href; linkText.textContent=shareUrl;
+    var HOST_ID=("kijksamen"+roomCode).replace(/[^a-zA-Z0-9]/g,"");
+    function rand5(){ return Math.random().toString(36).slice(2,7); }
+
+    // ---------- Hulpjes ----------
+    var toastTimer;
+    function toast(msg,ms){ toastEl.textContent=msg; toastEl.classList.add("show"); clearTimeout(toastTimer); toastTimer=setTimeout(function(){ toastEl.classList.remove("show"); }, ms||4500); }
+    function setStatus(s){ statusDot.className="dot "+s; statusText.textContent = s==="waiting"?"Wachten op de ander…": s==="peer-present"?"Verbinden…":"Verbonden"; }
+
+    // =========================================================
+    //  Verbinding via PeerJS (geen eigen server)
+    // =========================================================
+    var peer=null, dataConn=null, mediaCall=null, localStream=null;
+    var isAuthority=false, roleResolved=false, guestRetries=0, clockOffset=0;
+
+    function peerOpts(){ return { debug:1, config:{ iceServers:[ {urls:"stun:stun.l.google.com:19302"}, {urls:"stun:stun1.l.google.com:19302"} ] } }; }
+
+    function startConnection(){
+      if(typeof Peer==="undefined"){ toast("De verbindingsbibliotheek kon niet laden. Controleer je internet of een adblocker en vernieuw de pagina.",9000); return; }
+      peer=new Peer(HOST_ID, peerOpts());
+      peer.on("open", function(){ if(roleResolved) return; roleResolved=true; isAuthority=true; setStatus("waiting"); });
+      peer.on("connection", function(conn){ if(dataConn&&dataConn.open){ rejectFull(conn); return; } setupDataConn(conn); });
+      peer.on("call", function(call){ if(mediaCall&&mediaCall.open){ try{call.close();}catch(e){} return; } mediaCall=call; call.answer(localStream||undefined); wireMediaCall(call); });
+      peer.on("disconnected", function(){ try{peer.reconnect();}catch(e){} });
+      peer.on("error", function(err){
+        var t=err&&err.type;
+        if(t==="unavailable-id"&&!roleResolved){ roleResolved=true; try{peer.destroy();}catch(e){} becomeGuest(); }
+        else handlePeerError(err);
+      });
+    }
+    function becomeGuest(){
+      isAuthority=false; setStatus("peer-present");
+      peer=new Peer(peerOpts());
+      peer.on("open", function(){ connectToHost(); });
+      peer.on("disconnected", function(){ try{peer.reconnect();}catch(e){} });
+      peer.on("error", function(err){ var t=err&&err.type; if(t==="peer-unavailable") scheduleGuestRetry(); else handlePeerError(err); });
+    }
+    function connectToHost(){
+      if(dataConn&&dataConn.open) return;
+      setupDataConn(peer.connect(HOST_ID, { reliable:true }));
+      if(localStream){ var c=peer.call(HOST_ID, localStream); if(c){ mediaCall=c; wireMediaCall(c); } }
+    }
+    function scheduleGuestRetry(){
+      if(dataConn&&dataConn.open) return;
+      if(guestRetries>=8){ toast("Kon de ander nog niet bereiken. Is de link al door de ander geopend? Probeer de pagina te vernieuwen.",9000); return; }
+      guestRetries++; setStatus("peer-present");
+      setTimeout(function(){ if(peer&&!peer.destroyed) connectToHost(); },1500);
+    }
+    function rejectFull(conn){ try{ conn.on("open", function(){ try{conn.send({t:"full"});}catch(e){} setTimeout(function(){ try{conn.close();}catch(e){} },300); }); }catch(e){} }
+
+    function setupDataConn(conn){
+      dataConn=conn; guestRetries=0;
+      conn.on("open", function(){
+        setStatus("connected"); pingClock();
+        if(isAuthority){
+          if(currentMedia) send({ t:"video", mode:currentMedia.mode, url:currentMedia.url, id:currentMedia.id });
+          if(mode==="file"||mode==="youtube") send({ t:"sync", type:isPausedMedia()?"pause":"play", time:getTime() });
+        }
+      });
+      conn.on("data", handleMessage);
+      conn.on("close", onPeerGone);
+      conn.on("error", function(){});
+    }
+    function wireMediaCall(call){ call.on("stream", function(s){ peerVideo.srcObject=s; }); call.on("close", function(){ peerVideo.srcObject=null; }); call.on("error", function(){}); }
+    function onPeerGone(){
+      peerVideo.srcObject=null; dataConn=null;
+      if(mediaCall){ try{mediaCall.close();}catch(e){} mediaCall=null; }
+      setStatus(isAuthority?"waiting":"peer-present"); toast("De ander is weg. Wachten op opnieuw verbinden…");
+      if(!isAuthority){ guestRetries=0; scheduleGuestRetry(); }
+    }
+    function send(obj){ if(dataConn&&dataConn.open){ try{ dataConn.send(obj); }catch(e){} } }
+    function handlePeerError(err){
+      console.warn("peer-fout",err); var t=err&&err.type;
+      if(t==="browser-incompatible") toast("Je browser ondersteunt WebRTC niet volledig. Gebruik een recente Chrome, Edge of Firefox.",9000);
+      else if(t==="network"||t==="server-error"||t==="socket-error"||t==="socket-closed"){ setStatus(isAuthority?"waiting":"peer-present"); toast("De verbindingsserver hapert even. Geef het een momentje of vernieuw de pagina.",8000); }
+      else if(t==="webrtc") toast("Er ging iets mis met de directe verbinding. Op een streng netwerk lukt het soms niet zonder TURN-server (zie README).",9000);
+    }
+
+    function handleMessage(msg){
+      if(!msg||typeof msg!=="object") return;
+      switch(msg.t){
+        case "full": showRoomFull(); break;
+        case "video": if(typeof msg.url==="string"){ urlInput.value=msg.url; applyMedia(msg.mode, msg.url, msg.id); toast("De ander heeft iets geladen."); } break;
+        case "sync": applyRemote(msg); break;
+        case "countdown": if(typeof msg.target==="number") runCountdown(msg.target); break;
+        case "chat": if(typeof msg.text==="string") receiveChat(msg.text); break;
+        case "tsync": send({ t:"tsync_reply", t0:msg.t0, t1:Date.now() }); break;
+        case "tsync_reply": { var rtt=Date.now()-msg.t0; clockOffset = msg.t1 - (msg.t0 + rtt/2); break; }
+      }
+    }
+    function pingClock(){ if(dataConn&&dataConn.open) send({ t:"tsync", t0:Date.now() }); }
+    setInterval(pingClock, 10000);
+
+    // =========================================================
+    //  Media: drie modi — bestand, youtube, embed
+    // =========================================================
+    var mode="none";              // 'none'|'file'|'youtube'|'embed'
+    var currentMedia=null;        // {mode,url,id}
+    var pending=null;             // uitgestelde sync-actie tot speler klaar is
+
+    function detectMedia(url){
+      var yt=parseYouTube(url);
+      if(yt) return { mode:"youtube", id:yt, url:url };
+      var clean=url.split("#")[0].split("?")[0];
+      if(/\.(mp4|webm|ogg|ogv|m4v|mov)$/i.test(clean)) return { mode:"file", url:url };
+      return { mode:"embed", url:url };
+    }
+    function parseYouTube(url){
+      try{
+        var u=new URL(url), h=u.hostname.replace(/^www\./,"");
+        if(h==="youtu.be") return u.pathname.slice(1).split("/")[0]||null;
+        if(h==="youtube.com"||h==="m.youtube.com"||h==="youtube-nocookie.com"){
+          if(u.pathname==="/watch") return u.searchParams.get("v");
+          var m=u.pathname.match(/^\/(embed|shorts|v|live)\/([^\/?#]+)/);
+          if(m) return m[2];
+        }
+      }catch(e){}
+      return null;
+    }
+
+    function clearPlayers(){
+      try{ movie.pause(); }catch(e){}
+      try{ movie.removeAttribute("src"); movie.load(); }catch(e){}
+      movie.style.display="none";
+      if(ytPlayer){ try{ ytPlayer.destroy(); }catch(e){} ytPlayer=null; }
+      ytwrap.style.display="none"; ytwrap.innerHTML="";
+      try{ frame.src="about:blank"; }catch(e){} framewrap.style.display="none";
+      playgate.hidden=true; pending=null;
+    }
+    function setEmbedUI(on){
+      cdwidget.hidden=!on;
+      if(!on){ clearInterval(cdTimer); cdNum.textContent="▶"; cdNum.classList.remove("go"); cdBtn.disabled=false; }
+    }
+
+    function applyMedia(m,url,id){
+      clearPlayers();
+      mode=m; currentMedia={ mode:m, url:url, id:id };
+      placeholder.style.display="none";
+      if(m==="file"){ setEmbedUI(false); movie.style.display="block"; movie.src=url; movie.load(); }
+      else if(m==="youtube"){ setEmbedUI(false); ytwrap.style.display="block"; loadYouTube(id); }
+      else { setEmbedUI(true); framewrap.style.display="flex"; try{ frame.src=url; }catch(e){} openTab.href=url; }
+    }
+
+    loadBtn.addEventListener("click", function(){
+      var url=(urlInput.value||"").trim();
+      if(!url){ toast("Plak eerst een link."); return; }
+      if(!/^https?:\/\//i.test(url)){ toast("De link moet beginnen met http:// of https://"); return; }
+      var det=detectMedia(url);
+      applyMedia(det.mode, det.url, det.id);
+      send({ t:"video", mode:det.mode, url:det.url, id:det.id });
+      if(det.mode==="embed") toast("Andere site geladen — gebruik het aftel-tellertje links om samen te starten.",6000);
+    });
+    urlInput.addEventListener("keydown", function(e){ if(e.key==="Enter") loadBtn.click(); });
+    movie.addEventListener("error", function(){ if(mode!=="file"||!movie.src) return; toast("Dit bestand kon niet geladen worden. Is het een directe .mp4/.webm-link? Anders werkt het mogelijk wel als ‘andere site’.",9000); });
+
+    // ---------- YouTube IFrame API ----------
+    var ytApiReady=false, ytApiLoading=false, ytPlayer=null, ytPending=null;
+    function ensureYTApi(cb){
+      if(ytApiReady){ cb(); return; }
+      ytPending=cb;
+      if(ytApiLoading) return;
+      ytApiLoading=true;
+      window.onYouTubeIframeAPIReady=function(){ ytApiReady=true; if(ytPending){ var f=ytPending; ytPending=null; f(); } };
+      var s=document.createElement("script"); s.src="https://www.youtube.com/iframe_api"; document.head.appendChild(s);
+    }
+    function loadYouTube(id){
+      ensureYTApi(function(){
+        ytwrap.innerHTML='<div id="ytplayer"></div>';
+        ytPlayer=new YT.Player("ytplayer", {
+          videoId:id,
+          playerVars:{ rel:0, modestbranding:1, playsinline:1 },
+          events:{ onStateChange:onYtState }
+        });
+      });
+    }
+    function onYtState(e){
+      if(applyingRemote||mode!=="youtube") return;
+      if(e.data===1) broadcast("play");
+      else if(e.data===2) broadcast("pause");
+    }
+
+    // ---------- Uniforme speler-bediening ----------
+    function getTime(){ if(mode==="file") return movie.currentTime||0; if(mode==="youtube"&&ytPlayer&&ytPlayer.getCurrentTime) return ytPlayer.getCurrentTime()||0; return 0; }
+    function setTime(t){ if(mode==="file"){ try{movie.currentTime=t;}catch(e){} } else if(mode==="youtube"&&ytPlayer&&ytPlayer.seekTo){ try{ytPlayer.seekTo(t,true);}catch(e){} } }
+    function playMedia(){ if(mode==="file") safePlay(); else if(mode==="youtube"&&ytPlayer&&ytPlayer.playVideo){ try{ytPlayer.playVideo();}catch(e){} } }
+    function pauseMedia(){ if(mode==="file") movie.pause(); else if(mode==="youtube"&&ytPlayer&&ytPlayer.pauseVideo){ try{ytPlayer.pauseVideo();}catch(e){} } }
+    function isPausedMedia(){ if(mode==="file") return movie.paused; if(mode==="youtube"&&ytPlayer&&ytPlayer.getPlayerState){ var s=ytPlayer.getPlayerState(); return !(s===1||s===3); } return true; }
+    function mediaReady(){ if(mode==="file") return movie.readyState>=1&&!isNaN(movie.duration); if(mode==="youtube") return !!(ytPlayer&&ytPlayer.getDuration&&ytPlayer.getDuration()>0); return false; }
+
+    // ---------- Synchronisatie ----------
+    var applyingRemote=false, applyingTimer;
+    function broadcast(type){ if(applyingRemote) return; if(mode!=="file"&&mode!=="youtube") return; send({ t:"sync", type:type, time:getTime() }); }
+    function markApplying(){ applyingRemote=true; clearTimeout(applyingTimer); applyingTimer=setTimeout(function(){ applyingRemote=false; },700); }
+
+    movie.addEventListener("play", function(){ broadcast("play"); });
+    movie.addEventListener("pause", function(){ broadcast("pause"); });
+    movie.addEventListener("seeked", function(){ broadcast("seek"); });
+    movie.addEventListener("loadedmetadata", function(){ applyPending(); });
+
+    function applyPending(){
+      if(pending&&mediaReady()){
+        markApplying();
+        if(typeof pending.time==="number") setTime(pending.time);
+        if(pending.play) playMedia();
+        pending=null;
+      }
+    }
+    function applyRemote(data){
+      if(mode==="embed"||mode==="none") return;
+      if(!data||typeof data.time!=="number") return;
+      if(!mediaReady()){ var wp=(data.type==="play"||(data.type==="heartbeat"&&data.playing)); pending={ time:data.time, play: wp||(pending&&pending.play)||false }; return; }
+      markApplying();
+      switch(data.type){
+        case "play": if(Math.abs(getTime()-data.time)>0.5) setTime(data.time); playMedia(); break;
+        case "pause": if(Math.abs(getTime()-data.time)>0.5) setTime(data.time); pauseMedia(); break;
+        case "seek": if(Math.abs(getTime()-data.time)>0.3) setTime(data.time); break;
+        case "heartbeat":
+          if(!isAuthority){
+            if(data.playing&&isPausedMedia()) playMedia();
+            if(!data.playing&&!isPausedMedia()) pauseMedia();
+            if(Math.abs(getTime()-data.time)>1.5) setTime(data.time);
+          }
+          break;
+      }
+    }
+    // heartbeat (tijd-baas) tegen wegdriften
+    setInterval(function(){
+      if(isAuthority&&dataConn&&dataConn.open&&(mode==="file"||mode==="youtube")&&mediaReady())
+        send({ t:"sync", type:"heartbeat", time:getTime(), playing:!isPausedMedia() });
+    },4000);
+    // poller: pending toepassen + YouTube-spoelen detecteren
+    var lastPoll={ t:0, time:0, playing:false };
+    setInterval(function(){
+      applyPending();
+      if(mode==="youtube"&&mediaReady()&&!applyingRemote){
+        var nowS=getTime(), playing=!isPausedMedia(), nowMs=Date.now();
+        if(lastPoll.t){
+          var dtReal=(nowMs-lastPoll.t)/1000;
+          var expected=lastPoll.time + (lastPoll.playing?dtReal:0);
+          if(Math.abs(nowS-expected)>1.2) broadcast("seek");
+        }
+        lastPoll={ t:nowMs, time:nowS, playing:playing };
+      } else { lastPoll={ t:Date.now(), time:getTime(), playing:!isPausedMedia() }; }
+    },400);
+
+    function safePlay(){ var p=movie.play(); if(p&&typeof p.then==="function"){ p.then(function(){ playgate.hidden=true; }).catch(function(){ playgate.hidden=false; }); } }
+    playgateBtn.addEventListener("click", function(){ movie.play().then(function(){ playgate.hidden=true; }).catch(function(){}); });
+
+    // ---------- Aftel-tellertje (embed-modus) ----------
+    var cdTimer;
+    cdBtn.addEventListener("click", function(){
+      if(!(dataConn&&dataConn.open)){ toast("Nog niet verbonden met de ander."); return; }
+      var realStart=Date.now()+4000;
+      send({ t:"countdown", target:realStart+clockOffset });
+      runCountdown(realStart);
+    });
+    cdClose.addEventListener("click", function(){ cdwidget.hidden=true; clearInterval(cdTimer); cdNum.textContent="▶"; cdNum.classList.remove("go"); cdBtn.disabled=false; });
+    function runCountdown(targetMyClock){
+      if(mode==="embed") cdwidget.hidden=false;
+      clearInterval(cdTimer); cdBtn.disabled=true;
+      function tick(){
+        var rem=targetMyClock-Date.now();
+        if(rem>200){ cdNum.textContent=String(Math.ceil(rem/1000)); cdNum.classList.remove("go"); }
+        else{ cdNum.textContent="NU ▶"; cdNum.classList.add("go"); clearInterval(cdTimer); setTimeout(function(){ cdNum.textContent="▶"; cdNum.classList.remove("go"); cdBtn.disabled=false; },2600); }
+      }
+      tick(); cdTimer=setInterval(tick,100);
+    }
+
+    // ---------- Chat ----------
+    var unread=0, chatHasMsg=false;
+    chatBtn.addEventListener("click", function(){ chat.hidden=!chat.hidden; stage.classList.toggle("chat-open", !chat.hidden); if(!chat.hidden){ unread=0; updateBadge(); chatText.focus(); } });
+    chatClose.addEventListener("click", function(){ chat.hidden=true; stage.classList.remove("chat-open"); });
+    chatSend.addEventListener("click", sendChat);
+    chatText.addEventListener("keydown", function(e){ if(e.key==="Enter") sendChat(); });
+    function sendChat(){
+      var txt=(chatText.value||"").trim(); if(!txt) return;
+      if(!(dataConn&&dataConn.open)){ toast("Nog niet verbonden met de ander."); return; }
+      appendChat("Jij", txt, true); send({ t:"chat", text:txt }); chatText.value="";
+    }
+    function receiveChat(text){ appendChat("De ander", text, false); if(chat.hidden){ unread++; updateBadge(); toast("Nieuw bericht in de chat."); } }
+    function appendChat(who,text,me){
+      if(!chatHasMsg){ chatHasMsg=true; if(chatEmpty&&chatEmpty.parentNode) chatEmpty.parentNode.removeChild(chatEmpty); }
+      var row=document.createElement("div"); row.className="msg "+(me?"me":"them");
+      var n=document.createElement("div"); n.className="who"; n.textContent=who;
+      var b=document.createElement("div"); b.className="bub"; b.textContent=text;
+      row.appendChild(n); row.appendChild(b); chatLog.appendChild(row); chatLog.scrollTop=chatLog.scrollHeight;
+    }
+    function updateBadge(){ chatBtn.setAttribute("data-unread", unread>0?String(unread):""); chatBtn.classList.toggle("has-unread", unread>0); }
+
+    // ---------- Camera / microfoon ----------
+    function setupMedia(){
+      var full={ video:{ width:{ideal:640}, height:{ideal:480} }, audio:{ echoCancellation:true, noiseSuppression:true, autoGainControl:true } };
+      return navigator.mediaDevices.getUserMedia(full)
+        .catch(function(){ return navigator.mediaDevices.getUserMedia({ audio:{ echoCancellation:true } }).then(function(s){ toast("Geen camera gevonden — je doet mee met alleen geluid."); camBtn.classList.add("off"); camBtn.disabled=true; return s; }); })
+        .then(function(stream){ localStream=stream; selfVideo.srcObject=stream; })
+        .catch(function(){ localStream=null; toast("Geen toegang tot camera/microfoon. Je kijkt mee, maar bent niet te zien of te horen.",7000); micBtn.classList.add("off"); micBtn.disabled=true; camBtn.classList.add("off"); camBtn.disabled=true; });
+    }
+    micBtn.addEventListener("click", function(){ var t=localStream&&localStream.getAudioTracks()[0]; if(!t) return; t.enabled=!t.enabled; micBtn.classList.toggle("off",!t.enabled); });
+    camBtn.addEventListener("click", function(){ var t=localStream&&localStream.getVideoTracks()[0]; if(!t) return; t.enabled=!t.enabled; camBtn.classList.toggle("off",!t.enabled); selfVideo.classList.toggle("camoff",!t.enabled); });
+
+    // ---------- Volledig scherm ----------
+    fsBtn.addEventListener("click", function(){
+      if(!document.fullscreenElement){ (stage.requestFullscreen||stage.webkitRequestFullscreen||function(){}).call(stage); }
+      else{ (document.exitFullscreen||document.webkitExitFullscreen||function(){}).call(document); }
+    });
+
+    // ---------- Kopieer-knop ----------
+    copyBtn.addEventListener("click", function(){
+      function ok(){ copyBtn.textContent="Gekopieerd!"; copyBtn.classList.add("ok"); setTimeout(function(){ copyBtn.textContent=copyLabel; copyBtn.classList.remove("ok"); },1500); }
+      if(navigator.clipboard&&navigator.clipboard.writeText){ navigator.clipboard.writeText(shareUrl).then(ok).catch(fallback); } else fallback();
+      function fallback(){ try{ var r=document.createRange(); r.selectNode(linkText); var sel=window.getSelection(); sel.removeAllRanges(); sel.addRange(r); document.execCommand("copy"); sel.removeAllRanges(); ok(); }catch(e){ toast("Kopiëren lukte niet — selecteer de link en kopieer 'm handmatig."); } }
+    });
+
+    // ---------- Camera-venster verslepen ----------
+    (function makeDraggable(el){
+      var dragging=false, sx, sy, baseRight, baseBottom;
+      el.addEventListener("pointerdown", function(e){ dragging=true; try{el.setPointerCapture(e.pointerId);}catch(_){ } sx=e.clientX; sy=e.clientY; var rect=el.getBoundingClientRect(), par=el.parentElement.getBoundingClientRect(); baseRight=par.right-rect.right; baseBottom=par.bottom-rect.bottom; el.classList.add("dragging"); });
+      el.addEventListener("pointermove", function(e){ if(!dragging) return; var par=el.parentElement.getBoundingClientRect(); var right=baseRight-(e.clientX-sx), bottom=baseBottom-(e.clientY-sy); right=Math.max(8,Math.min(right,par.width-el.offsetWidth-8)); bottom=Math.max(8,Math.min(bottom,par.height-el.offsetHeight-8)); el.style.right=right+"px"; el.style.bottom=bottom+"px"; });
+      function stop(e){ if(dragging){ dragging=false; el.classList.remove("dragging"); try{el.releasePointerCapture(e.pointerId);}catch(_){ } } }
+      el.addEventListener("pointerup", stop); el.addEventListener("pointercancel", stop);
+    })(cams);
+
+    function showRoomFull(){
+      try{ if(peer) peer.destroy(); }catch(e){}
+      clearPlayers(); placeholder.style.display="";
+      placeholder.innerHTML='<div class="ph-card"><p class="kicker">Sorry…</p><h2>Deze kamer zit vol</h2><p style="color:#d7cdc3;line-height:1.5;margin:0 0 22px">Er kijken al twee mensen in deze kamer. Dit is bedoeld voor één-op-één. Maak een nieuwe kijk-kamer aan en deel die link.</p><a class="btn primary" style="text-decoration:none;display:inline-block" href="'+location.pathname+'">Nieuwe kamer maken</a></div>';
+    }
+
+    // ---------- Start ----------
+    (function start(){
+      if(!window.isSecureContext&&location.hostname!=="localhost"&&location.hostname!=="127.0.0.1") toast("Open dit via de gehoste https-link (niet als los bestand). Camera/microfoon werken alleen op https.",9000);
+      setupMedia().then(function(){ startConnection(); });
+    })();
+  })();
+  </script>
+</body>
+</html>
