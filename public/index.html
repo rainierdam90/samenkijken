@@ -273,6 +273,61 @@
     .landing .l-actions .btn{width:100%; max-width:300px}
   }
   @media (max-width:380px){ .fbtn{width:42px; height:42px} .cam{width:118px} }
+
+  /* ===================== Emoji reactions ===================== */
+  .reactions-layer{position:absolute; inset:0; z-index:58; pointer-events:none; overflow:hidden}
+  .reaction{position:absolute; bottom:90px; font-size:38px; line-height:1; will-change:transform,opacity; animation:floatup 2.8s ease-out forwards; text-shadow:0 4px 14px rgba(0,0,0,.5); filter:drop-shadow(0 2px 6px rgba(0,0,0,.4))}
+  .reaction .rname{position:absolute; left:50%; top:-16px; transform:translateX(-50%); font-size:10px; white-space:nowrap; color:#fff; background:rgba(0,0,0,.5); padding:1px 6px; border-radius:7px; backdrop-filter:blur(3px)}
+  @keyframes floatup{
+    0%{transform:translateY(0) scale(.4); opacity:0}
+    12%{transform:translateY(-12px) scale(1.15); opacity:1}
+    25%{transform:translateY(-40px) scale(1)}
+    100%{transform:translateY(-70vh) scale(.85) rotate(var(--rot,8deg)); opacity:0}
+  }
+  .emojibar{position:absolute; left:0; bottom:56px; z-index:59; display:none; gap:4px; padding:8px 10px; border-radius:16px; background:rgba(20,16,24,.94); border:1px solid var(--line); backdrop-filter:blur(10px); box-shadow:var(--shadow); max-width:min(320px,86vw); flex-wrap:wrap}
+  .emojibar.show{display:flex}
+  .emojibar button{font-size:24px; line-height:1; background:none; border:none; cursor:pointer; padding:5px; border-radius:10px; transition:transform .1s, background .12s}
+  .emojibar button:hover{transform:scale(1.25); background:rgba(255,255,255,.08)}
+  .emojibar button:active{transform:scale(.9)}
+
+  /* ===================== Reaction clips (recorder) ===================== */
+  .rec-pill{position:absolute; left:50%; top:14px; transform:translateX(-50%); z-index:62; display:none; align-items:center; gap:9px; padding:8px 15px; border-radius:999px; background:rgba(20,16,24,.92); border:1px solid rgba(232,115,107,.6); backdrop-filter:blur(8px); box-shadow:var(--shadow); font-size:13px; color:var(--txt)}
+  .rec-pill.show{display:flex}
+  .rec-pill .rdot{width:10px; height:10px; border-radius:50%; background:var(--bad); animation:pulse 1s ease-in-out infinite}
+  .rec-pill .rstop{cursor:pointer; font-weight:700; color:var(--amber-2); background:none; border:none; font-family:inherit; font-size:13px}
+  .modal{position:fixed; inset:0; z-index:230; display:none; align-items:center; justify-content:center; padding:22px; background:rgba(6,5,8,.72); backdrop-filter:blur(6px)}
+  .modal.show{display:flex}
+  .modal-card{width:100%; max-width:460px; background:linear-gradient(180deg, rgba(31,25,36,.97), rgba(20,16,24,.98)); border:1px solid var(--line); border-radius:20px; padding:22px; box-shadow:var(--shadow); max-height:90vh; overflow:auto}
+  .modal-card h3{font-family:'Bebas Neue',sans-serif; font-weight:400; letter-spacing:1px; font-size:26px; margin:0 0 6px; color:var(--amber-2)}
+  .modal-card p.m-sub{margin:0 0 16px; font-size:13px; color:var(--muted); line-height:1.5}
+  .modal-card video{width:100%; border-radius:12px; background:#000; display:block; margin:0 0 16px}
+  .modal-row{display:flex; gap:10px; flex-wrap:wrap}
+  .modal-row .btn{flex:1 1 auto; text-align:center; justify-content:center}
+  .modal-x{float:right; background:none; border:none; color:var(--muted); font-size:24px; cursor:pointer; line-height:1; margin:-4px -4px 0 0}
+  .modal-x:hover{color:var(--txt)}
+  .m-field{margin:0 0 14px}
+  .m-field label{display:block; font-size:12px; color:var(--muted); margin:0 0 6px}
+  .m-field input{width:100%; background:var(--panel); border:1px solid var(--line); color:var(--txt); border-radius:11px; padding:11px 13px; font-size:14px; font-family:inherit}
+  .m-field input:focus{outline:none; border-color:rgba(244,177,74,.7)}
+  .m-watermark{font-size:11px; color:#6f655c; text-align:center; margin:14px 0 0}
+
+  /* ===================== Scheduled watch party ===================== */
+  .l-secondary{margin-top:14px}
+  .l-link-btn{background:none; border:none; color:var(--amber-2); font-family:inherit; font-size:14px; cursor:pointer; text-decoration:underline; text-underline-offset:3px}
+  .l-link-btn:hover{color:var(--amber)}
+  .waitroom{position:fixed; inset:0; z-index:210; display:none; align-items:center; justify-content:center; padding:24px;
+    background:radial-gradient(900px 600px at 50% -80px, rgba(244,177,74,.16), transparent 60%), #0b0a0c; text-align:center}
+  .waitroom.show{display:flex}
+  .wr-card{max-width:480px; width:100%}
+  .wr-kicker{font-size:12px; letter-spacing:2px; text-transform:uppercase; color:var(--amber); margin:0 0 10px}
+  .wr-title{font-family:'Bebas Neue',sans-serif; font-weight:400; letter-spacing:1px; font-size:clamp(28px,6vw,44px); line-height:1.05; margin:0 0 6px}
+  .wr-what{font-size:15px; color:#d7cdc3; margin:0 0 22px}
+  .wr-clock{font-family:'Bebas Neue',sans-serif; font-size:clamp(44px,12vw,72px); letter-spacing:2px; color:#fff; margin:0 0 22px; font-variant-numeric:tabular-nums}
+  .wr-clock.live{color:var(--good); animation:pop .5s ease}
+  .wr-actions{display:flex; gap:12px; flex-wrap:wrap; justify-content:center}
+  .wr-actions .btn{padding:13px 22px; font-size:15px}
+  .wr-cal{display:flex; gap:10px; flex-wrap:wrap; justify-content:center; margin-top:16px}
+  .wr-cal .share-btn{font-size:13px}
 </style>
 </head>
 <body>
@@ -292,6 +347,7 @@
       <span class="l-or" id="ld_or">or join with a room code</span>
       <div class="l-joinrow"><input id="ld_code" type="text" maxlength="40" placeholder="Room code" /><button class="btn" id="ld_join">Join</button></div>
     </div>
+    <div class="l-secondary" id="ld_secondary"><button class="l-link-btn" id="ld_schedule">📅 Schedule a watch party</button></div>
     <div class="l-got" id="ld_got">Already have a link? Just open it to join.</div>
     <div class="l-foot" id="ld_foot">Video and audio are end-to-end encrypted peer-to-peer. Chat is relayed by the server and may be moderated.</div>
   </div>
@@ -358,6 +414,11 @@
           <label class="switch"><input type="checkbox" id="duckChk" checked /><span class="track"></span><span id="duckLbl">Auto-lower when talking</span></label>
         </div>
       </div>
+      <div style="position:relative">
+        <button class="fbtn" id="reactBtn" title="Send a reaction"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 1 0-7.78 7.78L12 21.23l8.84-8.84a5.5 5.5 0 0 0 0-7.78z"/></svg></button>
+        <div class="emojibar" id="emojibar"></div>
+      </div>
+      <button class="fbtn" id="clipBtn" title="Capture a clip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/><circle cx="8.5" cy="12" r="2.6" fill="currentColor" stroke="none"/></svg></button>
       <button class="fbtn" id="chatBtn" title="Show/hide chat"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg></button>
       <button class="fbtn" id="fsBtn" title="Fullscreen"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M21 8V5a2 2 0 0 0-2-2h-3"/><path d="M3 16v3a2 2 0 0 0 2 2h3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/></svg></button>
       <button class="fbtn" id="dbgBtn" title="Connection diagnostics"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><line x1="12" y1="11" x2="12" y2="16"/><circle cx="12" cy="7.6" r="0.8" fill="currentColor" stroke="none"/></svg></button>
@@ -368,6 +429,9 @@
       <div class="gstrip" id="gstrip"></div>
       <button class="btn" id="gStop" style="display:none">Stop</button>
     </div>
+
+    <div class="reactions-layer" id="reactionsLayer" aria-hidden="true"></div>
+    <div class="rec-pill" id="recPill"><span class="rdot"></span><span id="recText">Recording…</span><button class="rstop" id="recStop">Stop</button></div>
 
     <div class="cams" id="cams">
       <div class="cam peer" id="peerCam">
@@ -411,6 +475,72 @@
       <div class="ytb-grid" id="ytbGrid"><div class="ytb-msg" id="ytbMsg">Search above to find a video to watch together.</div></div>
     </div>
   </main>
+
+  <!-- Reaction clip result -->
+  <div class="modal" id="clipModal">
+    <div class="modal-card">
+      <button class="modal-x" id="clipModalX" aria-label="Close">×</button>
+      <h3 id="clipTitle">Your moment 🎬</h3>
+      <p class="m-sub" id="clipSub">Share the laugh — tag your friends.</p>
+      <video id="clipVideo" controls playsinline></video>
+      <div class="modal-row">
+        <button class="btn primary" id="clipShare">Share</button>
+        <a class="btn" id="clipSave" download="watch-party-moment.webm">Save</a>
+      </div>
+      <p class="m-watermark">Made on WatchMovieTogether</p>
+    </div>
+  </div>
+
+  <!-- Schedule a watch party -->
+  <div class="modal" id="schedModal">
+    <div class="modal-card">
+      <button class="modal-x" id="schedX" aria-label="Close">×</button>
+      <h3 id="schedTitle">Schedule a watch party</h3>
+      <p class="m-sub" id="schedSub">Pick a time, get an invite link, and add it to your calendar so nobody forgets.</p>
+      <div class="m-field"><label id="schWhenLbl" for="schWhen">When</label><input id="schWhen" type="datetime-local" /></div>
+      <div class="m-field"><label id="schWhatLbl" for="schWhat">What are you watching? (optional)</label><input id="schWhat" type="text" maxlength="80" placeholder="Movie night 🍿" /></div>
+      <div class="modal-row" id="schStep1">
+        <button class="btn primary" id="schCreate">Create invite</button>
+      </div>
+      <div id="schStep2" style="display:none">
+        <div class="m-field"><label id="schLinkLbl">Invite link</label><input id="schLink" type="text" readonly /></div>
+        <div class="modal-row">
+          <button class="btn primary" id="schCopy">Copy invite link</button>
+          <button class="btn" id="schGoNow">Open room now</button>
+        </div>
+        <div class="wr-cal" style="margin-top:12px">
+          <a class="share-btn wa" id="schWa" target="_blank" rel="noopener noreferrer"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M.057 24l1.687-6.163a11.867 11.867 0 0 1-1.587-5.946C.16 5.335 5.495 0 12.05 0a11.817 11.817 0 0 1 8.413 3.488 11.824 11.824 0 0 1 3.48 8.414c-.003 6.557-5.338 11.892-11.893 11.892a11.9 11.9 0 0 1-5.688-1.448L.057 24zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.884a9.86 9.86 0 0 0 1.51 5.26l-.999 3.648 3.978-1.607zm11.387-5.464c-.074-.124-.272-.198-.57-.347-.297-.149-1.758-.868-2.031-.967-.272-.099-.47-.149-.669.149-.198.297-.768.967-.941 1.165-.173.198-.347.223-.644.074-.297-.149-1.255-.462-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.297-.347.446-.521.151-.172.2-.296.3-.495.099-.198.05-.372-.025-.521-.075-.148-.669-1.611-.916-2.206-.242-.579-.487-.501-.669-.51l-.57-.01c-.198 0-.52.074-.792.372s-1.04 1.016-1.04 2.479 1.065 2.876 1.213 3.074c.149.198 2.095 3.2 5.076 4.487.709.306 1.263.489 1.694.626.712.226 1.36.194 1.872.118.571-.085 1.758-.719 2.006-1.413.248-.695.248-1.29.173-1.414z"/></svg><span id="schWaTxt">WhatsApp</span></a>
+          <a class="share-btn mail" id="schMail"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 7-10 6L2 7"/></svg><span id="schMailTxt">Email</span></a>
+        </div>
+        <div class="wr-cal" style="margin-top:10px">
+          <a class="share-btn" id="schGcal" target="_blank" rel="noopener noreferrer">📅 <span id="schGcalTxt">Google Calendar</span></a>
+          <button class="share-btn" id="schIcs">📥 <span id="schIcsTxt">Apple/Outlook (.ics)</span></button>
+          <button class="share-btn" id="schRemind" style="display:none">🔔 <span id="schRemindTxt">Remind me</span></button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Scheduled waiting room -->
+  <div class="waitroom" id="waitroom">
+    <div class="wr-card">
+      <p class="wr-kicker" id="wrKicker">Watch party</p>
+      <h1 class="wr-title" id="wrTitle">Movie night 🍿</h1>
+      <p class="wr-what" id="wrWhen">Starts soon</p>
+      <div class="wr-clock" id="wrClock">--:--:--</div>
+      <div class="wr-actions">
+        <button class="btn primary" id="wrJoin">Join now</button>
+        <button class="btn" id="wrCopy">Copy invite</button>
+      </div>
+      <div class="wr-cal">
+        <a class="share-btn wa" id="wrWa" target="_blank" rel="noopener noreferrer"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M.057 24l1.687-6.163a11.867 11.867 0 0 1-1.587-5.946C.16 5.335 5.495 0 12.05 0a11.817 11.817 0 0 1 8.413 3.488 11.824 11.824 0 0 1 3.48 8.414c-.003 6.557-5.338 11.892-11.893 11.892a11.9 11.9 0 0 1-5.688-1.448L.057 24zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.884a9.86 9.86 0 0 0 1.51 5.26l-.999 3.648 3.978-1.607zm11.387-5.464c-.074-.124-.272-.198-.57-.347-.297-.149-1.758-.868-2.031-.967-.272-.099-.47-.149-.669.149-.198.297-.768.967-.941 1.165-.173.198-.347.223-.644.074-.297-.149-1.255-.462-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.297-.347.446-.521.151-.172.2-.296.3-.495.099-.198.05-.372-.025-.521-.075-.148-.669-1.611-.916-2.206-.242-.579-.487-.501-.669-.51l-.57-.01c-.198 0-.52.074-.792.372s-1.04 1.016-1.04 2.479 1.065 2.876 1.213 3.074c.149.198 2.095 3.2 5.076 4.487.709.306 1.263.489 1.694.626.712.226 1.36.194 1.872.118.571-.085 1.758-.719 2.006-1.413.248-.695.248-1.29.173-1.414z"/></svg><span>WhatsApp</span></a>
+        <a class="share-btn mail" id="wrMail"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 7-10 6L2 7"/></svg><span>Email</span></a>
+        <a class="share-btn" id="wrGcal" target="_blank" rel="noopener noreferrer">📅 <span>Google Calendar</span></a>
+        <button class="share-btn" id="wrIcs">📥 <span>.ics</span></button>
+        <button class="share-btn" id="wrRemind" style="display:none">🔔 <span id="wrRemindTxt">Remind me</span></button>
+      </div>
+    </div>
+  </div>
 
   <div class="toast" id="toast"></div>
 
@@ -488,6 +618,44 @@
       ur:{share_media:"تصاویر/ویڈیوز شیئر کریں",stop_share:"روکیں",someone_sharing:"تصاویر اور ویڈیوز شیئر کر رہے ہیں",sw_needed:"آپ کا براؤزر یہاں شیئر کردہ ویڈیو نہیں چلا سکتا۔ تصاویر چلتی ہیں۔"}
     };
     Object.keys(EXTRA3).forEach(function(k){ if(I18N[k]) Object.keys(EXTRA3[k]).forEach(function(j){ I18N[k][j]=EXTRA3[k][j]; }); });
+
+    /* strings for reactions, clips, scheduling & copyright (en + nl; others fall back to en) */
+    var EXTRA4 = {
+      en:{t_react:"Send a reaction",t_clip:"Capture a clip",clip_recording:"Recording…",clip_stop:"Stop",clip_title:"Your moment 🎬",clip_sub:"Share the laugh — tag your friends.",clip_share:"Share",clip_save:"Save",clip_none:"Turn on a camera first to capture a moment.",clip_unsupported:"Your browser can't record clips. Try Chrome on desktop or Android.",clip_capturing:"Capturing the next few seconds…",clip_shared:"Shared!",clip_sharefail:"Sharing isn't supported here — use Save instead.",
+        sched:"📅 Schedule a watch party",sched_title:"Schedule a watch party",sched_sub:"Pick a time, get an invite link, and add it to your calendar so nobody forgets.",sch_when:"When",sch_what:"What are you watching? (optional)",sch_what_ph:"Movie night 🍿",sch_create:"Create invite",sch_link:"Invite link",sch_copy:"Copy invite link",sch_gonow:"Open room now",sch_gcal:"Google Calendar",sch_ics:"Apple/Outlook (.ics)",sch_pasttime:"Pick a time in the future.",sch_default_title:"Movie night 🍿",
+        wr_kicker:"Watch party",wr_join:"Join now",wr_copy:"Copy invite",wr_starts:"Starts",wr_live:"It's time! 🎉",cal_event:"WatchMovieTogether — watch party",
+        legal_share:"Only share photos and videos you own or have the right to share.",legal_tip:"Watch movies legally together: paste a YouTube link or use ▶ YouTube. Share your own photos and videos to relive memories.",
+        remind:"Remind me",remind_set:"Reminder set — we'll notify you when it starts. 🔔",remind_denied:"Notifications are blocked. Allow them to get a reminder.",remind_unsupported:"Reminders aren't supported in this browser.",remind_unavailable:"Push reminders aren't enabled on the server yet — use the calendar buttons.",remind_fail:"Couldn't set the reminder. Try again.",remind_body:"Your watch party is starting now! 🍿"},
+      nl:{t_react:"Stuur een reactie",t_clip:"Maak een clip",clip_recording:"Opnemen…",clip_stop:"Stop",clip_title:"Jullie moment 🎬",clip_sub:"Deel de lach — tag je vrienden.",clip_share:"Delen",clip_save:"Opslaan",clip_none:"Zet eerst een camera aan om een moment vast te leggen.",clip_unsupported:"Je browser kan geen clips opnemen. Probeer Chrome op desktop of Android.",clip_capturing:"De komende seconden worden vastgelegd…",clip_shared:"Gedeeld!",clip_sharefail:"Delen wordt hier niet ondersteund — gebruik Opslaan.",
+        sched:"📅 Plan een kijkavond",sched_title:"Plan een kijkavond",sched_sub:"Kies een tijd, krijg een uitnodigingslink en zet hem in je agenda zodat niemand het vergeet.",sch_when:"Wanneer",sch_what:"Wat gaan jullie kijken? (optioneel)",sch_what_ph:"Filmavond 🍿",sch_create:"Maak uitnodiging",sch_link:"Uitnodigingslink",sch_copy:"Kopieer uitnodigingslink",sch_gonow:"Open kamer nu",sch_gcal:"Google Agenda",sch_ics:"Apple/Outlook (.ics)",sch_pasttime:"Kies een tijd in de toekomst.",sch_default_title:"Filmavond 🍿",
+        wr_kicker:"Kijkavond",wr_join:"Nu meedoen",wr_copy:"Kopieer uitnodiging",wr_starts:"Begint",wr_live:"Het is zover! 🎉",cal_event:"WatchMovieTogether — kijkavond",
+        legal_share:"Deel alleen foto's en video's die van jou zijn of die je mag delen.",legal_tip:"Kijk samen legaal films: plak een YouTube-link of gebruik ▶ YouTube. Deel je eigen foto's en video's om herinneringen te herbeleven.",
+        remind:"Herinner mij",remind_set:"Herinnering ingesteld — we melden het als het begint. 🔔",remind_denied:"Meldingen zijn geblokkeerd. Sta ze toe voor een herinnering.",remind_unsupported:"Herinneringen worden niet ondersteund in deze browser.",remind_unavailable:"Push-herinneringen staan nog niet aan op de server — gebruik de agenda-knoppen.",remind_fail:"Herinnering instellen mislukt. Probeer opnieuw.",remind_body:"Jullie kijkavond begint nu! 🍿"},
+      de:{t_react:"Reaktion senden",t_clip:"Clip aufnehmen",clip_recording:"Aufnahme…",clip_stop:"Stopp",clip_title:"Euer Moment 🎬",clip_sub:"Teilt das Lachen — markiert eure Freunde.",clip_share:"Teilen",clip_save:"Speichern",clip_none:"Schalte zuerst eine Kamera ein, um einen Moment aufzunehmen.",clip_unsupported:"Dein Browser kann keine Clips aufnehmen. Probiere Chrome (Desktop/Android).",clip_capturing:"Die nächsten Sekunden werden aufgenommen…",clip_shared:"Geteilt!",clip_sharefail:"Teilen wird hier nicht unterstützt — nutze Speichern.",sched:"📅 Filmabend planen",sched_title:"Filmabend planen",sched_sub:"Wähle eine Zeit, hol dir einen Einladungslink und füge ihn dem Kalender hinzu.",sch_when:"Wann",sch_what:"Was schaut ihr? (optional)",sch_what_ph:"Filmabend 🍿",sch_create:"Einladung erstellen",sch_link:"Einladungslink",sch_copy:"Einladungslink kopieren",sch_gonow:"Raum jetzt öffnen",sch_gcal:"Google Kalender",sch_ics:"Apple/Outlook (.ics)",sch_pasttime:"Wähle eine Zeit in der Zukunft.",sch_default_title:"Filmabend 🍿",wr_kicker:"Filmabend",wr_join:"Jetzt beitreten",wr_copy:"Einladung kopieren",wr_starts:"Beginnt",wr_live:"Es ist Zeit! 🎉",cal_event:"WatchMovieTogether — Filmabend",legal_share:"Teile nur Fotos und Videos, die dir gehören oder die du teilen darfst.",legal_tip:"Schaut legal zusammen Filme: YouTube-Link einfügen oder ▶ YouTube nutzen. Teilt eigene Fotos und Videos für gemeinsame Erinnerungen.",remind:"Erinnere mich",remind_set:"Erinnerung gesetzt — wir benachrichtigen dich zum Start. 🔔",remind_denied:"Benachrichtigungen sind blockiert. Erlaube sie für eine Erinnerung.",remind_unsupported:"Erinnerungen werden in diesem Browser nicht unterstützt.",remind_unavailable:"Push-Erinnerungen sind auf dem Server noch nicht aktiv — nutze die Kalender-Buttons.",remind_fail:"Erinnerung konnte nicht gesetzt werden. Versuche es erneut.",remind_body:"Euer Filmabend beginnt jetzt! 🍿"},
+      zh:{t_react:"发送反应",t_clip:"录制片段",clip_recording:"录制中…",clip_stop:"停止",clip_title:"你们的瞬间 🎬",clip_sub:"分享欢笑——@你的朋友。",clip_share:"分享",clip_save:"保存",clip_none:"先打开摄像头才能记录瞬间。",clip_unsupported:"你的浏览器无法录制片段。请用桌面或安卓的 Chrome。",clip_capturing:"正在记录接下来的几秒…",clip_shared:"已分享！",clip_sharefail:"此处不支持分享——请用保存。",sched:"📅 安排观影之夜",sched_title:"安排观影之夜",sched_sub:"选择时间，获取邀请链接，并加入日历以免忘记。",sch_when:"时间",sch_what:"看什么？（可选）",sch_what_ph:"观影之夜 🍿",sch_create:"创建邀请",sch_link:"邀请链接",sch_copy:"复制邀请链接",sch_gonow:"立即打开房间",sch_gcal:"Google 日历",sch_ics:"Apple/Outlook (.ics)",sch_pasttime:"请选择未来的时间。",sch_default_title:"观影之夜 🍿",wr_kicker:"观影之夜",wr_join:"立即加入",wr_copy:"复制邀请",wr_starts:"开始于",wr_live:"时间到！🎉",cal_event:"WatchMovieTogether — 观影之夜",legal_share:"只分享你拥有或有权分享的照片和视频。",legal_tip:"合法地一起看电影：粘贴 YouTube 链接或用 ▶ YouTube。分享你自己的照片和视频，重温美好回忆。",remind:"提醒我",remind_set:"已设置提醒——开始时我们会通知你。🔔",remind_denied:"通知被屏蔽。请允许通知以获得提醒。",remind_unsupported:"此浏览器不支持提醒。",remind_unavailable:"服务器尚未启用推送提醒——请用日历按钮。",remind_fail:"设置提醒失败。请重试。",remind_body:"你们的观影之夜现在开始！🍿"},
+      ja:{t_react:"リアクションを送る",t_clip:"クリップを録画",clip_recording:"録画中…",clip_stop:"停止",clip_title:"あなたたちの瞬間 🎬",clip_sub:"笑いをシェア — 友達をタグ付けしよう。",clip_share:"シェア",clip_save:"保存",clip_none:"瞬間を撮るにはまずカメラをオンに。",clip_unsupported:"このブラウザはクリップを録画できません。PC/AndroidのChromeをお試しを。",clip_capturing:"これから数秒を記録中…",clip_shared:"シェアしました！",clip_sharefail:"ここでは共有非対応 — 保存をご利用ください。",sched:"📅 映画ナイトを予定",sched_title:"映画ナイトを予定",sched_sub:"時間を選び、招待リンクを取得して、忘れないようカレンダーに追加。",sch_when:"いつ",sch_what:"何を見る？（任意）",sch_what_ph:"映画ナイト 🍿",sch_create:"招待を作成",sch_link:"招待リンク",sch_copy:"招待リンクをコピー",sch_gonow:"今すぐルームを開く",sch_gcal:"Google カレンダー",sch_ics:"Apple/Outlook (.ics)",sch_pasttime:"未来の時間を選んでください。",sch_default_title:"映画ナイト 🍿",wr_kicker:"映画ナイト",wr_join:"今すぐ参加",wr_copy:"招待をコピー",wr_starts:"開始",wr_live:"時間です！🎉",cal_event:"WatchMovieTogether — 映画ナイト",legal_share:"自分が所有する、または共有する権利がある写真・動画のみを共有してください。",legal_tip:"合法的に一緒に映画を：YouTubeリンクを貼るか ▶ YouTube を使用。自分の写真や動画を共有して思い出を。",remind:"リマインド",remind_set:"リマインダーを設定 — 開始時に通知します。🔔",remind_denied:"通知がブロックされています。許可してリマインダーを受け取ってください。",remind_unsupported:"このブラウザはリマインダー非対応です。",remind_unavailable:"サーバーでプッシュ通知が未設定です — カレンダーボタンをご利用ください。",remind_fail:"リマインダーを設定できませんでした。再試行してください。",remind_body:"映画ナイトが今始まります！🍿"},
+      ko:{t_react:"리액션 보내기",t_clip:"클립 녹화",clip_recording:"녹화 중…",clip_stop:"중지",clip_title:"당신들의 순간 🎬",clip_sub:"웃음을 공유하세요 — 친구를 태그하세요.",clip_share:"공유",clip_save:"저장",clip_none:"순간을 담으려면 먼저 카메라를 켜세요.",clip_unsupported:"이 브라우저는 클립을 녹화할 수 없습니다. 데스크톱/안드로이드 Chrome을 사용하세요.",clip_capturing:"다음 몇 초를 담는 중…",clip_shared:"공유됨!",clip_sharefail:"여기서는 공유를 지원하지 않습니다 — 저장을 사용하세요.",sched:"📅 무비 나이트 예약",sched_title:"무비 나이트 예약",sched_sub:"시간을 정하고 초대 링크를 받아 캘린더에 추가해 잊지 마세요.",sch_when:"언제",sch_what:"무엇을 볼까요? (선택)",sch_what_ph:"무비 나이트 🍿",sch_create:"초대 만들기",sch_link:"초대 링크",sch_copy:"초대 링크 복사",sch_gonow:"지금 방 열기",sch_gcal:"Google 캘린더",sch_ics:"Apple/Outlook (.ics)",sch_pasttime:"미래의 시간을 선택하세요.",sch_default_title:"무비 나이트 🍿",wr_kicker:"무비 나이트",wr_join:"지금 참여",wr_copy:"초대 복사",wr_starts:"시작",wr_live:"시간이 됐어요! 🎉",cal_event:"WatchMovieTogether — 무비 나이트",legal_share:"본인 소유이거나 공유 권한이 있는 사진과 동영상만 공유하세요.",legal_tip:"합법적으로 함께 영화 보기: YouTube 링크를 붙이거나 ▶ YouTube를 사용하세요. 자신의 사진과 동영상을 공유해 추억을 나누세요.",remind:"알림 받기",remind_set:"알림 설정됨 — 시작할 때 알려드릴게요. 🔔",remind_denied:"알림이 차단되어 있습니다. 알림을 허용하세요.",remind_unsupported:"이 브라우저는 알림을 지원하지 않습니다.",remind_unavailable:"서버에 푸시 알림이 아직 설정되지 않았습니다 — 캘린더 버튼을 사용하세요.",remind_fail:"알림 설정에 실패했습니다. 다시 시도하세요.",remind_body:"무비 나이트가 지금 시작합니다! 🍿"},
+      hi:{t_react:"रिएक्शन भेजें",t_clip:"क्लिप रिकॉर्ड करें",clip_recording:"रिकॉर्डिंग…",clip_stop:"रोकें",clip_title:"आपका पल 🎬",clip_sub:"हँसी साझा करें — दोस्तों को टैग करें।",clip_share:"साझा करें",clip_save:"सहेजें",clip_none:"पल कैद करने के लिए पहले कैमरा चालू करें।",clip_unsupported:"आपका ब्राउज़र क्लिप रिकॉर्ड नहीं कर सकता। डेस्कटॉप/Android पर Chrome आज़माएँ।",clip_capturing:"अगले कुछ सेकंड कैद किए जा रहे हैं…",clip_shared:"साझा हो गया!",clip_sharefail:"यहाँ साझा करना समर्थित नहीं — सहेजें का उपयोग करें।",sched:"📅 मूवी नाइट शेड्यूल करें",sched_title:"मूवी नाइट शेड्यूल करें",sched_sub:"समय चुनें, आमंत्रण लिंक पाएँ और कैलेंडर में जोड़ें ताकि कोई न भूले।",sch_when:"कब",sch_what:"क्या देख रहे हैं? (वैकल्पिक)",sch_what_ph:"मूवी नाइट 🍿",sch_create:"आमंत्रण बनाएं",sch_link:"आमंत्रण लिंक",sch_copy:"आमंत्रण लिंक कॉपी करें",sch_gonow:"अभी रूम खोलें",sch_gcal:"Google कैलेंडर",sch_ics:"Apple/Outlook (.ics)",sch_pasttime:"भविष्य का समय चुनें।",sch_default_title:"मूवी नाइट 🍿",wr_kicker:"मूवी नाइट",wr_join:"अभी शामिल हों",wr_copy:"आमंत्रण कॉपी करें",wr_starts:"शुरू",wr_live:"समय हो गया! 🎉",cal_event:"WatchMovieTogether — मूवी नाइट",legal_share:"केवल वे फ़ोटो और वीडियो साझा करें जो आपके हैं या जिन्हें साझा करने का आपको अधिकार है।",legal_tip:"साथ में कानूनी रूप से फ़िल्में देखें: YouTube लिंक पेस्ट करें या ▶ YouTube का उपयोग करें। यादें ताज़ा करने के लिए अपनी फ़ोटो और वीडियो साझा करें।",remind:"मुझे याद दिलाएँ",remind_set:"रिमाइंडर सेट — शुरू होने पर हम सूचित करेंगे। 🔔",remind_denied:"सूचनाएँ अवरुद्ध हैं। रिमाइंडर के लिए उन्हें अनुमति दें।",remind_unsupported:"इस ब्राउज़र में रिमाइंडर समर्थित नहीं है।",remind_unavailable:"सर्वर पर पुश रिमाइंडर अभी सक्षम नहीं — कैलेंडर बटन उपयोग करें।",remind_fail:"रिमाइंडर सेट नहीं हो सका। पुनः प्रयास करें।",remind_body:"आपकी मूवी नाइट अभी शुरू हो रही है! 🍿"},
+      ur:{t_react:"ری ایکشن بھیجیں",t_clip:"کلپ ریکارڈ کریں",clip_recording:"ریکارڈنگ…",clip_stop:"روکیں",clip_title:"آپ کا لمحہ 🎬",clip_sub:"ہنسی شیئر کریں — دوستوں کو ٹیگ کریں۔",clip_share:"شیئر کریں",clip_save:"محفوظ کریں",clip_none:"لمحہ محفوظ کرنے کے لیے پہلے کیمرہ آن کریں۔",clip_unsupported:"آپ کا براؤزر کلپ ریکارڈ نہیں کر سکتا۔ ڈیسک ٹاپ/اینڈرائیڈ پر Chrome آزمائیں۔",clip_capturing:"اگلے چند سیکنڈ محفوظ کیے جا رہے ہیں…",clip_shared:"شیئر ہو گیا!",clip_sharefail:"یہاں شیئرنگ معاون نہیں — محفوظ کریں استعمال کریں۔",sched:"📅 مووی نائٹ شیڈول کریں",sched_title:"مووی نائٹ شیڈول کریں",sched_sub:"وقت منتخب کریں، دعوتی لنک حاصل کریں اور کیلنڈر میں شامل کریں تاکہ کوئی نہ بھولے۔",sch_when:"کب",sch_what:"کیا دیکھ رہے ہیں؟ (اختیاری)",sch_what_ph:"مووی نائٹ 🍿",sch_create:"دعوت بنائیں",sch_link:"دعوتی لنک",sch_copy:"دعوتی لنک کاپی کریں",sch_gonow:"ابھی روم کھولیں",sch_gcal:"Google کیلنڈر",sch_ics:"Apple/Outlook (.ics)",sch_pasttime:"مستقبل کا وقت منتخب کریں۔",sch_default_title:"مووی نائٹ 🍿",wr_kicker:"مووی نائٹ",wr_join:"ابھی شامل ہوں",wr_copy:"دعوت کاپی کریں",wr_starts:"شروع",wr_live:"وقت ہو گیا! 🎉",cal_event:"WatchMovieTogether — مووی نائٹ",legal_share:"صرف وہ تصاویر اور ویڈیوز شیئر کریں جو آپ کی ہیں یا جنہیں شیئر کرنے کا آپ کو حق ہے۔",legal_tip:"قانونی طور پر ساتھ فلمیں دیکھیں: YouTube لنک پیسٹ کریں یا ▶ YouTube استعمال کریں۔ یادیں تازہ کرنے کے لیے اپنی تصاویر اور ویڈیوز شیئر کریں۔",remind:"مجھے یاد دلائیں",remind_set:"یاد دہانی مقرر — شروع ہونے پر ہم مطلع کریں گے۔ 🔔",remind_denied:"اطلاعات مسدود ہیں۔ یاد دہانی کے لیے انہیں اجازت دیں۔",remind_unsupported:"اس براؤزر میں یاد دہانی معاون نہیں۔",remind_unavailable:"سرور پر پش یاد دہانیاں ابھی فعال نہیں — کیلنڈر بٹن استعمال کریں۔",remind_fail:"یاد دہانی مقرر نہیں ہو سکی۔ دوبارہ کوشش کریں۔",remind_body:"آپ کی مووی نائٹ ابھی شروع ہو رہی ہے! 🍿"}
+    };
+    Object.keys(EXTRA4).forEach(function(k){ if(I18N[k]) Object.keys(EXTRA4[k]).forEach(function(j){ I18N[k][j]=EXTRA4[k][j]; }); });
+
+    /* additional languages (machine-translated core; native review recommended). Every key
+       falls back to English via Object.assign, so nothing ever shows as a raw key. */
+    var MORE_LANGS = {
+      ar:{lang:"العربية",tagline:"شاهدوا أي فيلم معًا — متزامن، وجهًا لوجه.",sub:"أنشئ غرفة خاصة، شارك الرابط، واضغط تشغيل في تزامن تام — بينما ترون وتسمعون بعضكم.",create:"إنشاء غرفة",got:"لديك رابط؟ افتحه فقط للانضمام.",load:"تحميل",url_ph:"الصق ملف فيديو (.mp4/.webm) أو رابط يوتيوب أو صفحة فيديو…",share:"رابط المشاركة",copy:"نسخ الرابط",copied:"تم النسخ!",st_wait:"في انتظار الآخر…",st_conn:"جارٍ الاتصال…",st_ok:"متصل",ph_kicker:"سينما خاصة",ph_title:"جاهز لليلة الأفلام؟",room_code:"رمز غرفتك:",you:"أنت",other:"الآخر",others:"الآخرون",chat:"الدردشة",chat_ph:"اكتب رسالة…",send:"إرسال",chat_empty:"لا رسائل بعد. قل مرحبًا 👋",cd_btn:"٣ · ٢ · ١ — العد التنازلي",playgate:"انقر للمشاهدة معًا",full_title:"الغرفة ممتلئة",new_room:"إنشاء غرفة جديدة",browse:"تصفح يوتيوب",t_browse:"تصفح يوتيوب",name_ph:"اسمك",join:"انضمام",join_room:"انضم إلى الغرفة",or_code:"أو انضم برمز الغرفة",room_code_ph:"رمز الغرفة",need_name:"أدخل اسمك أولًا.",need_code:"أدخل رمز الغرفة.",joining:"أنت تنضم إلى ليلة أفلام — أدخل اسمك للمتابعة.",share_media:"مشاركة صور/فيديو",wa:"واتساب",email:"البريد",waiting_people:"في انتظار انضمام الآخرين…",wa_msg:"لنشاهد فيلمًا معًا على WatchMovieTogether:",mail_subj:"لنشاهد فيلمًا معًا",t_react:"إرسال تفاعل",t_clip:"تسجيل مقطع",clip_title:"لحظتكم 🎬",clip_sub:"شارك الضحكة — أشر إلى أصدقائك.",clip_share:"مشاركة",clip_save:"حفظ",clip_none:"شغّل الكاميرا أولًا لالتقاط لحظة.",sched:"📅 جدولة ليلة أفلام",sched_title:"جدولة ليلة أفلام",sched_sub:"اختر وقتًا، احصل على رابط دعوة، وأضفه إلى تقويمك.",sch_when:"متى",sch_what:"ماذا ستشاهدون؟ (اختياري)",sch_create:"إنشاء دعوة",sch_copy:"نسخ رابط الدعوة",sch_gonow:"افتح الغرفة الآن",sch_default_title:"ليلة أفلام 🍿",wr_kicker:"ليلة أفلام",wr_join:"انضم الآن",wr_copy:"نسخ الدعوة",wr_starts:"تبدأ",wr_live:"حان الوقت! 🎉",cal_event:"WatchMovieTogether — ليلة أفلام",legal_share:"شارك فقط الصور والفيديوهات التي تملكها أو يحق لك مشاركتها.",legal_tip:"شاهدوا الأفلام بشكل قانوني معًا: الصق رابط يوتيوب أو استخدم ▶ يوتيوب. شارك صورك وفيديوهاتك لإحياء الذكريات.",remind:"ذكّرني",remind_set:"تم ضبط التذكير — سننبهك عند البدء. 🔔"},
+      tl:{lang:"Tagalog",tagline:"Manood ng kahit anong pelikula nang magkasama — sabay, harapan.",sub:"Gumawa ng pribadong room, ibahagi ang link, at sabay na mag-play — habang nagkikita at naririnig ninyo ang isa't isa.",create:"Gumawa ng room",got:"May link na? Buksan lang para sumali.",load:"I-load",url_ph:"I-paste ang video file (.mp4/.webm), YouTube link, o video page…",share:"Ibahagi ang link",copy:"Kopyahin",copied:"Nakopya!",st_wait:"Hinihintay ang isa pa…",st_conn:"Kumokonekta…",st_ok:"Konektado",ph_kicker:"Pribadong sinehan",ph_title:"Handa na ba sa movie night?",room_code:"Ang room code mo:",you:"Ikaw",other:"Ang isa pa",others:"Ang iba",chat:"Chat",chat_ph:"Mag-type ng mensahe…",send:"Ipadala",chat_empty:"Wala pang mensahe. Kumustahin sila 👋",cd_btn:"3 · 2 · 1 — Countdown",playgate:"I-click para manood",full_title:"Puno na ang room na ito",new_room:"Gumawa ng bagong room",browse:"Mag-browse ng YouTube",t_browse:"Mag-browse ng YouTube",name_ph:"Pangalan mo",join:"Sumali",join_room:"Sumali sa room",or_code:"o sumali gamit ang room code",room_code_ph:"Room code",need_name:"Ilagay muna ang pangalan mo.",need_code:"Maglagay ng room code.",joining:"Sasali ka sa movie night — ilagay ang pangalan mo.",share_media:"Magbahagi ng litrato/video",wa:"WhatsApp",email:"Email",waiting_people:"Hinihintay sumali ang iba…",wa_msg:"Manood tayo ng pelikula nang sabay sa WatchMovieTogether:",mail_subj:"Manood ng pelikula nang sabay",t_react:"Magpadala ng reaction",t_clip:"Mag-record ng clip",clip_title:"Ang sandali ninyo 🎬",clip_sub:"Ibahagi ang tawanan — i-tag ang mga kaibigan.",clip_share:"Ibahagi",clip_save:"I-save",clip_none:"Buksan muna ang camera para makakuha ng sandali.",sched:"📅 Mag-iskedyul ng watch party",sched_title:"Mag-iskedyul ng watch party",sched_sub:"Pumili ng oras, kumuha ng invite link, at idagdag sa kalendaryo.",sch_when:"Kailan",sch_what:"Ano ang panonoorin? (opsyonal)",sch_create:"Gumawa ng imbitasyon",sch_copy:"Kopyahin ang invite link",sch_gonow:"Buksan ang room ngayon",sch_default_title:"Movie night 🍿",wr_kicker:"Watch party",wr_join:"Sumali na",wr_copy:"Kopyahin ang imbitasyon",wr_starts:"Magsisimula",wr_live:"Oras na! 🎉",cal_event:"WatchMovieTogether — watch party",legal_share:"Ibahagi lang ang mga litrato at video na pag-aari mo o may karapatan kang ibahagi.",legal_tip:"Manood nang legal nang sabay: mag-paste ng YouTube link o gamitin ang ▶ YouTube. Ibahagi ang sarili mong litrato at video para balikan ang alaala.",remind:"Paalalahanan ako",remind_set:"Naka-set ang paalala — aabisuhan ka namin pagsimula. 🔔"},
+      fr:{lang:"Français",tagline:"Regardez n'importe quel film ensemble — synchronisé, face à face.",sub:"Créez un salon privé, partagez le lien et lancez la lecture en parfaite synchro — tout en vous voyant et vous entendant.",create:"Créer un salon",got:"Vous avez un lien ? Ouvrez-le pour rejoindre.",load:"Charger",url_ph:"Collez un fichier vidéo (.mp4/.webm), un lien YouTube ou une page vidéo…",share:"Lien de partage",copy:"Copier le lien",copied:"Copié !",st_wait:"En attente de l'autre…",st_conn:"Connexion…",st_ok:"Connecté",ph_kicker:"Cinéma privé",ph_title:"Prêt pour la soirée ciné ?",room_code:"Votre code de salon :",you:"Vous",other:"L'autre",others:"Les autres",chat:"Chat",chat_ph:"Écrivez un message…",send:"Envoyer",chat_empty:"Aucun message. Dites bonjour 👋",cd_btn:"3 · 2 · 1 — Compte à rebours",playgate:"Cliquez pour regarder ensemble",full_title:"Ce salon est plein",new_room:"Créer un nouveau salon",browse:"Parcourir YouTube",t_browse:"Parcourir YouTube",name_ph:"Votre nom",join:"Rejoindre",join_room:"Rejoindre le salon",or_code:"ou rejoignez avec un code",room_code_ph:"Code du salon",need_name:"Entrez d'abord votre nom.",need_code:"Entrez un code de salon.",joining:"Vous rejoignez une soirée ciné — entrez votre nom.",share_media:"Partager photos/vidéos",wa:"WhatsApp",email:"E-mail",waiting_people:"En attente des autres…",wa_msg:"Regardons un film ensemble sur WatchMovieTogether :",mail_subj:"Regarder un film ensemble",t_react:"Envoyer une réaction",t_clip:"Enregistrer un clip",clip_title:"Votre moment 🎬",clip_sub:"Partagez le fou rire — taguez vos amis.",clip_share:"Partager",clip_save:"Enregistrer",clip_none:"Activez d'abord une caméra pour capturer un moment.",sched:"📅 Planifier une soirée",sched_title:"Planifier une soirée ciné",sched_sub:"Choisissez l'heure, obtenez un lien d'invitation et ajoutez-le au calendrier.",sch_when:"Quand",sch_what:"Que regardez-vous ? (facultatif)",sch_create:"Créer l'invitation",sch_copy:"Copier le lien d'invitation",sch_gonow:"Ouvrir le salon maintenant",sch_default_title:"Soirée ciné 🍿",wr_kicker:"Soirée ciné",wr_join:"Rejoindre",wr_copy:"Copier l'invitation",wr_starts:"Commence",wr_live:"C'est l'heure ! 🎉",cal_event:"WatchMovieTogether — soirée ciné",legal_share:"Ne partagez que des photos et vidéos qui vous appartiennent ou que vous avez le droit de partager.",legal_tip:"Regardez des films légalement ensemble : collez un lien YouTube ou utilisez ▶ YouTube. Partagez vos propres photos et vidéos pour raviver les souvenirs.",remind:"Me rappeler",remind_set:"Rappel défini — on vous préviendra au début. 🔔"},
+      es:{lang:"Español",tagline:"Vean cualquier película juntos — sincronizada, cara a cara.",sub:"Crea una sala privada, comparte el enlace y dale play en perfecta sincronía — mientras se ven y se escuchan.",create:"Crear una sala",got:"¿Ya tienes un enlace? Ábrelo para unirte.",load:"Cargar",url_ph:"Pega un archivo de vídeo (.mp4/.webm), un enlace de YouTube o una página de vídeo…",share:"Enlace para compartir",copy:"Copiar enlace",copied:"¡Copiado!",st_wait:"Esperando a la otra persona…",st_conn:"Conectando…",st_ok:"Conectado",ph_kicker:"Cine privado",ph_title:"¿Listos para la noche de cine?",room_code:"Tu código de sala:",you:"Tú",other:"La otra persona",others:"Los demás",chat:"Chat",chat_ph:"Escribe un mensaje…",send:"Enviar",chat_empty:"Aún no hay mensajes. Saluda 👋",cd_btn:"3 · 2 · 1 — Cuenta atrás",playgate:"Haz clic para ver juntos",full_title:"Esta sala está llena",new_room:"Crear una sala nueva",browse:"Explorar YouTube",t_browse:"Explorar YouTube",name_ph:"Tu nombre",join:"Unirse",join_room:"Unirse a la sala",or_code:"o únete con un código de sala",room_code_ph:"Código de sala",need_name:"Escribe tu nombre primero.",need_code:"Introduce un código de sala.",joining:"Te unes a una noche de cine — escribe tu nombre.",share_media:"Compartir fotos/vídeos",wa:"WhatsApp",email:"Correo",waiting_people:"Esperando a que se unan los demás…",wa_msg:"Veamos una película juntos en WatchMovieTogether:",mail_subj:"Ver una película juntos",t_react:"Enviar una reacción",t_clip:"Grabar un clip",clip_title:"Su momento 🎬",clip_sub:"Comparte la risa — etiqueta a tus amigos.",clip_share:"Compartir",clip_save:"Guardar",clip_none:"Enciende una cámara primero para capturar un momento.",sched:"📅 Programar noche de cine",sched_title:"Programar noche de cine",sched_sub:"Elige una hora, obtén un enlace de invitación y añádelo al calendario.",sch_when:"Cuándo",sch_what:"¿Qué van a ver? (opcional)",sch_create:"Crear invitación",sch_copy:"Copiar enlace de invitación",sch_gonow:"Abrir la sala ahora",sch_default_title:"Noche de cine 🍿",wr_kicker:"Noche de cine",wr_join:"Unirse ahora",wr_copy:"Copiar invitación",wr_starts:"Empieza",wr_live:"¡Es la hora! 🎉",cal_event:"WatchMovieTogether — noche de cine",legal_share:"Comparte solo fotos y vídeos que sean tuyos o que tengas derecho a compartir.",legal_tip:"Vean películas legalmente juntos: pega un enlace de YouTube o usa ▶ YouTube. Comparte tus propias fotos y vídeos para revivir recuerdos.",remind:"Recordármelo",remind_set:"Recordatorio activado — te avisaremos al empezar. 🔔"},
+      pt:{lang:"Português",tagline:"Assistam a qualquer filme juntos — sincronizado, cara a cara.",sub:"Crie uma sala privada, compartilhe o link e aperte play em perfeita sincronia — enquanto se veem e se ouvem.",create:"Criar uma sala",got:"Já tem um link? É só abrir para entrar.",load:"Carregar",url_ph:"Cole um arquivo de vídeo (.mp4/.webm), um link do YouTube ou uma página de vídeo…",share:"Link de compartilhamento",copy:"Copiar link",copied:"Copiado!",st_wait:"Esperando a outra pessoa…",st_conn:"Conectando…",st_ok:"Conectado",ph_kicker:"Cinema privado",ph_title:"Prontos para a noite de cinema?",room_code:"Seu código de sala:",you:"Você",other:"A outra pessoa",others:"Os outros",chat:"Chat",chat_ph:"Digite uma mensagem…",send:"Enviar",chat_empty:"Ainda sem mensagens. Diga oi 👋",cd_btn:"3 · 2 · 1 — Contagem regressiva",playgate:"Clique para assistir juntos",full_title:"Esta sala está cheia",new_room:"Criar uma nova sala",browse:"Explorar YouTube",t_browse:"Explorar YouTube",name_ph:"Seu nome",join:"Entrar",join_room:"Entrar na sala",or_code:"ou entre com um código de sala",room_code_ph:"Código da sala",need_name:"Digite seu nome primeiro.",need_code:"Digite um código de sala.",joining:"Você está entrando numa noite de cinema — digite seu nome.",share_media:"Compartilhar fotos/vídeos",wa:"WhatsApp",email:"E-mail",waiting_people:"Esperando os outros entrarem…",wa_msg:"Vamos assistir a um filme juntos no WatchMovieTogether:",mail_subj:"Assistir a um filme juntos",t_react:"Enviar uma reação",t_clip:"Gravar um clipe",clip_title:"O momento de vocês 🎬",clip_sub:"Compartilhe a risada — marque seus amigos.",clip_share:"Compartilhar",clip_save:"Salvar",clip_none:"Ligue uma câmera primeiro para capturar um momento.",sched:"📅 Agendar noite de cinema",sched_title:"Agendar noite de cinema",sched_sub:"Escolha um horário, pegue um link de convite e adicione ao calendário.",sch_when:"Quando",sch_what:"O que vão assistir? (opcional)",sch_create:"Criar convite",sch_copy:"Copiar link do convite",sch_gonow:"Abrir a sala agora",sch_default_title:"Noite de cinema 🍿",wr_kicker:"Noite de cinema",wr_join:"Entrar agora",wr_copy:"Copiar convite",wr_starts:"Começa",wr_live:"É hora! 🎉",cal_event:"WatchMovieTogether — noite de cinema",legal_share:"Compartilhe apenas fotos e vídeos que são seus ou que você tem o direito de compartilhar.",legal_tip:"Assistam a filmes legalmente juntos: cole um link do YouTube ou use ▶ YouTube. Compartilhe suas próprias fotos e vídeos para reviver memórias.",remind:"Lembrar-me",remind_set:"Lembrete definido — avisaremos quando começar. 🔔"},
+      ru:{lang:"Русский",tagline:"Смотрите любой фильм вместе — синхронно, лицом к лицу.",sub:"Создайте приватную комнату, поделитесь ссылкой и нажмите play в идеальной синхронизации — видя и слыша друг друга.",create:"Создать комнату",got:"Уже есть ссылка? Просто откройте её.",load:"Загрузить",url_ph:"Вставьте видеофайл (.mp4/.webm), ссылку YouTube или страницу с видео…",share:"Ссылка",copy:"Копировать ссылку",copied:"Скопировано!",st_wait:"Ожидание собеседника…",st_conn:"Подключение…",st_ok:"Подключено",ph_kicker:"Личный кинозал",ph_title:"Готовы к киновечеру?",room_code:"Код вашей комнаты:",you:"Вы",other:"Собеседник",others:"Остальные",chat:"Чат",chat_ph:"Введите сообщение…",send:"Отправить",chat_empty:"Сообщений пока нет. Поздоровайтесь 👋",cd_btn:"3 · 2 · 1 — Обратный отсчёт",playgate:"Нажмите, чтобы смотреть вместе",full_title:"Комната заполнена",new_room:"Создать новую комнату",browse:"Обзор YouTube",t_browse:"Обзор YouTube",name_ph:"Ваше имя",join:"Войти",join_room:"Войти в комнату",or_code:"или войдите по коду комнаты",room_code_ph:"Код комнаты",need_name:"Сначала введите имя.",need_code:"Введите код комнаты.",joining:"Вы присоединяетесь к киновечеру — введите имя.",share_media:"Поделиться фото/видео",wa:"WhatsApp",email:"Эл. почта",waiting_people:"Ожидание других участников…",wa_msg:"Давай посмотрим фильм вместе на WatchMovieTogether:",mail_subj:"Смотрим фильм вместе",t_react:"Отправить реакцию",t_clip:"Записать клип",clip_title:"Ваш момент 🎬",clip_sub:"Поделитесь смехом — отметьте друзей.",clip_share:"Поделиться",clip_save:"Сохранить",clip_none:"Сначала включите камеру, чтобы записать момент.",sched:"📅 Запланировать киновечер",sched_title:"Запланировать киновечер",sched_sub:"Выберите время, получите ссылку-приглашение и добавьте в календарь.",sch_when:"Когда",sch_what:"Что смотрите? (необязательно)",sch_create:"Создать приглашение",sch_copy:"Копировать приглашение",sch_gonow:"Открыть комнату сейчас",sch_default_title:"Киновечер 🍿",wr_kicker:"Киновечер",wr_join:"Войти сейчас",wr_copy:"Копировать приглашение",wr_starts:"Начало",wr_live:"Пора! 🎉",cal_event:"WatchMovieTogether — киновечер",legal_share:"Делитесь только теми фото и видео, которые принадлежат вам или которыми вы вправе делиться.",legal_tip:"Смотрите фильмы легально вместе: вставьте ссылку YouTube или используйте ▶ YouTube. Делитесь своими фото и видео, чтобы оживить воспоминания.",remind:"Напомнить мне",remind_set:"Напоминание установлено — сообщим в начале. 🔔"},
+      id:{lang:"Indonesia",tagline:"Tonton film apa pun bersama — selaras, tatap muka.",sub:"Buat ruang pribadi, bagikan tautan, dan tekan putar secara serempak — sambil saling melihat dan mendengar.",create:"Buat ruang",got:"Sudah punya tautan? Buka saja untuk bergabung.",load:"Muat",url_ph:"Tempel berkas video (.mp4/.webm), tautan YouTube, atau halaman video…",share:"Tautan berbagi",copy:"Salin tautan",copied:"Disalin!",st_wait:"Menunggu yang lain…",st_conn:"Menghubungkan…",st_ok:"Terhubung",ph_kicker:"Bioskop pribadi",ph_title:"Siap untuk malam film?",room_code:"Kode ruangmu:",you:"Kamu",other:"Yang lain",others:"Lainnya",chat:"Obrolan",chat_ph:"Ketik pesan…",send:"Kirim",chat_empty:"Belum ada pesan. Sapa dulu 👋",cd_btn:"3 · 2 · 1 — Hitung mundur",playgate:"Klik untuk menonton bersama",full_title:"Ruang ini penuh",new_room:"Buat ruang baru",browse:"Jelajahi YouTube",t_browse:"Jelajahi YouTube",name_ph:"Namamu",join:"Gabung",join_room:"Gabung ke ruang",or_code:"atau gabung dengan kode ruang",room_code_ph:"Kode ruang",need_name:"Masukkan namamu dulu.",need_code:"Masukkan kode ruang.",joining:"Kamu bergabung ke malam film — masukkan namamu.",share_media:"Bagikan foto/video",wa:"WhatsApp",email:"Email",waiting_people:"Menunggu yang lain bergabung…",wa_msg:"Ayo nonton film bareng di WatchMovieTogether:",mail_subj:"Nonton film bareng",t_react:"Kirim reaksi",t_clip:"Rekam klip",clip_title:"Momen kalian 🎬",clip_sub:"Bagikan tawanya — tandai temanmu.",clip_share:"Bagikan",clip_save:"Simpan",clip_none:"Nyalakan kamera dulu untuk merekam momen.",sched:"📅 Jadwalkan nonton bareng",sched_title:"Jadwalkan nonton bareng",sched_sub:"Pilih waktu, dapatkan tautan undangan, dan tambahkan ke kalender.",sch_when:"Kapan",sch_what:"Mau nonton apa? (opsional)",sch_create:"Buat undangan",sch_copy:"Salin tautan undangan",sch_gonow:"Buka ruang sekarang",sch_default_title:"Nonton bareng 🍿",wr_kicker:"Nonton bareng",wr_join:"Gabung sekarang",wr_copy:"Salin undangan",wr_starts:"Mulai",wr_live:"Waktunya! 🎉",cal_event:"WatchMovieTogether — nonton bareng",legal_share:"Hanya bagikan foto dan video milikmu atau yang berhak kamu bagikan.",legal_tip:"Nonton film secara legal bareng: tempel tautan YouTube atau gunakan ▶ YouTube. Bagikan foto dan videomu sendiri untuk mengenang momen.",remind:"Ingatkan saya",remind_set:"Pengingat disetel — kami beri tahu saat mulai. 🔔"},
+      bn:{lang:"বাংলা",tagline:"একসাথে যেকোনো সিনেমা দেখুন — সিঙ্কে, মুখোমুখি।",sub:"একটি ব্যক্তিগত রুম তৈরি করুন, লিঙ্ক শেয়ার করুন এবং নিখুঁত সিঙ্কে প্লে চাপুন — একে অপরকে দেখতে ও শুনতে শুনতে।",create:"রুম তৈরি করুন",got:"লিঙ্ক আছে? যোগ দিতে শুধু খুলুন।",load:"লোড",url_ph:"একটি ভিডিও ফাইল (.mp4/.webm), YouTube লিঙ্ক বা ভিডিও পেজ পেস্ট করুন…",share:"শেয়ার লিঙ্ক",copy:"লিঙ্ক কপি করুন",copied:"কপি হয়েছে!",st_wait:"অন্যজনের অপেক্ষায়…",st_conn:"সংযোগ হচ্ছে…",st_ok:"সংযুক্ত",ph_kicker:"ব্যক্তিগত সিনেমা",ph_title:"মুভি নাইটের জন্য প্রস্তুত?",room_code:"আপনার রুম কোড:",you:"আপনি",other:"অন্যজন",others:"অন্যরা",chat:"চ্যাট",chat_ph:"একটি বার্তা লিখুন…",send:"পাঠান",chat_empty:"এখনো কোনো বার্তা নেই। হাই বলুন 👋",cd_btn:"৩ · ২ · ১ — কাউন্টডাউন",playgate:"একসাথে দেখতে ক্লিক করুন",full_title:"এই রুম পূর্ণ",new_room:"নতুন রুম তৈরি করুন",browse:"YouTube ব্রাউজ করুন",t_browse:"YouTube ব্রাউজ করুন",name_ph:"আপনার নাম",join:"যোগ দিন",join_room:"রুমে যোগ দিন",or_code:"অথবা রুম কোড দিয়ে যোগ দিন",room_code_ph:"রুম কোড",need_name:"প্রথমে আপনার নাম লিখুন।",need_code:"একটি রুম কোড দিন।",joining:"আপনি মুভি নাইটে যোগ দিচ্ছেন — আপনার নাম লিখুন।",share_media:"ছবি/ভিডিও শেয়ার করুন",wa:"WhatsApp",email:"ইমেল",waiting_people:"অন্যদের যোগ দেওয়ার অপেক্ষায়…",wa_msg:"WatchMovieTogether-এ একসাথে সিনেমা দেখি:",mail_subj:"একসাথে সিনেমা দেখা",t_react:"রিঅ্যাকশন পাঠান",t_clip:"ক্লিপ রেকর্ড করুন",clip_title:"আপনাদের মুহূর্ত 🎬",clip_sub:"হাসিটা শেয়ার করুন — বন্ধুদের ট্যাগ করুন।",clip_share:"শেয়ার",clip_save:"সংরক্ষণ",clip_none:"মুহূর্ত ধরতে আগে ক্যামেরা চালু করুন।",sched:"📅 ওয়াচ পার্টি শিডিউল করুন",sched_title:"ওয়াচ পার্টি শিডিউল করুন",sched_sub:"সময় বেছে নিন, আমন্ত্রণ লিঙ্ক নিন এবং ক্যালেন্ডারে যোগ করুন।",sch_when:"কখন",sch_what:"কী দেখবেন? (ঐচ্ছিক)",sch_create:"আমন্ত্রণ তৈরি করুন",sch_copy:"আমন্ত্রণ লিঙ্ক কপি করুন",sch_gonow:"এখনই রুম খুলুন",sch_default_title:"মুভি নাইট 🍿",wr_kicker:"ওয়াচ পার্টি",wr_join:"এখনই যোগ দিন",wr_copy:"আমন্ত্রণ কপি করুন",wr_starts:"শুরু",wr_live:"সময় হয়েছে! 🎉",cal_event:"WatchMovieTogether — ওয়াচ পার্টি",legal_share:"শুধু সেই ছবি ও ভিডিও শেয়ার করুন যা আপনার বা যা শেয়ার করার অধিকার আপনার আছে।",legal_tip:"একসাথে বৈধভাবে সিনেমা দেখুন: YouTube লিঙ্ক পেস্ট করুন বা ▶ YouTube ব্যবহার করুন। স্মৃতি ফিরে পেতে নিজের ছবি ও ভিডিও শেয়ার করুন।",remind:"আমাকে মনে করিয়ে দিন",remind_set:"রিমাইন্ডার সেট — শুরু হলে জানাব। 🔔"},
+      ta:{lang:"தமிழ்",tagline:"எந்த படத்தையும் ஒன்றாகப் பாருங்கள் — ஒத்திசைவாக, நேருக்கு நேர்.",sub:"தனிப்பட்ட அறையை உருவாக்கி, இணைப்பைப் பகிர்ந்து, சரியான ஒத்திசைவில் play அழுத்துங்கள் — ஒருவரை ஒருவர் பார்த்து, கேட்டபடி.",create:"அறையை உருவாக்கு",got:"இணைப்பு உள்ளதா? சேர அதைத் திறக்கவும்.",load:"ஏற்று",url_ph:"வீடியோ கோப்பு (.mp4/.webm), YouTube இணைப்பு அல்லது வீடியோ பக்கத்தை ஒட்டவும்…",share:"பகிர் இணைப்பு",copy:"இணைப்பை நகலெடு",copied:"நகலெடுக்கப்பட்டது!",st_wait:"மற்றவருக்காக காத்திருக்கிறது…",st_conn:"இணைக்கிறது…",st_ok:"இணைக்கப்பட்டது",ph_kicker:"தனிப்பட்ட திரையரங்கம்",ph_title:"திரைப்பட இரவுக்குத் தயாரா?",room_code:"உங்கள் அறை குறியீடு:",you:"நீங்கள்",other:"மற்றவர்",others:"மற்றவர்கள்",chat:"அரட்டை",chat_ph:"செய்தியை தட்டச்சு செய்க…",send:"அனுப்பு",chat_empty:"இன்னும் செய்திகள் இல்லை. வணக்கம் சொல்லுங்கள் 👋",cd_btn:"3 · 2 · 1 — கவுண்ட்டவுன்",playgate:"ஒன்றாகப் பார்க்க கிளிக் செய்க",full_title:"இந்த அறை நிரம்பியது",new_room:"புதிய அறையை உருவாக்கு",browse:"YouTube உலாவு",t_browse:"YouTube உலாவு",name_ph:"உங்கள் பெயர்",join:"சேர்",join_room:"அறையில் சேர்",or_code:"அல்லது அறை குறியீட்டில் சேரவும்",room_code_ph:"அறை குறியீடு",need_name:"முதலில் உங்கள் பெயரை உள்ளிடவும்.",need_code:"அறை குறியீட்டை உள்ளிடவும்.",joining:"நீங்கள் திரைப்பட இரவில் சேர்கிறீர்கள் — உங்கள் பெயரை உள்ளிடவும்.",share_media:"படங்கள்/வீடியோக்களைப் பகிர்",wa:"WhatsApp",email:"மின்னஞ்சல்",waiting_people:"மற்றவர்கள் சேர காத்திருக்கிறது…",wa_msg:"WatchMovieTogether இல் ஒன்றாக படம் பார்ப்போம்:",mail_subj:"ஒன்றாக படம் பார்ப்போம்",t_react:"எதிர்வினையை அனுப்பு",t_clip:"கிளிப்பை பதிவு செய்",clip_title:"உங்கள் தருணம் 🎬",clip_sub:"சிரிப்பைப் பகிருங்கள் — நண்பர்களைக் குறிக்கவும்.",clip_share:"பகிர்",clip_save:"சேமி",clip_none:"தருணத்தைப் பிடிக்க முதலில் கேமராவை இயக்கவும்.",sched:"📅 வாட்ச் பார்ட்டியை திட்டமிடு",sched_title:"வாட்ச் பார்ட்டியை திட்டமிடு",sched_sub:"நேரத்தைத் தேர்வுசெய்து, அழைப்பு இணைப்பைப் பெற்று, காலெண்டரில் சேர்க்கவும்.",sch_when:"எப்போது",sch_what:"என்ன பார்க்கிறீர்கள்? (விருப்பம்)",sch_create:"அழைப்பை உருவாக்கு",sch_copy:"அழைப்பு இணைப்பை நகலெடு",sch_gonow:"இப்போது அறையைத் திற",sch_default_title:"திரைப்பட இரவு 🍿",wr_kicker:"வாட்ச் பார்ட்டி",wr_join:"இப்போது சேர்",wr_copy:"அழைப்பை நகலெடு",wr_starts:"தொடங்குகிறது",wr_live:"நேரம் வந்துவிட்டது! 🎉",cal_event:"WatchMovieTogether — வாட்ச் பார்ட்டி",legal_share:"உங்களுக்குச் சொந்தமான அல்லது பகிர உரிமை உள்ள படங்கள்/வீடியோக்களை மட்டும் பகிரவும்.",legal_tip:"சட்டப்பூர்வமாக ஒன்றாக படம் பாருங்கள்: YouTube இணைப்பை ஒட்டவும் அல்லது ▶ YouTube பயன்படுத்தவும். நினைவுகளை மீட்க உங்கள் சொந்த படங்கள்/வீடியோக்களைப் பகிரவும்.",remind:"எனக்கு நினைவூட்டு",remind_set:"நினைவூட்டல் அமைக்கப்பட்டது — தொடங்கும்போது அறிவிப்போம். 🔔"},
+      ml:{lang:"മലയാളം",tagline:"ഏത് സിനിമയും ഒരുമിച്ച് കാണൂ — സിങ്കിൽ, മുഖാമുഖം.",sub:"ഒരു സ്വകാര്യ റൂം ഉണ്ടാക്കൂ, ലിങ്ക് പങ്കിടൂ, കൃത്യമായ സിങ്കിൽ play അമർത്തൂ — പരസ്പരം കണ്ടും കേട്ടും.",create:"റൂം ഉണ്ടാക്കുക",got:"ലിങ്ക് ഉണ്ടോ? ചേരാൻ അത് തുറക്കൂ.",load:"ലോഡ്",url_ph:"വീഡിയോ ഫയൽ (.mp4/.webm), YouTube ലിങ്ക് അല്ലെങ്കിൽ വീഡിയോ പേജ് ഒട്ടിക്കൂ…",share:"പങ്കിടൽ ലിങ്ക്",copy:"ലിങ്ക് പകർത്തുക",copied:"പകർത്തി!",st_wait:"മറ്റേയാളെ കാത്തിരിക്കുന്നു…",st_conn:"ബന്ധിപ്പിക്കുന്നു…",st_ok:"ബന്ധിപ്പിച്ചു",ph_kicker:"സ്വകാര്യ സിനിമ",ph_title:"സിനിമാ രാത്രിക്ക് തയ്യാറാണോ?",room_code:"നിങ്ങളുടെ റൂം കോഡ്:",you:"നിങ്ങൾ",other:"മറ്റേയാൾ",others:"മറ്റുള്ളവർ",chat:"ചാറ്റ്",chat_ph:"ഒരു സന്ദേശം ടൈപ്പ് ചെയ്യൂ…",send:"അയയ്ക്കുക",chat_empty:"സന്ദേശങ്ങളൊന്നുമില്ല. ഹായ് പറയൂ 👋",cd_btn:"3 · 2 · 1 — കൗണ്ട്ഡൗൺ",playgate:"ഒരുമിച്ച് കാണാൻ ക്ലിക്ക് ചെയ്യൂ",full_title:"ഈ റൂം നിറഞ്ഞു",new_room:"പുതിയ റൂം ഉണ്ടാക്കുക",browse:"YouTube ബ്രൗസ് ചെയ്യുക",t_browse:"YouTube ബ്രൗസ് ചെയ്യുക",name_ph:"നിങ്ങളുടെ പേര്",join:"ചേരുക",join_room:"റൂമിൽ ചേരുക",or_code:"അല്ലെങ്കിൽ റൂം കോഡ് ഉപയോഗിച്ച് ചേരൂ",room_code_ph:"റൂം കോഡ്",need_name:"ആദ്യം നിങ്ങളുടെ പേര് നൽകൂ.",need_code:"ഒരു റൂം കോഡ് നൽകൂ.",joining:"നിങ്ങൾ ഒരു സിനിമാ രാത്രിയിൽ ചേരുകയാണ് — പേര് നൽകൂ.",share_media:"ഫോട്ടോ/വീഡിയോ പങ്കിടുക",wa:"WhatsApp",email:"ഇമെയിൽ",waiting_people:"മറ്റുള്ളവർ ചേരാൻ കാത്തിരിക്കുന്നു…",wa_msg:"WatchMovieTogether-ൽ ഒരുമിച്ച് സിനിമ കാണാം:",mail_subj:"ഒരുമിച്ച് സിനിമ കാണാം",t_react:"പ്രതികരണം അയയ്ക്കുക",t_clip:"ക്ലിപ്പ് റെക്കോർഡ് ചെയ്യുക",clip_title:"നിങ്ങളുടെ നിമിഷം 🎬",clip_sub:"ചിരി പങ്കിടൂ — സുഹൃത്തുക്കളെ ടാഗ് ചെയ്യൂ.",clip_share:"പങ്കിടുക",clip_save:"സംരക്ഷിക്കുക",clip_none:"നിമിഷം പകർത്താൻ ആദ്യം ക്യാമറ ഓണാക്കൂ.",sched:"📅 വാച്ച് പാർട്ടി ഷെഡ്യൂൾ ചെയ്യൂ",sched_title:"വാച്ച് പാർട്ടി ഷെഡ്യൂൾ ചെയ്യൂ",sched_sub:"സമയം തിരഞ്ഞെടുക്കൂ, ക്ഷണ ലിങ്ക് നേടൂ, കലണ്ടറിൽ ചേർക്കൂ.",sch_when:"എപ്പോൾ",sch_what:"എന്ത് കാണുന്നു? (ഓപ്ഷണൽ)",sch_create:"ക്ഷണം ഉണ്ടാക്കുക",sch_copy:"ക്ഷണ ലിങ്ക് പകർത്തുക",sch_gonow:"ഇപ്പോൾ റൂം തുറക്കുക",sch_default_title:"സിനിമാ രാത്രി 🍿",wr_kicker:"വാച്ച് പാർട്ടി",wr_join:"ഇപ്പോൾ ചേരുക",wr_copy:"ക്ഷണം പകർത്തുക",wr_starts:"തുടങ്ങുന്നു",wr_live:"സമയമായി! 🎉",cal_event:"WatchMovieTogether — വാച്ച് പാർട്ടി",legal_share:"നിങ്ങളുടേതോ പങ്കിടാൻ അവകാശമുള്ളതോ ആയ ഫോട്ടോകളും വീഡിയോകളും മാത്രം പങ്കിടൂ.",legal_tip:"നിയമപരമായി ഒരുമിച്ച് സിനിമ കാണൂ: YouTube ലിങ്ക് ഒട്ടിക്കൂ അല്ലെങ്കിൽ ▶ YouTube ഉപയോഗിക്കൂ. ഓർമ്മകൾ പുതുക്കാൻ സ്വന്തം ഫോട്ടോകളും വീഡിയോകളും പങ്കിടൂ.",remind:"എന്നെ ഓർമ്മിപ്പിക്കൂ",remind_set:"ഓർമ്മപ്പെടുത്തൽ സജ്ജമാക്കി — തുടങ്ങുമ്പോൾ അറിയിക്കാം. 🔔"}
+    };
+    Object.keys(MORE_LANGS).forEach(function(k){ I18N[k]=Object.assign({}, I18N.en, MORE_LANGS[k]); });
+    LANG_ORDER = LANG_ORDER.concat(["ar","tl","fr","es","pt","ru","id","bn","ta","ml"]);
     var landingMode="home";
 
     var lang = (function(){ try{ return localStorage.getItem("wmt_lang")||"en"; }catch(e){ return "en"; } })();
@@ -513,6 +681,7 @@
       setTitle("micBtn",tr("t_mic")); setTitle("camBtn",tr("t_cam")); setTitle("volBtn",tr("vol")); setTitle("chatBtn",tr("t_chat")); setTitle("fsBtn",tr("t_fs")); setTitle("dbgBtn",tr("t_diag")); setTitle("browseBtn",tr("t_browse"));
       setText("shareMediaBtn","\uD83D\uDCF7 "+tr("share_media")); setTitle("shareMediaBtn",tr("share_media")); setText("gStop",tr("stop_share"));
       setText("ytbTitle",tr("yt_title")); setPh("ytQuery",tr("yt_ph")); setText("ytSearchBtn",tr("yt_search")); setText("ytOpen",tr("open_yt")); if($("ytbMsg")&&!ytbSearched) $("ytbMsg").textContent=tr("yt_hint");
+      if(typeof applyLang4==="function") applyLang4();
       updateShareLinks();
     }
 
@@ -573,7 +742,7 @@
 
     function loadConfig(){
       return fetch(httpBase()+"/config").then(function(r){ return r.json(); }).then(function(c){
-        peerCfg={ host:c.peerHost||location.hostname, port:c.peerPort||443, path:c.peerPath||"/peerjs", secure:!!c.peerSecure }; hasYouTube=!!c.hasYouTube;
+        peerCfg={ host:c.peerHost||location.hostname, port:c.peerPort||443, path:c.peerPath||"/peerjs", secure:!!c.peerSecure }; hasYouTube=!!c.hasYouTube; hasPush=!!c.hasPush; vapidPublic=c.vapidPublic||"";
       }).catch(function(){ /* same-origin defaults already set */ });
     }
     function loadTurn(){
@@ -663,6 +832,7 @@
         case "chat": if(typeof m.text==="string") receiveChat(m.from||tr("others"), m.text); break;
         case "sync": if(m.kind==="countdown"){ runCountdown(m.time||3); } else { applyRemote(m); } break;
         case "talking": setPeerTalking(m.from, !!m.on); break;
+        case "reaction": if(typeof m.emoji==="string") spawnReaction(m.emoji, m.name||""); break;
         case "video": if(typeof m.url==="string"){ urlInput.value=m.url; applyMedia(m.mode,m.url,m.id); toast((m.from&&peers[m.from]&&peers[m.from].name?peers[m.from].name:tr("others"))+" loaded a video."); } break;
       }
     }
@@ -1001,7 +1171,7 @@
       if(m.type==="gallery-clear"){ if(!amPresenter()){ gallery=null; closeGalleryUI(); if(galleryImg){ galleryImg.style.display="none"; try{ galleryImg.removeAttribute("src"); }catch(e){} } if(mode==="gallery-image"){ clearPlayers(); placeholder.style.display=""; mode="none"; } } return true; }
       return false;
     }
-    if(shareMediaBtn) shareMediaBtn.addEventListener("click", function(){ if(fileInput) fileInput.click(); });
+    if(shareMediaBtn) shareMediaBtn.addEventListener("click", function(){ var seen; try{ seen=sessionStorage.getItem("wmt_legal"); }catch(e){} if(!seen){ toast(tr("legal_share"),6000); try{ sessionStorage.setItem("wmt_legal","1"); }catch(e){} } if(fileInput) fileInput.click(); });
     if(fileInput) fileInput.addEventListener("change", function(){ startSharing(fileInput.files); try{ fileInput.value=""; }catch(e){} });
     if(gPrev) gPrev.addEventListener("click", function(){ presenterStep(-1); });
     if(gNext) gNext.addEventListener("click", function(){ presenterStep(1); });
@@ -1041,9 +1211,195 @@
     if($("ld_joinbtn")) $("ld_joinbtn").addEventListener("click", function(){ if(!requireName()) return; if(landing) landing.classList.remove("show"); boot(); });
     window.addEventListener("beforeunload", function(){ closing=true; rtSend({ type:"leave" }); });
 
+    /* ===================== Feature: emoji reactions ===================== */
+    var REACTION_SET=["❤️","😂","😮","😢","🔥","👏","👍","🎉"];
+    var reactionsLayer=$("reactionsLayer"), emojibar=$("emojibar"), reactBtn=$("reactBtn");
+    (function(){ if(!emojibar) return; REACTION_SET.forEach(function(e){ var b=document.createElement("button"); b.type="button"; b.textContent=e; b.addEventListener("click", function(ev){ ev.stopPropagation(); sendReaction(e); }); emojibar.appendChild(b); }); })();
+    function sendReaction(emoji){ spawnReaction(emoji, tr("you")); if(rtReady) rtSend({ type:"reaction", emoji:emoji }); if(emojibar) emojibar.classList.remove("show"); }
+    function spawnReaction(emoji, who){
+      if(!reactionsLayer) return;
+      var el=document.createElement("div"); el.className="reaction"; el.textContent=emoji;
+      el.style.left=(6+Math.random()*72)+"%";
+      el.style.setProperty("--rot",(Math.random()*40-20)+"deg");
+      if(who){ var n=document.createElement("span"); n.className="rname"; n.textContent=who; el.appendChild(n); }
+      reactionsLayer.appendChild(el);
+      setTimeout(function(){ if(el.parentNode) el.parentNode.removeChild(el); }, 3000);
+    }
+    if(reactBtn) reactBtn.addEventListener("click", function(e){ e.stopPropagation(); if(emojibar) emojibar.classList.toggle("show"); });
+    document.addEventListener("click", function(e){ if(emojibar && reactBtn && !emojibar.contains(e.target) && !reactBtn.contains(e.target)) emojibar.classList.remove("show"); });
+
+    /* ===================== Feature: shareable reaction clips ===================== */
+    var clipBtn=$("clipBtn"), recPill=$("recPill"), recText=$("recText"), recStop=$("recStop");
+    var clipModal=$("clipModal"), clipVideo=$("clipVideo"), clipShareBtn=$("clipShare"), clipSaveLink=$("clipSave"), clipModalX=$("clipModalX");
+    var recording=false, mediaRec=null, recChunks=[], recCanvasTimer=null, recAudioCtx=null, recAutoTimer=null, lastClipFile=null, lastClipUrl=null;
+    var CLIP_MS=10000;
+    function clipSupported(){ return typeof MediaRecorder!=="undefined" && !!HTMLCanvasElement.prototype.captureStream; }
+    function pickMime(){ var c=["video/webm;codecs=vp9,opus","video/webm;codecs=vp8,opus","video/webm","video/mp4"]; for(var i=0;i<c.length;i++){ try{ if(MediaRecorder.isTypeSupported(c[i])) return c[i]; }catch(e){} } return ""; }
+    function faceVideos(){ var v=[]; if(selfVideo&&selfVideo.srcObject&&selfVideo.videoWidth) v.push({el:selfVideo,mirror:true}); if(peerVideo&&peerVideo.srcObject&&peerVideo.videoWidth) v.push({el:peerVideo,mirror:false}); return v; }
+    function startClip(){
+      if(recording) return;
+      if(!clipSupported()){ toast(tr("clip_unsupported"),7000); return; }
+      if(!faceVideos().length){ toast(tr("clip_none"),6000); return; }
+      var mime=pickMime(); if(!mime){ toast(tr("clip_unsupported"),7000); return; }
+      var cv=document.createElement("canvas"); cv.width=640; cv.height=360; var ctx=cv.getContext("2d");
+      function draw(){
+        ctx.fillStyle="#000"; ctx.fillRect(0,0,cv.width,cv.height);
+        var f=faceVideos(), n=f.length||1, w=cv.width/n, i;
+        for(i=0;i<f.length;i++){ try{ ctx.save(); if(f[i].mirror){ ctx.translate((i+1)*w,0); ctx.scale(-1,1); ctx.drawImage(f[i].el,0,0,w,cv.height); } else ctx.drawImage(f[i].el,i*w,0,w,cv.height); ctx.restore(); }catch(e){} }
+        ctx.fillStyle="rgba(255,255,255,.75)"; ctx.font="600 16px sans-serif"; ctx.textAlign="right"; ctx.fillText("WatchMovieTogether", cv.width-12, cv.height-12);
+      }
+      draw(); recCanvasTimer=setInterval(draw,66);
+      var cstream=cv.captureStream(15), tracks=cstream.getVideoTracks();
+      try{
+        recAudioCtx=new (window.AudioContext||window.webkitAudioContext)();
+        var dest=recAudioCtx.createMediaStreamDestination(), added=0;
+        if(localStream&&localStream.getAudioTracks().length){ try{ recAudioCtx.createMediaStreamSource(localStream).connect(dest); added++; }catch(e){} }
+        Object.keys(peers).forEach(function(id){ var p=peers[id]; if(p&&p.stream&&p.stream.getAudioTracks().length){ try{ recAudioCtx.createMediaStreamSource(p.stream).connect(dest); added++; }catch(e){} } });
+        if(added) dest.stream.getAudioTracks().forEach(function(t){ tracks.push(t); });
+      }catch(e){}
+      recChunks=[];
+      try{ mediaRec=new MediaRecorder(new MediaStream(tracks),{mimeType:mime}); }
+      catch(e){ try{ mediaRec=new MediaRecorder(new MediaStream(tracks)); }catch(e2){ toast(tr("clip_unsupported"),7000); cleanupRec(); return; } }
+      mediaRec.ondataavailable=function(ev){ if(ev.data&&ev.data.size) recChunks.push(ev.data); };
+      mediaRec.onstop=function(){ finishClip(mime); };
+      mediaRec.start();
+      recording=true; if(recPill){ if(recText) recText.textContent=tr("clip_recording"); recPill.classList.add("show"); }
+      toast(tr("clip_capturing"),3000);
+      recAutoTimer=setTimeout(stopClip,CLIP_MS);
+    }
+    function stopClip(){ if(!recording) return; clearTimeout(recAutoTimer); try{ mediaRec.stop(); }catch(e){} }
+    function cleanupRec(){ clearInterval(recCanvasTimer); recCanvasTimer=null; if(recAudioCtx){ try{ recAudioCtx.close(); }catch(e){} recAudioCtx=null; } recording=false; if(recPill) recPill.classList.remove("show"); }
+    function finishClip(mime){
+      cleanupRec(); if(!recChunks.length) return;
+      var type=(mime&&mime.split(";")[0])||"video/webm", ext=type.indexOf("mp4")>=0?"mp4":"webm";
+      var blob=new Blob(recChunks,{type:type}); recChunks=[];
+      if(lastClipUrl){ try{ URL.revokeObjectURL(lastClipUrl); }catch(e){} }
+      lastClipUrl=URL.createObjectURL(blob);
+      if(clipVideo) clipVideo.src=lastClipUrl;
+      if(clipSaveLink){ clipSaveLink.href=lastClipUrl; clipSaveLink.download="watch-party-moment."+ext; }
+      try{ lastClipFile=new File([blob],"watch-party-moment."+ext,{type:type}); }catch(e){ lastClipFile=null; }
+      if(clipModal) clipModal.classList.add("show");
+    }
+    if(clipBtn) clipBtn.addEventListener("click", function(){ if(recording) stopClip(); else startClip(); });
+    if(recStop) recStop.addEventListener("click", stopClip);
+    if(clipModalX) clipModalX.addEventListener("click", function(){ if(clipModal) clipModal.classList.remove("show"); });
+    if(clipShareBtn) clipShareBtn.addEventListener("click", function(){
+      if(lastClipFile && navigator.canShare && navigator.canShare({files:[lastClipFile]})){
+        navigator.share({files:[lastClipFile], title:"WatchMovieTogether", text:tr("clip_sub")}).then(function(){ toast(tr("clip_shared")); }).catch(function(){});
+      } else toast(tr("clip_sharefail"),6000);
+    });
+
+    /* ===================== Feature: scheduled watch parties ===================== */
+    function pad2(n){ return (n<10?"0":"")+n; }
+    function copyText(t,btnEl){ if(navigator.clipboard&&navigator.clipboard.writeText){ navigator.clipboard.writeText(t).then(function(){ toast(tr("copied")); }).catch(function(){ toast(t); }); } else toast(t); }
+    function buildSchedLink(code,ms,title){ var u=location.origin+location.pathname+"?room="+encodeURIComponent(code)+"&at="+ms; if(title) u+="&t="+encodeURIComponent(title); return u; }
+    function calDates(ms){ function f(d){ return d.getUTCFullYear()+pad2(d.getUTCMonth()+1)+pad2(d.getUTCDate())+"T"+pad2(d.getUTCHours())+pad2(d.getUTCMinutes())+"00Z"; } return { start:f(new Date(ms)), end:f(new Date(ms+2*3600*1000)) }; }
+    function gcalUrl(info){ var cd=calDates(info.at); return "https://calendar.google.com/calendar/render?action=TEMPLATE&text="+encodeURIComponent(tr("cal_event")+": "+info.title)+"&dates="+cd.start+"/"+cd.end+"&details="+encodeURIComponent(info.url); }
+    function downloadIcs(info){ var cd=calDates(info.at);
+      var ics=["BEGIN:VCALENDAR","VERSION:2.0","PRODID:-//WatchMovieTogether//EN","BEGIN:VEVENT","UID:"+info.code+"@watchmovietogether","DTSTAMP:"+calDates(Date.now()).start,"DTSTART:"+cd.start,"DTEND:"+cd.end,"SUMMARY:"+tr("cal_event")+": "+info.title,"DESCRIPTION:"+info.url,"URL:"+info.url,"END:VEVENT","END:VCALENDAR"].join("\r\n");
+      var a=document.createElement("a"); a.href="data:text/calendar;charset=utf-8,"+encodeURIComponent(ics); a.download="watch-party.ics"; document.body.appendChild(a); a.click(); setTimeout(function(){ a.remove(); },120);
+    }
+    var schedModal=$("schedModal"), schWhen=$("schWhen"), schWhat=$("schWhat"), schCreate=$("schCreate"), schStep1=$("schStep1"), schStep2=$("schStep2"), schLink=$("schLink"), schCopy=$("schCopy"), schGoNow=$("schGoNow"), schX=$("schX"), schGcal=$("schGcal"), schIcs=$("schIcs");
+    var schedInfo=null;
+    function openSched(){
+      if(!schedModal) return;
+      var d=new Date(Date.now()+3600*1000); d.setSeconds(0,0);
+      if(schWhen) schWhen.value=d.getFullYear()+"-"+pad2(d.getMonth()+1)+"-"+pad2(d.getDate())+"T"+pad2(d.getHours())+":"+pad2(d.getMinutes());
+      if(schStep1) schStep1.style.display=""; if(schStep2) schStep2.style.display="none";
+      schedModal.classList.add("show");
+    }
+    function createInvite(){
+      var v=schWhen&&schWhen.value; var ms=v?new Date(v).getTime():0;
+      if(!ms||ms<Date.now()-60000){ toast(tr("sch_pasttime")); return; }
+      var title=(schWhat&&schWhat.value.trim())||tr("sch_default_title");
+      var code=rand5()+rand5();
+      schedInfo={ code:code, at:ms, title:title, url:buildSchedLink(code,ms,title) };
+      if(schLink) schLink.value=schedInfo.url;
+      if(schGcal) schGcal.href=gcalUrl(schedInfo);
+      setInviteShare($("schWa"), $("schMail"), schedInfo);
+      ensureConfig().then(function(){ if($("schRemind")) $("schRemind").style.display=hasPush?"":"none"; });
+      if(schStep1) schStep1.style.display="none"; if(schStep2) schStep2.style.display="";
+    }
+    function inviteMsg(info){ return tr("wa_msg")+" \""+info.title+"\" — "+new Date(info.at).toLocaleString()+"\n"+info.url; }
+    function setInviteShare(waEl, mailEl, info){
+      var msg=inviteMsg(info);
+      if(waEl) waEl.href="https://wa.me/?text="+encodeURIComponent(msg);
+      if(mailEl) mailEl.href="mailto:?subject="+encodeURIComponent(tr("mail_subj"))+"&body="+encodeURIComponent(msg);
+    }
+    if($("ld_schedule")) $("ld_schedule").addEventListener("click", openSched);
+    if(schX) schX.addEventListener("click", function(){ schedModal.classList.remove("show"); });
+    if(schCreate) schCreate.addEventListener("click", createInvite);
+    if(schCopy) schCopy.addEventListener("click", function(){ if(schedInfo) copyText(schedInfo.url); });
+    if(schIcs) schIcs.addEventListener("click", function(){ if(schedInfo) downloadIcs(schedInfo); });
+    if(schGoNow) schGoNow.addEventListener("click", function(){ if(schedInfo){ schedModal.classList.remove("show"); roomCode=schedInfo.code; params.set("room",roomCode); history.replaceState(null,"",location.pathname+"?room="+encodeURIComponent(roomCode)); if(myName){ if(landing) landing.classList.remove("show"); boot(); } else setupLanding("join"); } });
+
+    /* scheduled waiting room (when a guest opens an &at= link before start time) */
+    var waitroom=$("waitroom"), wrTitle=$("wrTitle"), wrWhen=$("wrWhen"), wrClock=$("wrClock"), wrJoin=$("wrJoin"), wrCopy=$("wrCopy"), wrGcal=$("wrGcal"), wrIcs=$("wrIcs");
+    var wrTimer=null, wrInfo=null;
+    function showWaitroom(code,ms,title){
+      wrInfo={ code:code, at:ms, title:title||tr("sch_default_title"), url:buildSchedLink(code,ms,title||"") };
+      setText("wrKicker",tr("wr_kicker")); if(wrTitle) wrTitle.textContent=wrInfo.title;
+      if(wrWhen) wrWhen.textContent=tr("wr_starts")+" "+new Date(ms).toLocaleString();
+      if(wrGcal) wrGcal.href=gcalUrl(wrInfo);
+      setInviteShare($("wrWa"), $("wrMail"), wrInfo);
+      ensureConfig().then(function(){ if($("wrRemind")) $("wrRemind").style.display=hasPush?"":"none"; });
+      setText("wrJoin",tr("wr_join")); setText("wrCopy",tr("wr_copy"));
+      if(waitroom) waitroom.classList.add("show"); tickWR(); wrTimer=setInterval(tickWR,1000);
+    }
+    function tickWR(){ if(!wrInfo||!wrClock) return; var diff=wrInfo.at-Date.now();
+      if(diff<=0){ wrClock.textContent=tr("wr_live"); wrClock.classList.add("live"); return; }
+      var s=Math.floor(diff/1000), h=Math.floor(s/3600), m=Math.floor((s%3600)/60); wrClock.textContent=(h>0?pad2(h)+":":"")+pad2(m)+":"+pad2(s%60);
+    }
+    function enterFromWaitroom(){ if(wrTimer){ clearInterval(wrTimer); wrTimer=null; } if(waitroom) waitroom.classList.remove("show");
+      roomCode=wrInfo.code; params.set("room",roomCode); history.replaceState(null,"",location.pathname+"?room="+encodeURIComponent(roomCode));
+      if(myName){ if(landing) landing.classList.remove("show"); boot(); } else setupLanding("join");
+    }
+    if(wrJoin) wrJoin.addEventListener("click", enterFromWaitroom);
+    if(wrCopy) wrCopy.addEventListener("click", function(){ if(wrInfo) copyText(wrInfo.url); });
+    if(wrIcs) wrIcs.addEventListener("click", function(){ if(wrInfo) downloadIcs(wrInfo); });
+
+    /* ===================== Feature: push reminders ===================== */
+    var hasPush=false, vapidPublic="", _cfgPromise=null;
+    function ensureConfig(){ if(!_cfgPromise) _cfgPromise=loadConfig(); return _cfgPromise; }
+    function urlB64ToUint8(base64){ var pad="=".repeat((4-base64.length%4)%4); var b=(base64+pad).replace(/-/g,"+").replace(/_/g,"/"); var raw=atob(b); var arr=new Uint8Array(raw.length); for(var i=0;i<raw.length;i++) arr[i]=raw.charCodeAt(i); return arr; }
+    function remindMe(info, btn){
+      if(!("serviceWorker" in navigator)||!("PushManager" in window)||!("Notification" in window)){ toast(tr("remind_unsupported"),6000); return; }
+      ensureConfig().then(function(){
+        if(!hasPush||!vapidPublic){ toast(tr("remind_unavailable"),7000); return; }
+        Notification.requestPermission().then(function(perm){
+          if(perm!=="granted"){ toast(tr("remind_denied"),6000); return; }
+          navigator.serviceWorker.ready.then(function(reg){
+            return reg.pushManager.getSubscription().then(function(s){ return s || reg.pushManager.subscribe({ userVisibleOnly:true, applicationServerKey:urlB64ToUint8(vapidPublic) }); });
+          }).then(function(sub){
+            return fetch(httpBase()+"/push-subscribe",{ method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({ subscription:sub, at:info.at, title:info.title, body:tr("remind_body"), url:info.url }) });
+          }).then(function(r){ return r.json(); }).then(function(d){ if(d&&d.ok){ toast(tr("remind_set"),5000); if(btn){ btn.classList.add("ok"); } } else toast(tr("remind_unavailable"),7000); }).catch(function(){ toast(tr("remind_fail"),6000); });
+        });
+      });
+    }
+    if($("schRemind")) $("schRemind").addEventListener("click", function(){ if(schedInfo) remindMe(schedInfo, $("schRemind")); });
+    if($("wrRemind")) $("wrRemind").addEventListener("click", function(){ if(wrInfo) remindMe(wrInfo, $("wrRemind")); });
+
+    /* translations for all new UI (called from applyLang) */
+    function applyLang4(){
+      setTitle("reactBtn",tr("t_react")); setTitle("clipBtn",tr("t_clip"));
+      setText("recText",tr("clip_recording")); setText("recStop",tr("clip_stop"));
+      setText("clipTitle",tr("clip_title")); setText("clipSub",tr("clip_sub")); setText("clipShare",tr("clip_share")); setText("clipSave",tr("clip_save"));
+      setText("ld_schedule",tr("sched"));
+      setText("schedTitle",tr("sched_title")); setText("schedSub",tr("sched_sub")); setText("schWhenLbl",tr("sch_when")); setText("schWhatLbl",tr("sch_what")); setPh("schWhat",tr("sch_what_ph"));
+      setText("schCreate",tr("sch_create")); setText("schLinkLbl",tr("sch_link")); setText("schCopy",tr("sch_copy")); setText("schGoNow",tr("sch_gonow")); setText("schGcalTxt",tr("sch_gcal")); setText("schIcsTxt",tr("sch_ics"));
+      setText("schWaTxt",tr("wa")); setText("schMailTxt",tr("email")); setText("schRemindTxt",tr("remind")); setText("wrRemindTxt",tr("remind"));
+      setText("wrKicker",tr("wr_kicker")); setText("wrJoin",tr("wr_join")); setText("wrCopy",tr("wr_copy"));
+      setText("ph_note",tr("legal_tip"));   // copyright positioning on the main screen
+    }
+
     (function start(){
       fillLangSelect($("langSel")); fillLangSelect($("langSelL")); applyLang(); applyCamSize();
       if(ldName&&myName) ldName.value=myName;
+      var atParam=parseInt(params.get("at")||"",10);
+      if(roomCode && atParam && (atParam-Date.now())>60000){   // scheduled link opened early → waiting room
+        showWaitroom(roomCode, atParam, params.get("t")||"");
+        return;
+      }
       if(roomCode){
         if(myName){ if(landing) landing.classList.remove("show"); boot(); }   // returning visitor already has a name
         else { setupLanding("join"); }                                        // joined via link → must enter a name first

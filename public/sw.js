@@ -21,6 +21,33 @@ self.addEventListener("message", (e) => {
   if (d && d.type === "unregister") delete FILES[d.fileId];
 });
 
+/* ---- Web Push: scheduled watch-party reminders ---- */
+self.addEventListener("push", (e) => {
+  let data = {};
+  try { data = e.data ? e.data.json() : {}; } catch (_) {}
+  const title = data.title || "WatchMovieTogether";
+  const opts = {
+    body: data.body || "Your watch party is starting!",
+    icon: data.icon || "/icon-192.png",
+    badge: data.badge || "/icon-192.png",
+    tag: data.tag || "wmt-reminder",
+    data: { url: data.url || "/" },
+    requireInteraction: true
+  };
+  e.waitUntil(self.registration.showNotification(title, opts));
+});
+
+self.addEventListener("notificationclick", (e) => {
+  e.notification.close();
+  const url = (e.notification.data && e.notification.data.url) || "/";
+  e.waitUntil(
+    self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((cs) => {
+      for (const c of cs) { if (c.url.indexOf(url) !== -1 && "focus" in c) return c.focus(); }
+      if (self.clients.openWindow) return self.clients.openWindow(url);
+    })
+  );
+});
+
 self.addEventListener("fetch", (e) => {
   let url;
   try { url = new URL(e.request.url); } catch (_) { return; }

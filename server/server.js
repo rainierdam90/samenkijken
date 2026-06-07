@@ -26,6 +26,7 @@ const crypto = require("crypto");
 const express = require("express");
 const { WebSocketServer } = require("ws");
 const { ExpressPeerServer } = require("peer");
+let webpush = null; try { webpush = require("web-push"); } catch (e) { /* optional */ }
 
 const PORT = process.env.PORT || 8080;
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "";
@@ -53,6 +54,18 @@ const RL_MSG_WINDOW      = parseInt(process.env.RL_MSG_WINDOW      || "10000", 1
 const RL_CHAT_MAX        = parseInt(process.env.RL_CHAT_MAX        || "12", 10);     // chat messages per CONNECTION per window
 const RL_CHAT_WINDOW     = parseInt(process.env.RL_CHAT_WINDOW     || "10000", 10);
 
+/* ---- Web Push (scheduled watch-party reminders) ---- */
+const VAPID_PUBLIC  = process.env.VAPID_PUBLIC  || "";
+const VAPID_PRIVATE = process.env.VAPID_PRIVATE || "";
+const VAPID_SUBJECT = process.env.VAPID_SUBJECT || "mailto:admin@watchmovietogether.com";
+const HAS_PUSH = !!(webpush && VAPID_PUBLIC && VAPID_PRIVATE);
+if (HAS_PUSH) { try { webpush.setVapidDetails(VAPID_SUBJECT, VAPID_PUBLIC, VAPID_PRIVATE); } catch (e) { console.warn("[WARN] VAPID setup failed:", e.message); } }
+else console.warn("[WARN] Web Push disabled (set VAPID_PUBLIC + VAPID_PRIVATE; generate with: npx web-push generate-vapid-keys). Calendar reminders still work.");
+// In-memory reminder queue. NOTE: lost on restart — use a DB + an always-on instance for production reliability.
+const reminders = [];   // { sub, at, title, body, url, sent }
+const MAX_REMINDERS = parseInt(process.env.MAX_REMINDERS || "5000", 10);
+const REMINDER_MAX_AHEAD = parseInt(process.env.REMINDER_MAX_AHEAD || String(31 * 24 * 3600 * 1000), 10);
+
 if (!ADMIN_PASSWORD) console.warn("[WARN] ADMIN_PASSWORD not set — the admin dashboard will refuse logins.");
 if (TURN_URLS_RAW.length && TURN_URLS.length < TURN_URLS_RAW.length) {
   console.warn("[WARN] TURN_URLS has entries that are not turn:/turns:/stun: URLs and were ignored:",
@@ -62,6 +75,7 @@ if (!HAS_TURN) console.warn("[WARN] No usable TURN (need TURN_URLS plus either T
 
 const app = express();
 app.disable("x-powered-by");
+app.use(express.json({ limit: "16kb" }));   // for POST /push-subscribe
 const server = http.createServer(app);
 
 /* ---- small CORS for the public GET endpoints (front-end may be on another origin) ---- */
@@ -134,8 +148,33 @@ app.get("/config", (req, res) => {
     peerSecure: secure,
     maxRoom: MAX_ROOM,
     hasTurn: HAS_TURN,
-    hasYouTube: !!YT_API_KEY
+    hasYouTube: !!YT_API_KEY,
+    hasPush: HAS_PUSH,
+    vapidPublic: HAS_PUSH ? VAPID_PUBLIC : ""
   });
+});
+
+/* ---- Web Push subscribe: store a reminder to fire at a scheduled time ---- */
+app.options("/push-subscribe", (req, res) => { cors(req, res); res.setHeader("Access-Control-Allow-Methods", "POST,OPTIONS"); res.sendStatus(204); });
+app.post("/push-subscribe", (req, res) => {
+  cors(req, res); res.setHeader("Access-Control-Allow-Methods", "POST,OPTIONS");
+  if (!httpLimiter(clientIp(req))) return tooMany(res);
+  if (!HAS_PUSH) return res.status(503).json({ error: "push_disabled" });
+  const b = req.body || {};
+  const sub = b.subscription;
+  const at = parseInt(b.at, 10);
+  if (!sub || !sub.endpoint || !at) return res.status(400).json({ error: "bad_request" });
+  if (at < Date.now() - 60000 || at > Date.now() + REMINDER_MAX_AHEAD) return res.status(400).json({ error: "bad_time" });
+  if (reminders.length >= MAX_REMINDERS) reminders.shift();
+  reminders.push({
+    sub,
+    at,
+    title: String(b.title || "WatchMovieTogether").slice(0, 80),
+    body: String(b.body || "").slice(0, 140),
+    url: String(b.url || "/").slice(0, 400),
+    sent: false
+  });
+  res.json({ ok: true });
 });
 
 /* ---- YouTube search proxy: the API key stays on the server, never in the browser ---- */
@@ -222,7 +261,8 @@ function leaveRoom(ws) {
   pushStats();
 }
 
-const MSG = { JOIN: "join", LEAVE: "leave", CHAT: "chat", SYNC: "sync", TALKING: "talking", VIDEO: "video" };
+const MSG = { JOIN: "join", LEAVE: "leave", CHAT: "chat", SYNC: "sync", TALKING: "talking", VIDEO: "video", REACT: "reaction" };
+const REACTIONS = ["❤️", "😂", "😮", "😢", "🔥", "👏", "👍", "🎉"];   // server validates emoji to keep the channel clean
 
 wss.on("connection", (ws) => {
   ws._room = null; ws._peerId = null; ws._name = "Guest"; ws._isAdmin = false; ws._watch = null;
@@ -303,6 +343,11 @@ wss.on("connection", (ws) => {
       broadcastRoom(r, { type: "sync", from: ws._peerId, kind: m.kind, time: m.time, playing: m.playing }, ws);
       return;
     }
+    if (m.type === MSG.REACT) {
+      if (!REACTIONS.includes(m.emoji)) return;   // only allow the known emoji set
+      broadcastRoom(r, { type: "reaction", from: ws._peerId, name: ws._name, emoji: m.emoji }, ws);
+      return;
+    }
     if (m.type === MSG.TALKING) {
       broadcastRoom(r, { type: "talking", from: ws._peerId, on: !!m.on }, ws);
       return;
@@ -361,6 +406,24 @@ const ping = setInterval(() => {
   });
 }, 30000);
 wss.on("close", () => clearInterval(ping));
+
+/* fire due watch-party reminders (needs an always-on instance to be reliable) */
+if (HAS_PUSH) {
+  setInterval(() => {
+    const now = Date.now();
+    let due = false;
+    reminders.forEach(r => {
+      if (r.sent || r.at > now) return;
+      r.sent = true; due = true;
+      const payload = JSON.stringify({ title: r.title, body: r.body || "Your watch party is starting now! 🍿", url: r.url, tag: "wmt-" + r.at });
+      webpush.sendNotification(r.sub, payload).catch(() => { /* expired/invalid subscription — drop silently */ });
+    });
+    // prune sent or long-expired reminders
+    if (due || reminders.length > 1000) {
+      for (let i = reminders.length - 1; i >= 0; i--) { if (reminders[i].sent || reminders[i].at < now - 3600000) reminders.splice(i, 1); }
+    }
+  }, 20000).unref();
+}
 
 server.listen(PORT, () => {
   console.log("WatchMovieTogether server on :" + PORT);
