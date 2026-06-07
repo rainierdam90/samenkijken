@@ -1,0 +1,20 @@
+# One-click deploy on Render (Blueprint). Connect this repo and Render reads this.
+services:
+  - type: web
+    name: watchmovietogether
+    runtime: node
+    plan: free
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /healthz
+    envVars:
+      - key: ADMIN_PASSWORD
+        sync: false
+      - key: TURN_SECRET
+        sync: false
+      - key: TURN_URLS
+        sync: false
+      - key: TURN_TTL
+        value: "3600"
+      - key: MAX_ROOM
+        value: "8"

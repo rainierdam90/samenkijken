@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="robots" content="noindex,nofollow" />
+<title>WatchMovieTogether — Admin</title>
+<style>
+  :root{ --bg:#0c0a0e; --panel:#16131b; --panel-2:#1d1925; --line:rgba(255,255,255,.10); --txt:#f3ece4; --muted:#9a8f86; --amber:#f4b14a; --amber-2:#ffcd6b; --good:#7bd88f; --bad:#ff6b6b; --shadow:0 18px 50px rgba(0,0,0,.45) }
+  *{ box-sizing:border-box } html,body{ margin:0; height:100% }
+  body{ background:radial-gradient(1200px 700px at 80% -10%, #241a12 0%, var(--bg) 55%); color:var(--txt); font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif; -webkit-font-smoothing:antialiased }
+  .wrap{ max-width:1040px; margin:0 auto; padding:26px 20px 60px }
+  .brand{ display:flex; align-items:center; gap:10px; margin-bottom:22px }
+  .bulb{ width:24px; height:24px; border-radius:50%; background:radial-gradient(circle at 35% 30%, #fff3d6, var(--amber) 60%, #b9792a); box-shadow:0 0 16px rgba(244,177,74,.7) }
+  .brand b{ font-size:20px; letter-spacing:.5px } .brand b i{ color:var(--amber); font-style:normal }
+  .brand .tag{ margin-left:8px; font-size:12px; color:var(--muted); border:1px solid var(--line); padding:3px 9px; border-radius:999px }
+
+  .login{ max-width:380px; margin:8vh auto 0; background:var(--panel); border:1px solid var(--line); border-radius:18px; padding:26px; box-shadow:var(--shadow) }
+  .login h1{ font-size:20px; margin:0 0 6px } .login p{ color:var(--muted); font-size:13.5px; margin:0 0 18px; line-height:1.5 }
+  input{ width:100%; background:var(--bg); border:1px solid var(--line); color:var(--txt); border-radius:11px; padding:12px 14px; font-size:15px; font-family:inherit }
+  input:focus{ outline:none; border-color:rgba(244,177,74,.7) }
+  .btn{ cursor:pointer; font-family:inherit; font-weight:600; font-size:14px; border-radius:11px; padding:11px 16px; border:1px solid var(--line); background:var(--panel-2); color:var(--txt); transition:transform .12s,border-color .15s }
+  .btn:hover{ transform:translateY(-1px) } .btn.primary{ background:linear-gradient(180deg,var(--amber-2),var(--amber)); color:#2a1c06; border:none }
+  .err{ color:var(--bad); font-size:13px; margin-top:12px; min-height:18px }
+
+  .dash{ display:none }
+  .cards{ display:grid; grid-template-columns:repeat(3,1fr); gap:14px; margin-bottom:22px }
+  .card{ background:var(--panel); border:1px solid var(--line); border-radius:16px; padding:18px 20px }
+  .card .n{ font-size:38px; font-weight:700; line-height:1 } .card .l{ color:var(--muted); font-size:12.5px; margin-top:8px; letter-spacing:.3px }
+  .card.live .n{ color:var(--amber) }
+  .grid2{ display:grid; grid-template-columns:1fr 1.2fr; gap:16px } @media (max-width:840px){ .grid2{ grid-template-columns:1fr } .cards{ grid-template-columns:1fr } }
+  .pane{ background:var(--panel); border:1px solid var(--line); border-radius:16px; overflow:hidden; display:flex; flex-direction:column; min-height:340px }
+  .pane h2{ font-size:14px; margin:0; padding:14px 16px; border-bottom:1px solid var(--line); display:flex; justify-content:space-between; align-items:center }
+  .pane h2 .sub{ color:var(--muted); font-weight:400; font-size:12px }
+  .rooms{ overflow-y:auto; flex:1 }
+  .room{ display:flex; justify-content:space-between; align-items:center; gap:10px; padding:12px 16px; border-bottom:1px solid rgba(255,255,255,.05); cursor:pointer }
+  .room:hover{ background:var(--panel-2) } .room.active{ background:rgba(244,177,74,.12) }
+  .room .code{ font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:14px }
+  .room .meta{ color:var(--muted); font-size:12px }
+  .room .pill{ background:var(--panel-2); border:1px solid var(--line); border-radius:999px; padding:2px 9px; font-size:12px; color:var(--amber) }
+  .empty{ color:var(--muted); font-size:13px; padding:22px 16px; text-align:center }
+  .chatlog{ overflow-y:auto; flex:1; padding:12px 14px; display:flex; flex-direction:column; gap:8px }
+  .cmsg{ display:flex; flex-direction:column; max-width:92% }
+  .cmsg .h{ font-size:11px; color:var(--muted); margin:0 0 2px } .cmsg .h b{ color:var(--txt); font-weight:600 }
+  .cmsg .t{ background:var(--panel-2); border:1px solid var(--line); border-radius:11px; padding:8px 11px; font-size:13.5px; line-height:1.4; overflow-wrap:anywhere }
+  .conn{ font-size:12px; color:var(--muted); display:flex; align-items:center; gap:7px }
+  .dot{ width:9px; height:9px; border-radius:50%; background:var(--muted) } .dot.ok{ background:var(--good) } .dot.bad{ background:var(--bad) }
+  .topbar{ display:flex; justify-content:space-between; align-items:center; margin-bottom:18px; flex-wrap:wrap; gap:10px }
+  .note{ font-size:12px; color:var(--muted); margin-top:18px; line-height:1.5; border-top:1px solid var(--line); padding-top:14px }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="brand"><span class="bulb"></span><b>WatchMovie<i>Together</i></b><span class="tag">Admin</span></div>
+
+  <div class="login" id="login">
+    <h1>Admin sign-in</h1>
+    <p>Enter the admin password (the <code>ADMIN_PASSWORD</code> you set on the server) to see live activity and moderate chat.</p>
+    <input id="pw" type="password" placeholder="Admin password" autocomplete="current-password" />
+    <div style="height:12px"></div>
+    <button class="btn primary" id="loginBtn" style="width:100%">Sign in</button>
+    <div class="err" id="loginErr"></div>
+  </div>
+
+  <div class="dash" id="dash">
+    <div class="topbar">
+      <div class="conn"><span class="dot" id="connDot"></span><span id="connTxt">connecting…</span></div>
+      <button class="btn" id="signout">Sign out</button>
+    </div>
+    <div class="cards">
+      <div class="card live"><div class="n" id="cActive">0</div><div class="l">Active conversations (2+ people)</div></div>
+      <div class="card"><div class="n" id="cPeople">0</div><div class="l">People in conversations</div></div>
+      <div class="card"><div class="n" id="cTotal">0</div><div class="l">Total people present</div></div>
+    </div>
+    <div class="grid2">
+      <div class="pane">
+        <h2>Rooms <span class="sub" id="roomsSub">live</span></h2>
+        <div class="rooms" id="rooms"><div class="empty">No active rooms right now.</div></div>
+      </div>
+      <div class="pane">
+        <h2>Chat monitor <span class="sub" id="watchSub">select a room</span></h2>
+        <div class="chatlog" id="chatlog"><div class="empty">Click a room on the left to read its chat. Messages are shown live for moderation.</div></div>
+      </div>
+    </div>
+    <p class="note">Reminder: chat is relayed and stored on the server so it can be moderated here. Video and audio are peer-to-peer and end-to-end encrypted — they never reach the server and cannot be monitored. Keep this dashboard access restricted and disclose chat moderation in your privacy policy.</p>
+  </div>
+</div>
+
+<script>
+(function(){
+  "use strict";
+  var $=function(id){ return document.getElementById(id); };
+  var SERVER_BASE=""; // set to your server origin if admin page is hosted elsewhere
+  function rtUrl(){ if(SERVER_BASE) return SERVER_BASE.replace(/^http/,"ws")+"/rt"; return (location.protocol==="https:"?"wss://":"ws://")+location.host+"/rt"; }
+
+  var ws=null, pw="", watching=null, rooms=[];
+  try{ pw=sessionStorage.getItem("wmt_admin_pw")||""; }catch(e){}
+
+  function setConn(state){ var d=$("connDot"), t=$("connTxt"); d.className="dot "+(state==="ok"?"ok":state==="bad"?"bad":""); t.textContent=(state==="ok"?"connected":state==="bad"?"disconnected":"connecting…"); }
+  function fmtTime(ts){ try{ var d=new Date(ts); return d.toLocaleTimeString(); }catch(e){ return ""; } }
+  function fmtAgo(ts){ var s=Math.max(0,Math.floor((Date.now()-ts)/1000)); if(s<60) return s+"s ago"; var m=Math.floor(s/60); if(m<60) return m+"m ago"; return Math.floor(m/60)+"h ago"; }
+
+  function connect(){
+    setConn("connecting");
+    try{ ws=new WebSocket(rtUrl()); }catch(e){ setConn("bad"); return; }
+    ws.onopen=function(){ ws.send(JSON.stringify({ type:"admin", password:pw })); };
+    ws.onmessage=function(ev){ var m; try{ m=JSON.parse(ev.data); }catch(e){ return; } handle(m); };
+    ws.onclose=function(){ setConn("bad"); if(authed) setTimeout(connect,3000); };
+    ws.onerror=function(){};
+  }
+  var authed=false;
+  function handle(m){
+    if(m.type==="admin_ok"){ authed=true; setConn("ok"); showDash(); if(watching){ ws.send(JSON.stringify({ type:"admin_watch", room:watching })); } return; }
+    if(m.type==="admin_denied"){ authed=false; $("loginErr").textContent="Wrong password."; try{ sessionStorage.removeItem("wmt_admin_pw"); }catch(e){} try{ ws.close(); }catch(e){} return; }
+    if(m.type==="stats"){ renderStats(m); return; }
+    if(m.type==="chatlog"){ if(m.room===watching) renderChatlog(m.messages||[]); return; }
+    if(m.type==="chat"){ if(m.room===watching) appendChat(m); return; }
+  }
+
+  function renderStats(s){
+    $("cActive").textContent=s.activeConversations||0;
+    $("cPeople").textContent=s.peopleInConversations||0;
+    $("cTotal").textContent=s.totalPresence||0;
+    rooms=s.rooms||[];
+    var box=$("rooms");
+    if(!rooms.length){ box.innerHTML='<div class="empty">No active rooms right now.</div>'; return; }
+    box.innerHTML="";
+    rooms.forEach(function(r){
+      var row=document.createElement("div"); row.className="room"+(r.room===watching?" active":"");
+      var left=document.createElement("div");
+      left.innerHTML='<div class="code">'+escapeHtml(r.room)+'</div><div class="meta">'+fmtAgo(r.lastActivity)+'</div>';
+      var pill=document.createElement("div"); pill.className="pill"; pill.textContent=r.count+(r.count===1?" person":" people");
+      row.appendChild(left); row.appendChild(pill);
+      row.addEventListener("click", function(){ watchRoom(r.room); });
+      box.appendChild(row);
+    });
+  }
+  function watchRoom(code){
+    watching=code; $("watchSub").textContent=code;
+    document.querySelectorAll(".room").forEach(function(el){ el.classList.remove("active"); });
+    $("chatlog").innerHTML='<div class="empty">Loading chat…</div>';
+    if(ws&&ws.readyState===1) ws.send(JSON.stringify({ type:"admin_watch", room:code }));
+    // re-highlight
+    var idx=rooms.findIndex(function(r){ return r.room===code; });
+    var nodes=document.querySelectorAll(".room"); if(nodes[idx]) nodes[idx].classList.add("active");
+  }
+  function renderChatlog(msgs){
+    var box=$("chatlog"); box.innerHTML="";
+    if(!msgs.length){ box.innerHTML='<div class="empty">No messages in this room yet.</div>'; return; }
+    msgs.forEach(appendChat);
+  }
+  function appendChat(m){
+    var box=$("chatlog"); var em=box.querySelector(".empty"); if(em) em.remove();
+    var row=document.createElement("div"); row.className="cmsg";
+    var h=document.createElement("div"); h.className="h"; h.innerHTML='<b>'+escapeHtml(m.from||"Guest")+'</b> · '+fmtTime(m.ts);
+    var t=document.createElement("div"); t.className="t"; t.textContent=m.text||"";
+    row.appendChild(h); row.appendChild(t); box.appendChild(row); box.scrollTop=box.scrollHeight;
+  }
+  function escapeHtml(s){ return String(s).replace(/[&<>"']/g, function(c){ return ({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"})[c]; }); }
+
+  function showDash(){ $("login").style.display="none"; $("dash").style.display="block"; }
+  function doLogin(){ pw=($("pw").value||"").trim(); if(!pw){ $("loginErr").textContent="Enter the password."; return; } try{ sessionStorage.setItem("wmt_admin_pw",pw); }catch(e){} $("loginErr").textContent=""; connect(); }
+  $("loginBtn").addEventListener("click", doLogin);
+  $("pw").addEventListener("keydown", function(e){ if(e.key==="Enter") doLogin(); });
+  $("signout").addEventListener("click", function(){ authed=false; try{ sessionStorage.removeItem("wmt_admin_pw"); }catch(e){} try{ ws.close(); }catch(e){} location.reload(); });
+
+  if(pw){ connect(); } // auto sign-in if password remembered this session
+})();
+</script>
+</body>
+</html>
