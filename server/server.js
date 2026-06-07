@@ -40,6 +40,19 @@ const TURN_USERNAME = process.env.TURN_USERNAME || "";     // static TURN userna
 const TURN_CREDENTIAL = process.env.TURN_CREDENTIAL || ""; // static TURN credential/password
 const HAS_TURN = !!(TURN_URLS.length && (TURN_SECRET || (TURN_USERNAME && TURN_CREDENTIAL)));
 
+/* ---- rate limiting (lightweight, in-memory; tune via env, all per-IP unless noted) ----
+   Defaults are deliberately generous so shared/CGNAT mobile IPs (common in expat
+   markets) aren't blocked; tighten via env only if you see abuse. */
+const RL_HTTP_MAX        = parseInt(process.env.RL_HTTP_MAX        || "120", 10);    // HTTP hits per window
+const RL_HTTP_WINDOW     = parseInt(process.env.RL_HTTP_WINDOW     || "60000", 10);  // window (ms)
+const RL_CONN_MAX        = parseInt(process.env.RL_CONN_MAX        || "60", 10);     // new /rt sockets per window
+const RL_CONN_WINDOW     = parseInt(process.env.RL_CONN_WINDOW     || "60000", 10);
+const RL_CONN_CONCURRENT = parseInt(process.env.RL_CONN_CONCURRENT || "40", 10);     // concurrent /rt sockets (high: mobile carriers share IPs)
+const RL_MSG_MAX         = parseInt(process.env.RL_MSG_MAX         || "60", 10);     // messages per CONNECTION per window
+const RL_MSG_WINDOW      = parseInt(process.env.RL_MSG_WINDOW      || "10000", 10);
+const RL_CHAT_MAX        = parseInt(process.env.RL_CHAT_MAX        || "12", 10);     // chat messages per CONNECTION per window
+const RL_CHAT_WINDOW     = parseInt(process.env.RL_CHAT_WINDOW     || "10000", 10);
+
 if (!ADMIN_PASSWORD) console.warn("[WARN] ADMIN_PASSWORD not set — the admin dashboard will refuse logins.");
 if (TURN_URLS_RAW.length && TURN_URLS.length < TURN_URLS_RAW.length) {
   console.warn("[WARN] TURN_URLS has entries that are not turn:/turns:/stun: URLs and were ignored:",
@@ -57,6 +70,33 @@ function cors(req, res) {
   res.setHeader("Access-Control-Allow-Methods", "GET,OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
 }
+
+/* ---- tiny in-memory rate limiter (fixed window) ----
+   Per-process only — fine for a single instance. If you ever run multiple
+   instances, move these counters to Redis (and add sticky sessions). */
+function clientIp(req) {
+  const xff = (req.headers["x-forwarded-for"] || "").split(",")[0].trim();   // Render/Cloudflare put the real IP here
+  return xff || (req.socket && req.socket.remoteAddress) || "?";
+}
+function makeLimiter(max, windowMs) {
+  const hits = new Map();   // key -> { n, reset }
+  const t = setInterval(() => {
+    const now = Date.now();
+    hits.forEach((e, k) => { if (now >= e.reset) hits.delete(k); });   // keep the map bounded
+  }, windowMs);
+  if (t.unref) t.unref();
+  return function allow(key) {
+    const now = Date.now();
+    let e = hits.get(key);
+    if (!e || now >= e.reset) { e = { n: 0, reset: now + windowMs }; hits.set(key, e); }
+    e.n++;
+    return e.n <= max;
+  };
+}
+const httpLimiter = makeLimiter(RL_HTTP_MAX, RL_HTTP_WINDOW);
+const connLimiter = makeLimiter(RL_CONN_MAX, RL_CONN_WINDOW);
+const ipConns = new Map();   // ip -> live /rt socket count (concurrency cap)
+function tooMany(res) { res.setHeader("Retry-After", "60"); res.status(429).json({ error: "rate_limited" }); }
 
 /* ---- short-lived TURN credentials (coturn "use-auth-secret" REST scheme) ---- */
 function makeTurnCredentials() {
@@ -78,6 +118,7 @@ function makeTurnCredentials() {
 
 app.get("/turn-credentials", (req, res) => {
   cors(req, res);
+  if (!httpLimiter(clientIp(req))) return tooMany(res);
   res.setHeader("Cache-Control", "no-store");
   res.json({ iceServers: makeTurnCredentials(), ttl: TURN_TTL });
 });
@@ -100,6 +141,7 @@ app.get("/config", (req, res) => {
 /* ---- YouTube search proxy: the API key stays on the server, never in the browser ---- */
 app.get("/yt-search", (req, res) => {
   cors(req, res);
+  if (!httpLimiter(clientIp(req))) return tooMany(res);   // also protects the YouTube API quota
   res.setHeader("Cache-Control", "no-store");
   const q = (req.query.q || "").toString().slice(0, 200);
   if (!YT_API_KEY) return res.json({ items: [], error: "no_key" });
@@ -185,8 +227,16 @@ const MSG = { JOIN: "join", LEAVE: "leave", CHAT: "chat", SYNC: "sync", TALKING:
 wss.on("connection", (ws) => {
   ws._room = null; ws._peerId = null; ws._name = "Guest"; ws._isAdmin = false; ws._watch = null;
   ws.isAlive = true; ws.on("pong", () => { ws.isAlive = true; });
+  // rate-limit bookkeeping (ws._ip is stamped in the upgrade handler)
+  ws._msgN = 0; ws._msgReset = 0; ws._chatN = 0; ws._chatReset = 0;
+  if (ws._ip) ipConns.set(ws._ip, (ipConns.get(ws._ip) || 0) + 1);
 
   ws.on("message", (raw) => {
+    // per-connection flood guard: drop messages above the burst budget
+    const now = Date.now();
+    if (now >= ws._msgReset) { ws._msgReset = now + RL_MSG_WINDOW; ws._msgN = 0; }
+    if (++ws._msgN > RL_MSG_MAX) return;
+
     let m; try { m = JSON.parse(raw.toString()); } catch (e) { return; }
     if (!m || typeof m !== "object") return;
 
@@ -234,6 +284,10 @@ wss.on("connection", (ws) => {
     r.lastActivity = Date.now();
 
     if (m.type === MSG.CHAT) {
+      // tighter per-connection limit for chat specifically (anti-spam)
+      const cn = Date.now();
+      if (cn >= ws._chatReset) { ws._chatReset = cn + RL_CHAT_WINDOW; ws._chatN = 0; }
+      if (++ws._chatN > RL_CHAT_MAX) return;
       const text = String(m.text || "").slice(0, 2000);
       if (!text) return;
       const entry = { ts: Date.now(), name: ws._name, peerId: ws._peerId, text };
@@ -276,7 +330,10 @@ wss.on("connection", (ws) => {
     }
   });
 
-  ws.on("close", () => { admins.delete(ws); leaveRoom(ws); });
+  ws.on("close", () => {
+    admins.delete(ws); leaveRoom(ws);
+    if (ws._ip) { const c = (ipConns.get(ws._ip) || 1) - 1; if (c <= 0) ipConns.delete(ws._ip); else ipConns.set(ws._ip, c); }
+  });
   ws.on("error", () => {});
 });
 
@@ -285,7 +342,12 @@ server.on("upgrade", (req, socket, head) => {
   let pathname = "/";
   try { pathname = new URL(req.url, "http://x").pathname; } catch (e) {}
   if (pathname === "/rt") {
-    wss.handleUpgrade(req, socket, head, (ws) => wss.emit("connection", ws, req));
+    const ip = clientIp(req);
+    if (!connLimiter(ip) || (ipConns.get(ip) || 0) >= RL_CONN_CONCURRENT) {
+      try { socket.write("HTTP/1.1 429 Too Many Requests\r\n\r\n"); socket.destroy(); } catch (e) {}
+      return;
+    }
+    wss.handleUpgrade(req, socket, head, (ws) => { ws._ip = ip; wss.emit("connection", ws, req); });
   } else {
     peerWss.handleUpgrade(req, socket, head, (ws) => peerWss.emit("connection", ws, req));
   }

@@ -419,17 +419,24 @@
   (function () {
     "use strict";
 
-    /* CONFIG — set SERVER_BASE only if the front-end is hosted on a DIFFERENT origin
-       than the Node server (e.g. front-end on Vercel, server on Render). Leave ""
-       when everything is served by the Node server. */
-    var SERVER_BASE = "https://watchmovietogether-j59u.onrender.com";   // Node server (signaling, control plane, chat, TURN creds, YT proxy)
+    /* CONFIG — where the Node server lives (signaling, control plane, chat, TURN
+       creds, YouTube proxy). Set REMOTE_BACKEND to your server's URL for when the
+       front-end is hosted on a DIFFERENT origin (e.g. front-end on Vercel, server
+       on Render). When the page is served by the Node server itself — locally or on
+       the backend's own host — we automatically use the same origin instead, so
+       local development never talks to production. */
+    var REMOTE_BACKEND = "https://watchmovietogether-j59u.onrender.com";
+    var servedByBackend = /(^|\.)onrender\.com$/i.test(location.hostname) ||
+                          location.hostname === "localhost" || location.hostname === "127.0.0.1";
+    var SERVER_BASE = servedByBackend ? "" : REMOTE_BACKEND;
     var hasYouTube  = false; // set from /config; YouTube search runs through the server, the key stays server-side
 
     var $ = function(id){ return document.getElementById(id); };
-    function httpBase(){ return SERVER_BASE || (location.origin); }
+    function httpBase(){ return SERVER_BASE || location.origin; }
     function rtUrl(){
-      if(SERVER_BASE){ return SERVER_BASE.replace(/^http/, "ws") + "/rt"; }
-      return (location.protocol==="https:"?"wss://":"ws://") + location.host + "/rt";
+      var base = SERVER_BASE ? SERVER_BASE.replace(/^http/, "ws")
+                             : (location.protocol === "https:" ? "wss://" : "ws://") + location.host;
+      return base + "/rt";
     }
 
     /* ===================== i18n (base) ===================== */
