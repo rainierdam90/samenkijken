@@ -18,3 +18,5 @@ services:
         value: "3600"
       - key: MAX_ROOM
         value: "8"
+      - key: YT_API_KEY
+        sync: false

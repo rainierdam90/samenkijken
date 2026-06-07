@@ -30,12 +30,18 @@ const { ExpressPeerServer } = require("peer");
 const PORT = process.env.PORT || 8080;
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "";
 const TURN_SECRET = process.env.TURN_SECRET || "";
-const TURN_URLS = (process.env.TURN_URLS || "").split(",").map(s => s.trim()).filter(Boolean);
+const TURN_URLS_RAW = (process.env.TURN_URLS || "").split(",").map(s => s.trim()).filter(Boolean);
+const TURN_URLS = TURN_URLS_RAW.filter(u => /^(turns?|stun):/i.test(u));
 const TURN_TTL = parseInt(process.env.TURN_TTL || "3600", 10);
 const MAX_ROOM = parseInt(process.env.MAX_ROOM || "8", 10);
 const CHAT_KEEP = parseInt(process.env.CHAT_KEEP || "300", 10);
+const YT_API_KEY = process.env.YT_API_KEY || "";   // YouTube Data API v3 key — stays server-side, never sent to the browser
 
 if (!ADMIN_PASSWORD) console.warn("[WARN] ADMIN_PASSWORD not set — the admin dashboard will refuse logins.");
+if (TURN_URLS_RAW.length && TURN_URLS.length < TURN_URLS_RAW.length) {
+  console.warn("[WARN] TURN_URLS has entries that are not turn:/turns:/stun: URLs and were ignored:",
+    TURN_URLS_RAW.filter(u => !/^(turns?|stun):/i.test(u)));
+}
 if (!TURN_SECRET || !TURN_URLS.length) console.warn("[WARN] TURN_SECRET / TURN_URLS not set — only public STUN will be offered (no relay fallback).");
 
 const app = express();
@@ -75,8 +81,28 @@ app.get("/config", (req, res) => {
     peerPath: "/peerjs",
     peerSecure: secure,
     maxRoom: MAX_ROOM,
-    hasTurn: !!(TURN_SECRET && TURN_URLS.length)
+    hasTurn: !!(TURN_SECRET && TURN_URLS.length),
+    hasYouTube: !!YT_API_KEY
   });
+});
+
+/* ---- YouTube search proxy: the API key stays on the server, never in the browser ---- */
+app.get("/yt-search", (req, res) => {
+  cors(req, res);
+  res.setHeader("Cache-Control", "no-store");
+  const q = (req.query.q || "").toString().slice(0, 200);
+  if (!YT_API_KEY) return res.json({ items: [], error: "no_key" });
+  if (!q) return res.json({ items: [] });
+  const url = "https://www.googleapis.com/youtube/v3/search?part=snippet&type=video&maxResults=18&q=" +
+    encodeURIComponent(q) + "&key=" + encodeURIComponent(YT_API_KEY);
+  fetch(url).then(r => r.json()).then(data => {
+    const items = (data.items || []).filter(it => it.id && it.id.videoId).map(it => ({
+      id: it.id.videoId,
+      title: (it.snippet && it.snippet.title) || it.id.videoId,
+      thumb: ((it.snippet && it.snippet.thumbnails && (it.snippet.thumbnails.medium || it.snippet.thumbnails.default)) || {}).url || ""
+    }));
+    res.json({ items });
+  }).catch(() => res.status(502).json({ items: [], error: "upstream" }));
 });
 
 app.get("/healthz", (req, res) => res.type("text").send("ok"));
