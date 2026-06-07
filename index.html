@@ -387,7 +387,7 @@
        than the Node server (e.g. front-end on Vercel, server on Render). Leave ""
        when everything is served by the Node server. */
     var SERVER_BASE = "";   // e.g. "https://watchmovietogether.onrender.com"
-    var YT_API_KEY  = "";   // YouTube Data API v3 key (see README); "" = open youtube.com fallback
+    var hasYouTube  = false; // set from /config; YouTube search runs through the server, the key stays server-side
 
     var $ = function(id){ return document.getElementById(id); };
     function httpBase(){ return SERVER_BASE || (location.origin); }
@@ -504,7 +504,7 @@
 
     function loadConfig(){
       return fetch(httpBase()+"/config").then(function(r){ return r.json(); }).then(function(c){
-        peerCfg={ host:c.peerHost||location.hostname, port:c.peerPort||443, path:c.peerPath||"/peerjs", secure:!!c.peerSecure };
+        peerCfg={ host:c.peerHost||location.hostname, port:c.peerPort||443, path:c.peerPath||"/peerjs", secure:!!c.peerSecure }; hasYouTube=!!c.hasYouTube;
       }).catch(function(){ /* same-origin defaults already set */ });
     }
     function loadTurn(){
@@ -790,7 +790,7 @@
     if($("langSelL")) $("langSelL").addEventListener("change", function(){ applyLang(this.value); });
 
     /* ===================== YouTube browse (only inside a room) ===================== */
-    function openYTB(){ if(!ytb) return; ytb.classList.add("show"); if(ytbMsg&&!ytbSearched) ytbMsg.textContent=(YT_API_KEY?tr("yt_hint"):tr("yt_nokey")); if(ytQuery) ytQuery.focus(); }
+    function openYTB(){ if(!ytb) return; ytb.classList.add("show"); if(ytbMsg&&!ytbSearched) ytbMsg.textContent=(hasYouTube?tr("yt_hint"):tr("yt_nokey")); if(ytQuery) ytQuery.focus(); }
     if(browseBtn) browseBtn.addEventListener("click", openYTB);
     if(ytbClose) ytbClose.addEventListener("click", function(){ ytb.classList.remove("show"); });
     if(ytOpen) ytOpen.addEventListener("click", function(){ window.open("https://www.youtube.com/","_blank","noopener"); });
@@ -798,20 +798,20 @@
     if(ytQuery) ytQuery.addEventListener("keydown", function(e){ if(e.key==="Enter") ytSearch(); });
     function ytSearch(){
       var q=(ytQuery.value||"").trim(); if(!q) return; ytbSearched=true;
-      if(!YT_API_KEY){ ytbGrid.innerHTML='<div class="ytb-msg">'+tr("yt_nokey")+'</div>'; return; }
+      if(!hasYouTube){ ytbGrid.innerHTML='<div class="ytb-msg">'+tr("yt_nokey")+'</div>'; return; }
       ytbGrid.innerHTML='<div class="ytb-msg">…</div>';
-      var url="https://www.googleapis.com/youtube/v3/search?part=snippet&type=video&maxResults=18&q="+encodeURIComponent(q)+"&key="+encodeURIComponent(YT_API_KEY);
-      fetch(url).then(function(r){ return r.json(); }).then(function(data){
-        if(!data||!data.items||!data.items.length){ ytbGrid.innerHTML='<div class="ytb-msg">'+tr("yt_none")+'</div>'; return; }
+      fetch(httpBase()+"/yt-search?q="+encodeURIComponent(q)).then(function(r){ return r.json(); }).then(function(data){
+        if(data&&data.error==="no_key"){ ytbGrid.innerHTML='<div class="ytb-msg">'+tr("yt_nokey")+'</div>'; return; }
+        var items=(data&&data.items)||[];
+        if(!items.length){ ytbGrid.innerHTML='<div class="ytb-msg">'+tr("yt_none")+'</div>'; return; }
         ytbGrid.innerHTML="";
-        data.items.forEach(function(it){
-          if(!it.id||!it.id.videoId) return;
-          var id=it.id.videoId, sn=it.snippet||{}; var thumb=(sn.thumbnails&&(sn.thumbnails.medium||sn.thumbnails.default)||{}).url||"";
+        items.forEach(function(it){
+          if(!it.id) return;
           var card=document.createElement("div"); card.className="yt-card";
-          var img=document.createElement("img"); img.src=thumb; img.alt=""; img.loading="lazy";
-          var t=document.createElement("div"); t.className="t"; t.textContent=sn.title||id;
+          var img=document.createElement("img"); img.src=it.thumb||""; img.alt=""; img.loading="lazy";
+          var t=document.createElement("div"); t.className="t"; t.textContent=it.title||it.id;
           card.appendChild(img); card.appendChild(t);
-          card.addEventListener("click", function(){ var vurl="https://www.youtube.com/watch?v="+id; urlInput.value=vurl; applyMedia("youtube",vurl,id); rtSend({ type:"video", mode:"youtube", url:vurl, id:id }); ytb.classList.remove("show"); });
+          card.addEventListener("click", function(){ var vurl="https://www.youtube.com/watch?v="+it.id; urlInput.value=vurl; applyMedia("youtube",vurl,it.id); rtSend({ type:"video", mode:"youtube", url:vurl, id:it.id }); ytb.classList.remove("show"); });
           ytbGrid.appendChild(card);
         });
       }).catch(function(){ ytbGrid.innerHTML='<div class="ytb-msg">'+tr("yt_none")+'</div>'; });
