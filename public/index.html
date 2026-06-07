@@ -239,6 +239,20 @@
   .cam.peer .who-badge.show{display:block}
   .roomcount{font-size:12px; color:var(--muted); white-space:nowrap}
 
+  /* shared gallery */
+  #galleryImg{position:absolute; inset:0; width:100%; height:100%; object-fit:contain; background:#000; display:none; z-index:2}
+  .sharebar{position:absolute; left:50%; transform:translateX(-50%); bottom:84px; z-index:40; display:none; align-items:center; gap:8px; max-width:94vw; padding:8px 10px; border-radius:14px; background:rgba(20,16,24,.92); border:1px solid var(--line); backdrop-filter:blur(10px); box-shadow:var(--shadow)}
+  .sharebar.show{display:flex}
+  .gstrip{display:flex; gap:6px; overflow-x:auto; max-width:58vw; padding:2px}
+  .gthumb{flex:0 0 auto; display:flex; align-items:center; gap:6px; padding:6px 9px; border-radius:9px; border:1px solid var(--line); background:var(--panel-2); color:var(--txt); font-size:12px; cursor:default; white-space:nowrap; max-width:170px; overflow:hidden; text-overflow:ellipsis}
+  .sharebar.presenter .gthumb{cursor:pointer}
+  .gthumb.cur{border-color:var(--amber); color:var(--amber-2)}
+  .gthumb .gi{opacity:.85; flex:0 0 auto}
+  .gnav{display:flex; gap:6px}
+  .gbtn{cursor:pointer; font-family:inherit; font-weight:700; font-size:16px; line-height:1; border-radius:9px; padding:7px 11px; border:1px solid var(--line); background:var(--panel-2); color:var(--txt)}
+  .sharebar .btn{padding:8px 12px; font-size:13px}
+  @media (max-width:760px){ .sharebar{bottom:74px; left:10px; right:10px; transform:none; max-width:none} .gstrip{max-width:none; flex:1} }
+
   /* stronger mobile support */
   @media (max-width:760px){
     .topbar{gap:9px; padding:10px 12px}
@@ -292,6 +306,8 @@
       </div>
     </div>
     <button class="btn ghost" id="browseBtn">&#9654; YouTube</button>
+    <button class="btn ghost" id="shareMediaBtn">&#128247; Share</button>
+    <input id="fileInput" type="file" accept="image/*,video/*" multiple style="display:none" />
     <select class="lang" id="langSel"></select>
     <div class="share">
       <div class="linkpill"><span class="lbl" id="shareLbl">Share link</span><span class="val" id="linkText">…</span></div>
@@ -301,6 +317,7 @@
 
   <main class="stage" id="stage">
     <video id="movie" playsinline controls controlsList="nofullscreen nodownload noremoteplayback" preload="metadata"></video>
+    <img id="galleryImg" alt="" />
     <div id="ytwrap"></div>
     <div id="framewrap"><iframe id="frame" allow="fullscreen; encrypted-media; picture-in-picture" allowfullscreen referrerpolicy="no-referrer-when-downgrade" sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox allow-presentation"></iframe></div>
 
@@ -344,6 +361,12 @@
       <button class="fbtn" id="chatBtn" title="Show/hide chat"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg></button>
       <button class="fbtn" id="fsBtn" title="Fullscreen"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M21 8V5a2 2 0 0 0-2-2h-3"/><path d="M3 16v3a2 2 0 0 0 2 2h3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/></svg></button>
       <button class="fbtn" id="dbgBtn" title="Connection diagnostics"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><line x1="12" y1="11" x2="12" y2="16"/><circle cx="12" cy="7.6" r="0.8" fill="currentColor" stroke="none"/></svg></button>
+    </div>
+
+    <div class="sharebar" id="sharebar">
+      <div class="gnav" id="gnav" style="display:none"><button class="gbtn" id="gPrev" title="Previous">&#8249;</button><button class="gbtn" id="gNext" title="Next">&#8250;</button></div>
+      <div class="gstrip" id="gstrip"></div>
+      <button class="btn" id="gStop" style="display:none">Stop</button>
     </div>
 
     <div class="cams" id="cams">
@@ -446,6 +469,18 @@
       ur:{name_ph:"آپ کا نام",join:"شامل ہوں",join_room:"روم میں شامل ہوں",or_code:"یا روم کوڈ سے شامل ہوں",room_code_ph:"روم کوڈ",need_name:"پہلے اپنا نام درج کریں۔",need_code:"روم کوڈ درج کریں۔",joining:"آپ مووی نائٹ میں شامل ہو رہے ہیں — اپنا نام درج کریں۔"}
     };
     Object.keys(EXTRA2).forEach(function(k){ if(I18N[k]) Object.keys(EXTRA2[k]).forEach(function(j){ I18N[k][j]=EXTRA2[k][j]; }); });
+
+    var EXTRA3 = {
+      en:{share_media:"Share photos/videos",stop_share:"Stop",someone_sharing:"is sharing photos & videos",sw_needed:"Your browser can't stream shared video here. Photos still work."},
+      nl:{share_media:"Foto's/video's delen",stop_share:"Stoppen",someone_sharing:"deelt foto's en video's",sw_needed:"Je browser kan gedeelde video hier niet streamen. Foto's werken wel."},
+      de:{share_media:"Fotos/Videos teilen",stop_share:"Stopp",someone_sharing:"teilt Fotos und Videos",sw_needed:"Dein Browser kann geteiltes Video hier nicht streamen. Fotos gehen."},
+      zh:{share_media:"分享照片/视频",stop_share:"停止",someone_sharing:"正在分享照片和视频",sw_needed:"你的浏览器无法在此播放共享视频。照片仍可用。"},
+      ja:{share_media:"写真/動画を共有",stop_share:"停止",someone_sharing:"が写真と動画を共有中",sw_needed:"このブラウザでは共有動画を再生できません。写真は使えます。"},
+      ko:{share_media:"사진/동영상 공유",stop_share:"중지",someone_sharing:"님이 사진과 동영상을 공유 중",sw_needed:"이 브라우저는 공유 동영상을 재생할 수 없습니다. 사진은 됩니다."},
+      hi:{share_media:"फ़ोटो/वीडियो साझा करें",stop_share:"रोकें",someone_sharing:"फ़ोटो और वीडियो साझा कर रहे हैं",sw_needed:"आपका ब्राउज़र साझा वीडियो यहाँ नहीं चला सकता। फ़ोटो चलती हैं।"},
+      ur:{share_media:"تصاویر/ویڈیوز شیئر کریں",stop_share:"روکیں",someone_sharing:"تصاویر اور ویڈیوز شیئر کر رہے ہیں",sw_needed:"آپ کا براؤزر یہاں شیئر کردہ ویڈیو نہیں چلا سکتا۔ تصاویر چلتی ہیں۔"}
+    };
+    Object.keys(EXTRA3).forEach(function(k){ if(I18N[k]) Object.keys(EXTRA3[k]).forEach(function(j){ I18N[k][j]=EXTRA3[k][j]; }); });
     var landingMode="home";
 
     var lang = (function(){ try{ return localStorage.getItem("wmt_lang")||"en"; }catch(e){ return "en"; } })();
@@ -469,6 +504,7 @@
       setText("cdTitle",tr("cd_title")); setText("cdHint",tr("cd_hint")); if(!cdBusy) setText("cdBtn",tr("cd_btn")); setText("openTab",tr("open_tab"));
       setText("playgateTxt",tr("playgate")); setText("volLbl",tr("vol")); setText("duckLbl",tr("duck_lbl")); setText("pvLbl",tr("their_vol"));
       setTitle("micBtn",tr("t_mic")); setTitle("camBtn",tr("t_cam")); setTitle("volBtn",tr("vol")); setTitle("chatBtn",tr("t_chat")); setTitle("fsBtn",tr("t_fs")); setTitle("dbgBtn",tr("t_diag")); setTitle("browseBtn",tr("t_browse"));
+      setText("shareMediaBtn","\uD83D\uDCF7 "+tr("share_media")); setTitle("shareMediaBtn",tr("share_media")); setText("gStop",tr("stop_share"));
       setText("ytbTitle",tr("yt_title")); setPh("ytQuery",tr("yt_ph")); setText("ytSearchBtn",tr("yt_search")); setText("ytOpen",tr("open_yt")); if($("ytbMsg")&&!ytbSearched) $("ytbMsg").textContent=tr("yt_hint");
       updateShareLinks();
     }
@@ -545,6 +581,7 @@
       peer=new Peer(myPeerId, { host:peerCfg.host, port:peerCfg.port, path:peerCfg.path, secure:peerCfg.secure, debug:1, config:{ iceServers:ICE_SERVERS } });
       peer.on("open", function(){ dbg(); connectRT(); });
       peer.on("call", function(call){ try{ call.answer(localStream||new MediaStream()); }catch(e){} wireCall(call); });
+      peer.on("connection", function(conn){ wireData(conn); });
       peer.on("disconnected", function(){ try{ peer.reconnect(); }catch(e){} });
       peer.on("error", function(err){ var t=err&&err.type; if(t==="peer-unavailable"){ /* peer left mid-call */ } else if(t==="unavailable-id"){ myPeerId="p"+rand5()+rand5(); } else { console.warn("peer error",t); if(t==="network"||t==="server-error") toast("The connection server is hiccuping. Give it a moment.",7000); } });
     }
@@ -600,6 +637,7 @@
     }
     function rtSend(o){ if(rt&&rt.readyState===1){ try{ rt.send(JSON.stringify(o)); }catch(e){} } }
     function handleRT(m){
+      if(galleryRT(m)) return;
       switch(m.type){
         case "full": showRoomFull(); break;
         case "roster":
@@ -650,9 +688,10 @@
     var mode="none", currentMedia=null, pending=null, closing=false;
     function detectMedia(url){ var yt=parseYouTube(url); if(yt) return { mode:"youtube", id:yt, url:url }; var clean=url.split("#")[0].split("?")[0]; if(/\.(mp4|webm|ogg|ogv|m4v|mov)$/i.test(clean)) return { mode:"file", url:url }; return { mode:"embed", url:url }; }
     function parseYouTube(url){ try{ var u=new URL(url), h=u.hostname.replace(/^www\./,""); if(h==="youtu.be") return u.pathname.slice(1).split("/")[0]||null; if(h==="youtube.com"||h==="m.youtube.com"||h==="youtube-nocookie.com"){ if(u.pathname==="/watch") return u.searchParams.get("v"); var m=u.pathname.match(/^\/(embed|shorts|v|live)\/([^\/?#]+)/); if(m) return m[2]; } }catch(e){} return null; }
-    function clearPlayers(){ try{ movie.pause(); }catch(e){} try{ movie.removeAttribute("src"); movie.load(); }catch(e){} movie.style.display="none"; if(ytPlayer){ try{ ytPlayer.destroy(); }catch(e){} ytPlayer=null; } ytwrap.style.display="none"; ytwrap.innerHTML=""; try{ frame.src="about:blank"; }catch(e){} framewrap.style.display="none"; playgate.hidden=true; pending=null; }
+    function clearPlayers(){ try{ movie.pause(); }catch(e){} try{ movie.removeAttribute("src"); movie.load(); }catch(e){} movie.style.display="none"; if(galleryImg) galleryImg.style.display="none"; if(ytPlayer){ try{ ytPlayer.destroy(); }catch(e){} ytPlayer=null; } ytwrap.style.display="none"; ytwrap.innerHTML=""; try{ frame.src="about:blank"; }catch(e){} framewrap.style.display="none"; playgate.hidden=true; pending=null; }
     function setEmbedUI(on){ cdwidget.hidden=!on; if(!on){ clearInterval(cdTimer); cdNum.textContent="\u25B6"; cdNum.classList.remove("go"); cdBtn.disabled=false; cdBusy=false; } }
     function applyMedia(m,url,id){
+      if(gallery){ if(amPresenter()) stopSharing(); else { gallery=null; closeGalleryUI(); } }
       clearPlayers(); ducked=false; mode=m; currentMedia={ mode:m, url:url, id:id }; placeholder.style.display="none";
       if(m==="file"){ setEmbedUI(false); movie.style.display="block"; movie.src=url; movie.load(); }
       else if(m==="youtube"){ setEmbedUI(false); ytwrap.style.display="block"; loadYouTube(id); }
@@ -852,6 +891,115 @@
       el.addEventListener("pointerup", stop); el.addEventListener("pointercancel", stop);
     })(cams);
 
+    /* ===================== Shared gallery (photos/videos), peer-to-peer ===================== */
+    var galleryImg=$("galleryImg"), sharebar=$("sharebar"), gstrip=$("gstrip"), gnav=$("gnav"), gPrev=$("gPrev"), gNext=$("gNext"), gStop=$("gStop"), fileInput=$("fileInput"), shareMediaBtn=$("shareMediaBtn");
+    var dconns={}, dpending={}, dReqId=1, swReg=false, swControlled=false;
+    var myFiles={}, localURLs={}, gallery=null;   // gallery = { presenter, items:[{fileId,name,type,size,mime}], current }
+
+    function toArrayBuffer(x){ if(!x) return new ArrayBuffer(0); if(x instanceof ArrayBuffer) return x; if(x.buffer && x.byteLength!=null){ return x.buffer.slice(x.byteOffset||0,(x.byteOffset||0)+x.byteLength); } return x; }
+
+    function wireData(conn){
+      dconns[conn.peer]=conn;
+      conn.on("data", function(d){ onData(conn.peer,d); });
+      conn.on("close", function(){ if(dconns[conn.peer]===conn) delete dconns[conn.peer]; });
+      conn.on("error", function(){});
+    }
+    function ensureData(pid){ var c=dconns[pid]; if(!c||c.disconnected){ try{ c=peer.connect(pid,{reliable:true}); }catch(e){ return null; } if(c) wireData(c); } return c; }
+    function dsend(pid,obj){ var c=ensureData(pid); if(!c) return; if(c.open){ try{ c.send(obj); }catch(e){} } else { c.on("open", function(){ try{ c.send(obj); }catch(e){} }); } }
+    function onData(pid,d){
+      if(!d||typeof d!=="object") return;
+      if(d.t==="range-req"){
+        var f=myFiles[d.fileId];
+        if(!f){ dsend(pid,{t:"range-data",reqId:d.reqId,err:true}); return; }
+        var end=Math.min(d.end, f.size-1); if(end<d.start){ dsend(pid,{t:"range-data",reqId:d.reqId,buf:new ArrayBuffer(0)}); return; }
+        f.slice(d.start,end+1).arrayBuffer().then(function(buf){ var c=dconns[pid]; if(c&&c.open){ try{ c.send({t:"range-data",reqId:d.reqId,buf:buf}); }catch(e){} } });
+        return;
+      }
+      if(d.t==="range-data"){ var p=dpending[d.reqId]; if(p){ clearTimeout(p.to); delete dpending[d.reqId]; if(d.err) p.reject(new Error("noent")); else p.resolve(toArrayBuffer(d.buf)); } return; }
+    }
+    function fetchRange(fileId,start,end){
+      return new Promise(function(resolve,reject){
+        if(!gallery||!gallery.presenter||gallery.presenter===myPeerId){ reject(new Error("no-presenter")); return; }
+        var reqId=dReqId++; dpending[reqId]={resolve:resolve,reject:reject,to:setTimeout(function(){ delete dpending[reqId]; reject(new Error("timeout")); },25000)};
+        dsend(gallery.presenter,{t:"range-req",reqId:reqId,fileId:fileId,start:start,end:end});
+      });
+    }
+
+    function initSW(){
+      if(!("serviceWorker" in navigator)) return;
+      navigator.serviceWorker.register("/sw.js").then(function(){ swReg=true; return navigator.serviceWorker.ready; }).then(function(){ swControlled=!!navigator.serviceWorker.controller; }).catch(function(){ swReg=false; });
+      navigator.serviceWorker.addEventListener("message", function(ev){
+        var d=ev.data; if(!d||d.type!=="range") return; var port=ev.ports&&ev.ports[0];
+        fetchRange(d.fileId,d.start,d.end).then(function(buf){ var ab=toArrayBuffer(buf); if(port) port.postMessage({ok:true,buf:ab},[ab]); }).catch(function(){ if(port) port.postMessage({ok:false}); });
+      });
+      navigator.serviceWorker.addEventListener("controllerchange", function(){ swControlled=!!navigator.serviceWorker.controller; });
+    }
+    function swRegisterFile(it){ try{ if(navigator.serviceWorker && navigator.serviceWorker.controller) navigator.serviceWorker.controller.postMessage({type:"register",fileId:it.fileId,size:it.size,mime:it.mime||""}); }catch(e){} }
+
+    function amPresenter(){ return !!(gallery && gallery.presenter===myPeerId); }
+    function showImage(url){ clearPlayers(); mode="gallery-image"; currentMedia=null; placeholder.style.display="none"; if(galleryImg){ galleryImg.src=url; galleryImg.style.display="block"; } }
+    function showVideoSrc(url){ clearPlayers(); mode="file"; currentMedia={mode:"file",url:url}; placeholder.style.display="none"; movie.style.display="block"; try{ movie.src=url; movie.load(); }catch(e){} }
+    function showGalleryItem(fileId){
+      if(!gallery) return; var it=null, i;
+      for(i=0;i<gallery.items.length;i++){ if(gallery.items[i].fileId===fileId){ it=gallery.items[i]; break; } }
+      if(!it) return; gallery.current=fileId;
+      var url = amPresenter() ? localURLs[fileId] : ("/wmt-stream/"+encodeURIComponent(fileId));
+      if(!amPresenter()){ if(it.type==="video" && !swControlled) toast(tr("sw_needed"),8000); swRegisterFile(it); }
+      if(it.type==="image") showImage(url); else showVideoSrc(url);
+      renderStrip();
+    }
+    function renderStrip(){
+      if(!gstrip) return; gstrip.innerHTML="";
+      if(!gallery) return;
+      gallery.items.forEach(function(it){
+        var d=document.createElement("div"); d.className="gthumb"+(gallery.current===it.fileId?" cur":"");
+        var ic=document.createElement("span"); ic.className="gi"; ic.textContent=(it.type==="image")?"\uD83D\uDDBC":"\uD83C\uDFAC"; d.appendChild(ic);
+        var s=document.createElement("span"); s.textContent=it.name||it.fileId; s.style.overflow="hidden"; s.style.textOverflow="ellipsis"; d.appendChild(s);
+        if(amPresenter()) d.addEventListener("click", function(){ presenterShow(it.fileId); });
+        gstrip.appendChild(d);
+      });
+    }
+    function openGalleryUI(){ if(sharebar){ sharebar.classList.add("show"); sharebar.classList.toggle("presenter", amPresenter()); } if(gnav) gnav.style.display=amPresenter()?"flex":"none"; if(gStop) gStop.style.display=amPresenter()?"":"none"; renderStrip(); }
+    function closeGalleryUI(){ if(sharebar) sharebar.classList.remove("show"); }
+
+    function presenterShow(fileId){ if(!amPresenter()) return; showGalleryItem(fileId); rtSend({type:"gallery-show",fileId:fileId}); }
+    function presenterStep(dir){ if(!gallery||!gallery.items.length) return; var idx=0,i; for(i=0;i<gallery.items.length;i++){ if(gallery.items[i].fileId===gallery.current){ idx=i; break; } } idx=(idx+dir+gallery.items.length)%gallery.items.length; presenterShow(gallery.items[idx].fileId); }
+    function startSharing(files){
+      if(!files||!files.length) return;
+      var items=[], i;
+      for(i=0;i<files.length;i++){ var f=files[i]; var id="f"+rand5()+rand5(); myFiles[id]=f; try{ localURLs[id]=URL.createObjectURL(f); }catch(e){} items.push({fileId:id,name:(f.name||id).slice(0,120),type:(f.type&&f.type.indexOf("image/")===0)?"image":"video",size:f.size,mime:f.type||""}); }
+      gallery={presenter:myPeerId, items:items, current:items[0].fileId};
+      rtSend({type:"gallery", presenter:myPeerId, items:items, current:items[0].fileId});
+      openGalleryUI(); showGalleryItem(items[0].fileId);
+      toast(items.length+(items.length===1?" item":" items")+" shared. Others can now watch along.",6000);
+    }
+    function stopSharing(){ if(!amPresenter()) return; rtSend({type:"gallery-clear"}); teardownGallery(); }
+    function teardownGallery(){
+      Object.keys(localURLs).forEach(function(id){ try{ URL.revokeObjectURL(localURLs[id]); }catch(e){} });
+      localURLs={}; myFiles={}; gallery=null; closeGalleryUI();
+      if(galleryImg){ galleryImg.style.display="none"; try{ galleryImg.removeAttribute("src"); }catch(e){} }
+      if(mode==="gallery-image"){ clearPlayers(); placeholder.style.display=""; mode="none"; }
+    }
+    function galleryRT(m){
+      if(m.type==="gallery"){
+        if(m.presenter===myPeerId) return true;
+        gallery={presenter:m.presenter, items:(m.items||[]), current:m.current||((m.items&&m.items[0])?m.items[0].fileId:null)};
+        ensureData(m.presenter);
+        var who=(peers[m.presenter]&&peers[m.presenter].name)||tr("others");
+        toast(who+" "+tr("someone_sharing")+".",6000);
+        openGalleryUI(); if(gallery.current) showGalleryItem(gallery.current);
+        return true;
+      }
+      if(m.type==="gallery-show"){ if(!gallery) return true; showGalleryItem(m.fileId); return true; }
+      if(m.type==="gallery-clear"){ if(!amPresenter()){ gallery=null; closeGalleryUI(); if(galleryImg){ galleryImg.style.display="none"; try{ galleryImg.removeAttribute("src"); }catch(e){} } if(mode==="gallery-image"){ clearPlayers(); placeholder.style.display=""; mode="none"; } } return true; }
+      return false;
+    }
+    if(shareMediaBtn) shareMediaBtn.addEventListener("click", function(){ if(fileInput) fileInput.click(); });
+    if(fileInput) fileInput.addEventListener("change", function(){ startSharing(fileInput.files); try{ fileInput.value=""; }catch(e){} });
+    if(gPrev) gPrev.addEventListener("click", function(){ presenterStep(-1); });
+    if(gNext) gNext.addEventListener("click", function(){ presenterStep(1); });
+    if(gStop) gStop.addEventListener("click", stopSharing);
+
     function showRoomFull(){
       try{ if(peer) peer.destroy(); }catch(e){} try{ if(rt) rt.close(); }catch(e){}
       clearPlayers(); placeholder.style.display="";
@@ -860,7 +1008,7 @@
 
     /* ===================== Boot / landing ===================== */
     function boot(){
-      initRoom();
+      initRoom(); initSW();
       if(!window.isSecureContext&&location.hostname!=="localhost"&&location.hostname!=="127.0.0.1") toast("Open this via the hosted https link. Camera/mic only work on https.",9000);
       loadConfig().then(loadTurn).then(setupMedia).then(function(){
         diag.localV=localStream?localStream.getVideoTracks().length:0; diag.localA=localStream?localStream.getAudioTracks().length:0;

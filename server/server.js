@@ -172,6 +172,7 @@ function leaveRoom(ws) {
     const me = r.members.get(ws);
     r.members.delete(ws);
     if (me) broadcastRoom(r, { type: "peer-left", peerId: me.peerId, name: me.name });
+    if (me && r.gallery && r.gallery.presenter === me.peerId) { r.gallery = null; broadcastRoom(r, { type: "gallery-clear" }); }
     r.lastActivity = Date.now();
     if (r.members.size === 0 && r.chat.length === 0) rooms.delete(ws._room);
   }
@@ -220,6 +221,7 @@ wss.on("connection", (ws) => {
       // tell the joiner who is already here; tell others someone joined
       sendJSON(ws, { type: "roster", you: { peerId: ws._peerId, name: ws._name }, peers: rosterArr(r) });
       broadcastRoom(r, { type: "peer-joined", peerId: ws._peerId, name: ws._name }, ws);
+      if (r.gallery && r.gallery.items.length) sendJSON(ws, { type: "gallery", presenter: r.gallery.presenter, items: r.gallery.items, current: r.gallery.current });
       pushStats();
       return;
     }
@@ -253,6 +255,23 @@ wss.on("connection", (ws) => {
     }
     if (m.type === MSG.VIDEO) {
       broadcastRoom(r, { type: "video", from: ws._peerId, mode: m.mode, url: m.url, id: m.id }, ws);
+      return;
+    }
+
+    /* ---- shared gallery (photos/videos): only control state is relayed; the bytes go peer-to-peer ---- */
+    if (m.type === "gallery") {
+      r.gallery = { presenter: ws._peerId, items: Array.isArray(m.items) ? m.items.slice(0, 300) : [], current: m.current || null };
+      broadcastRoom(r, { type: "gallery", presenter: ws._peerId, items: r.gallery.items, current: r.gallery.current }, ws);
+      return;
+    }
+    if (m.type === "gallery-show") {
+      if (r.gallery) r.gallery.current = m.fileId;
+      broadcastRoom(r, { type: "gallery-show", fileId: m.fileId }, ws);
+      return;
+    }
+    if (m.type === "gallery-clear") {
+      if (r.gallery && r.gallery.presenter === ws._peerId) r.gallery = null;
+      broadcastRoom(r, { type: "gallery-clear" }, ws);
       return;
     }
   });

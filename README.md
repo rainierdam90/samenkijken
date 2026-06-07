@@ -131,6 +131,44 @@ Browser-side keys are always visible in page source — restriction (not secrecy
 is the protection. Without a key, the button just opens youtube.com so people can
 copy a link.
 
+## Sharing photos & videos from your device (peer-to-peer)
+
+Inside a room, tap **📷 Share** to pick photos/videos from your phone or computer.
+Nothing is uploaded to any server — the picker just reads local files. You become
+the **presenter**: pick an item with the ‹ › buttons (or tap a thumbnail) and
+everyone in the room sees it. For videos, the existing play/pause/seek stays in
+sync.
+
+**How it works (so you understand the limits):** the bytes travel peer-to-peer.
+Photos are small and sent whole. **Videos stream on demand** — a Service Worker
+(`public/sw.js`) plays the video from a virtual URL and pulls only the chunks
+currently being watched from the presenter's device, so long films work without
+filling anyone's memory and seeking works. The server never sees these files.
+
+**Deployment requirement:** `sw.js` must be served from the **root of the
+front-end origin** (same site as the page), as JavaScript. If you host the
+front-end on Render it's already there. If you host it elsewhere (e.g. the static
+site on `watchmovietogether.com`), make sure `sw.js` is deployed at
+`https://watchmovietogether.com/sw.js`.
+
+**Honest limits — please read before relying on it:**
+- **Codecs.** A video only plays if the viewer's browser can decode it. **H.264
+  MP4 plays almost everywhere.** iPhone-native **HEVC/H.265** often will *not*
+  play on other devices, and there is no in-browser transcoding. For reliable
+  sharing, use H.264 MP4.
+- **The presenter does the uploading.** Each viewer pulls the bytes they watch
+  from the presenter (mesh). A long film to several viewers is heavy on the
+  presenter's connection — **put the presenter on Wi-Fi**, not mobile data, for
+  big videos. This does not scale to large audiences (that needs an SFU/CDN).
+- **iOS as a viewer of streamed video is the least reliable** (Safari + Service
+  Worker media quirks). Photos are fine on iOS; desktop/Android are the most
+  reliable for streamed video. Test your exact devices.
+- **The presenter must stay in the room.** If they leave, sharing stops for
+  everyone.
+- **Not moderatable.** Like the webcams, these files are pure peer-to-peer and
+  never reach your server, so the admin dashboard cannot see them (see
+  `SECURITY.md`).
+
 ## Split hosting (static front-end elsewhere)
 
 If you host `public/` on Vercel/Netlify and the Node server on Render, open

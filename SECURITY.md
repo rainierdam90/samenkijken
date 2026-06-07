@@ -15,6 +15,7 @@ What is and isn't visible to you/the server:
 |------|------|--------------------|
 | Webcam video | peer-to-peer (WebRTC) | **No** — end-to-end encrypted |
 | Microphone audio | peer-to-peer (WebRTC) | **No** — end-to-end encrypted |
+| Shared photos/videos (📷 Share) | peer-to-peer (data channel) | **No** — never reach the server |
 | Chat messages | relayed via `/rt` | **Yes** — stored + shown in `/admin` |
 | Room code | sent to `/rt` to group people | Yes |
 | Which video is loaded | relayed via `/rt` | Yes |
