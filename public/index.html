@@ -386,7 +386,7 @@
     /* CONFIG — set SERVER_BASE only if the front-end is hosted on a DIFFERENT origin
        than the Node server (e.g. front-end on Vercel, server on Render). Leave ""
        when everything is served by the Node server. */
-    var SERVER_BASE = "";   // e.g. "https://watchmovietogether.onrender.com"
+    var SERVER_BASE = "https://watchmovietogether-j59u.onrender.com";   // Node server (signaling, control plane, chat, TURN creds, YT proxy)
     var hasYouTube  = false; // set from /config; YouTube search runs through the server, the key stays server-side
 
     var $ = function(id){ return document.getElementById(id); };

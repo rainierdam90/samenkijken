@@ -90,7 +90,7 @@
 (function(){
   "use strict";
   var $=function(id){ return document.getElementById(id); };
-  var SERVER_BASE=""; // set to your server origin if admin page is hosted elsewhere
+  var SERVER_BASE="https://watchmovietogether-j59u.onrender.com"; // Node server origin (works whether this page is hosted on Render or elsewhere)
   function rtUrl(){ if(SERVER_BASE) return SERVER_BASE.replace(/^http/,"ws")+"/rt"; return (location.protocol==="https:"?"wss://":"ws://")+location.host+"/rt"; }
 
   var ws=null, pw="", watching=null, rooms=[];
