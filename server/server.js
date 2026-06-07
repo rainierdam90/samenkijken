@@ -36,13 +36,16 @@ const TURN_TTL = parseInt(process.env.TURN_TTL || "3600", 10);
 const MAX_ROOM = parseInt(process.env.MAX_ROOM || "8", 10);
 const CHAT_KEEP = parseInt(process.env.CHAT_KEEP || "300", 10);
 const YT_API_KEY = process.env.YT_API_KEY || "";   // YouTube Data API v3 key — stays server-side, never sent to the browser
+const TURN_USERNAME = process.env.TURN_USERNAME || "";     // static TURN username (managed providers, e.g. Metered/Twilio)
+const TURN_CREDENTIAL = process.env.TURN_CREDENTIAL || ""; // static TURN credential/password
+const HAS_TURN = !!(TURN_URLS.length && (TURN_SECRET || (TURN_USERNAME && TURN_CREDENTIAL)));
 
 if (!ADMIN_PASSWORD) console.warn("[WARN] ADMIN_PASSWORD not set — the admin dashboard will refuse logins.");
 if (TURN_URLS_RAW.length && TURN_URLS.length < TURN_URLS_RAW.length) {
   console.warn("[WARN] TURN_URLS has entries that are not turn:/turns:/stun: URLs and were ignored:",
     TURN_URLS_RAW.filter(u => !/^(turns?|stun):/i.test(u)));
 }
-if (!TURN_SECRET || !TURN_URLS.length) console.warn("[WARN] TURN_SECRET / TURN_URLS not set — only public STUN will be offered (no relay fallback).");
+if (!HAS_TURN) console.warn("[WARN] No usable TURN (need TURN_URLS plus either TURN_SECRET or TURN_USERNAME+TURN_CREDENTIAL) — only public STUN offered; cross-network calls may fail.");
 
 const app = express();
 app.disable("x-powered-by");
@@ -58,11 +61,19 @@ function cors(req, res) {
 /* ---- short-lived TURN credentials (coturn "use-auth-secret" REST scheme) ---- */
 function makeTurnCredentials() {
   const stun = [{ urls: "stun:stun.l.google.com:19302" }, { urls: "stun:stun1.l.google.com:19302" }];
-  if (!TURN_SECRET || !TURN_URLS.length) return stun;
-  const expiry = Math.floor(Date.now() / 1000) + TURN_TTL;
-  const username = expiry + ":" + crypto.randomBytes(6).toString("hex");
-  const credential = crypto.createHmac("sha1", TURN_SECRET).update(username).digest("base64");
-  return stun.concat([{ urls: TURN_URLS, username, credential }]);
+  if (!TURN_URLS.length) return stun;
+  // Managed providers (Metered/Twilio/etc.) usually give a fixed username + credential.
+  if (TURN_USERNAME && TURN_CREDENTIAL) {
+    return stun.concat([{ urls: TURN_URLS, username: TURN_USERNAME, credential: TURN_CREDENTIAL }]);
+  }
+  // Your own coturn with "use-auth-secret": mint a short-lived HMAC credential.
+  if (TURN_SECRET) {
+    const expiry = Math.floor(Date.now() / 1000) + TURN_TTL;
+    const username = expiry + ":" + crypto.randomBytes(6).toString("hex");
+    const credential = crypto.createHmac("sha1", TURN_SECRET).update(username).digest("base64");
+    return stun.concat([{ urls: TURN_URLS, username, credential }]);
+  }
+  return stun;
 }
 
 app.get("/turn-credentials", (req, res) => {
@@ -81,7 +92,7 @@ app.get("/config", (req, res) => {
     peerPath: "/peerjs",
     peerSecure: secure,
     maxRoom: MAX_ROOM,
-    hasTurn: !!(TURN_SECRET && TURN_URLS.length),
+    hasTurn: HAS_TURN,
     hasYouTube: !!YT_API_KEY
   });
 });

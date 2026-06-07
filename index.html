@@ -226,6 +226,12 @@
   .l-name{margin:2px auto 20px; max-width:300px; width:100%}
   .l-name input{width:100%; background:var(--panel); border:1px solid var(--line); color:var(--txt); border-radius:11px; padding:12px 14px; font-size:15px; font-family:inherit; text-align:center}
   .l-name input:focus{outline:none; border-color:rgba(244,177,74,.7)}
+  .l-join{margin:2px auto 0; max-width:300px; width:100%}
+  .l-or{display:block; font-size:12.5px; color:var(--muted); margin:2px 0 10px}
+  .l-joinrow{display:flex; gap:8px}
+  .l-joinrow input{flex:1; min-width:0; background:var(--panel); border:1px solid var(--line); color:var(--txt); border-radius:11px; padding:11px 13px; font-size:14px; font-family:inherit; text-align:center}
+  .l-joinrow input:focus{outline:none; border-color:rgba(244,177,74,.7)}
+  .l-joinrow .btn{white-space:nowrap}
 
   /* chat moderation notice + active-speaker badge */
   .chat-notice{font-size:11px; color:#8a7f76; padding:7px 14px; border-bottom:1px solid var(--line); background:rgba(244,177,74,.05); line-height:1.4}
@@ -263,8 +269,15 @@
     <div class="l-brand"><span class="bulb"></span><b>WatchMovie<i>Together</i></b></div>
     <h1 id="ld_tagline">Watch any movie together — in sync, face to face.</h1>
     <p class="sub" id="ld_sub">Create a private room, share the link, and press play in perfect sync — while you see and hear each other.</p>
-    <div class="l-name"><input id="ld_name" type="text" maxlength="40" placeholder="Your name (optional)" /></div>
-    <div class="l-actions"><button class="btn primary" id="ld_create">Create a room</button></div>
+    <div class="l-name"><input id="ld_name" type="text" maxlength="40" placeholder="Your name" /></div>
+    <div class="l-actions">
+      <button class="btn primary" id="ld_create">Create a room</button>
+      <button class="btn primary" id="ld_joinbtn" style="display:none">Join room</button>
+    </div>
+    <div class="l-join" id="ld_join_block">
+      <span class="l-or" id="ld_or">or join with a room code</span>
+      <div class="l-joinrow"><input id="ld_code" type="text" maxlength="40" placeholder="Room code" /><button class="btn" id="ld_join">Join</button></div>
+    </div>
     <div class="l-got" id="ld_got">Already have a link? Just open it to join.</div>
     <div class="l-foot" id="ld_foot">Video and audio are end-to-end encrypted peer-to-peer. Chat is relayed by the server and may be moderated.</div>
   </div>
@@ -422,6 +435,19 @@
     };
     Object.keys(EXTRA).forEach(function(k){ if(I18N[k]) Object.keys(EXTRA[k]).forEach(function(j){ I18N[k][j]=EXTRA[k][j]; }); });
 
+    var EXTRA2 = {
+      en:{name_ph:"Your name",join:"Join",join_room:"Join room",or_code:"or join with a room code",room_code_ph:"Room code",need_name:"Please enter your name first.",need_code:"Enter a room code.",joining:"You're joining a movie night — add your name to continue."},
+      nl:{name_ph:"Je naam",join:"Deelnemen",join_room:"Deelnemen",or_code:"of doe mee met een roomcode",room_code_ph:"Roomcode",need_name:"Vul eerst je naam in.",need_code:"Vul een roomcode in.",joining:"Je doet mee aan een filmavond — vul je naam in om door te gaan."},
+      de:{name_ph:"Dein Name",join:"Beitreten",join_room:"Beitreten",or_code:"oder mit Raumcode beitreten",room_code_ph:"Raumcode",need_name:"Bitte zuerst deinen Namen eingeben.",need_code:"Gib einen Raumcode ein.",joining:"Du trittst einem Filmabend bei — gib deinen Namen ein."},
+      zh:{name_ph:"你的名字",join:"加入",join_room:"加入房间",or_code:"或用房间代码加入",room_code_ph:"房间代码",need_name:"请先输入你的名字。",need_code:"请输入房间代码。",joining:"你正在加入观影之夜——请输入名字以继续。"},
+      ja:{name_ph:"あなたの名前",join:"参加",join_room:"参加する",or_code:"またはルームコードで参加",room_code_ph:"ルームコード",need_name:"先に名前を入力してください。",need_code:"ルームコードを入力してください。",joining:"映画ナイトに参加します — 名前を入力してください。"},
+      ko:{name_ph:"이름",join:"참여",join_room:"방 참여",or_code:"또는 방 코드로 참여",room_code_ph:"방 코드",need_name:"먼저 이름을 입력하세요.",need_code:"방 코드를 입력하세요.",joining:"무비 나이트에 참여합니다 — 이름을 입력하세요."},
+      hi:{name_ph:"आपका नाम",join:"शामिल हों",join_room:"रूम में शामिल हों",or_code:"या रूम कोड से शामिल हों",room_code_ph:"रूम कोड",need_name:"पहले अपना नाम भरें।",need_code:"रूम कोड डालें।",joining:"आप मूवी नाइट में शामिल हो रहे हैं — अपना नाम भरें।"},
+      ur:{name_ph:"آپ کا نام",join:"شامل ہوں",join_room:"روم میں شامل ہوں",or_code:"یا روم کوڈ سے شامل ہوں",room_code_ph:"روم کوڈ",need_name:"پہلے اپنا نام درج کریں۔",need_code:"روم کوڈ درج کریں۔",joining:"آپ مووی نائٹ میں شامل ہو رہے ہیں — اپنا نام درج کریں۔"}
+    };
+    Object.keys(EXTRA2).forEach(function(k){ if(I18N[k]) Object.keys(EXTRA2[k]).forEach(function(j){ I18N[k][j]=EXTRA2[k][j]; }); });
+    var landingMode="home";
+
     var lang = (function(){ try{ return localStorage.getItem("wmt_lang")||"en"; }catch(e){ return "en"; } })();
     if(!I18N[lang]) lang="en";
     function tr(k){ return (I18N[lang]&&I18N[lang][k]) || I18N.en[k] || k; }
@@ -434,7 +460,7 @@
       if(code){ lang=I18N[code]?code:"en"; try{ localStorage.setItem("wmt_lang",lang); }catch(e){} }
       document.documentElement.lang=lang; document.documentElement.dir=(lang==="ur")?"rtl":"ltr";
       if($("langSel")) $("langSel").value=lang; if($("langSelL")) $("langSelL").value=lang;
-      setText("ld_tagline",tr("tagline")); setText("ld_sub",tr("sub")); setText("ld_create",tr("create")); setText("ld_got",tr("got")); setPh("ld_name",tr("name_ph"));
+      setText("ld_tagline",tr("tagline")); setText("ld_sub",tr("sub")); setText("ld_create",tr("create")); setText("ld_joinbtn",tr("join_room")); setText("ld_join",tr("join")); setText("ld_or",tr("or_code")); setPh("ld_code",tr("room_code_ph")); setText("ld_got", landingMode==="join"?tr("joining"):tr("got")); setPh("ld_name",tr("name_ph"));
       setText("loadBtn",tr("load")); setPh("urlInput",tr("url_ph")); setText("shareLbl",tr("share")); setText("browseBtn","\u25B6 "+tr("browse")); if(!copyBusy) setText("copyBtn",tr("copy"));
       setText("ph_kicker",tr("ph_kicker")); setText("ph_title",tr("ph_title")); setText("ph_roomlbl",tr("room_code")); setText("ph_note",tr("ph_note"));
       setText("ph_sharehint",tr("share_hint")); setText("shareWaTxt",tr("wa")); setText("shareMailTxt",tr("email")); if(!shareCopyBusy) setText("shareCopyTxt",tr("copy_s"));
@@ -842,19 +868,33 @@
         startVAD(); startPeer();
       });
     }
-    function enterRoom(){
-      var nm=(ldName&&ldName.value||"").trim(); if(nm){ myName=nm.slice(0,40); try{ localStorage.setItem("wmt_name",myName); }catch(e){} }
-      if(!roomCode){ roomCode=rand5()+rand5(); params.set("room",roomCode); history.replaceState(null,"",location.pathname+"?"+params.toString()); }
-      if(landing) landing.classList.remove("show"); boot();
+    function requireName(){ var nm=(ldName&&ldName.value||"").trim(); if(!nm){ toast(tr("need_name")); if(ldName) ldName.focus(); return null; } myName=nm.slice(0,40); try{ localStorage.setItem("wmt_name",myName); }catch(e){} return myName; }
+    function goToRoom(code){ roomCode=code; params.set("room",roomCode); history.replaceState(null,"",location.pathname+"?"+params.toString()); if(landing) landing.classList.remove("show"); boot(); }
+    function showEl(id,on){ var e=$(id); if(e) e.style.display=on?"":"none"; }
+    function setupLanding(mode){
+      landingMode=mode;
+      showEl("ld_create", mode==="home");
+      showEl("ld_join_block", mode==="home");
+      showEl("ld_joinbtn", mode==="join");
+      setText("ld_got", mode==="join"?tr("joining"):tr("got"));
+      if(landing) landing.classList.add("show");
+      setTimeout(function(){ if(ldName) ldName.focus(); },50);
     }
-    if($("ld_create")) $("ld_create").addEventListener("click", function(){ enterRoom(); });
+    if($("ld_create")) $("ld_create").addEventListener("click", function(){ if(!requireName()) return; goToRoom(rand5()+rand5()); });
+    if($("ld_join")) $("ld_join").addEventListener("click", function(){ if(!requireName()) return; var c=(($("ld_code")&&$("ld_code").value)||"").trim().toLowerCase().replace(/\s+/g,""); if(!c){ toast(tr("need_code")); if($("ld_code")) $("ld_code").focus(); return; } goToRoom(c); });
+    if($("ld_code")) $("ld_code").addEventListener("keydown", function(e){ if(e.key==="Enter"&&$("ld_join")) $("ld_join").click(); });
+    if($("ld_joinbtn")) $("ld_joinbtn").addEventListener("click", function(){ if(!requireName()) return; if(landing) landing.classList.remove("show"); boot(); });
     window.addEventListener("beforeunload", function(){ closing=true; rtSend({ type:"leave" }); });
 
     (function start(){
       fillLangSelect($("langSel")); fillLangSelect($("langSelL")); applyLang(); applyCamSize();
       if(ldName&&myName) ldName.value=myName;
-      if(roomCode){ if(landing) landing.classList.remove("show"); boot(); }
-      else { if(landing) landing.classList.add("show"); }
+      if(roomCode){
+        if(myName){ if(landing) landing.classList.remove("show"); boot(); }   // returning visitor already has a name
+        else { setupLanding("join"); }                                        // joined via link → must enter a name first
+      } else {
+        setupLanding("home");
+      }
     })();
   })();
   </script>
