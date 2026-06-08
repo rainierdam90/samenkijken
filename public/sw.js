@@ -28,8 +28,8 @@ self.addEventListener("push", (e) => {
   const title = data.title || "WatchMovieTogether";
   const opts = {
     body: data.body || "Your watch party is starting!",
-    icon: data.icon || "/icon-192.png",
-    badge: data.badge || "/icon-192.png",
+    icon: data.icon || "/icon.svg",
+    badge: data.badge || "/icon.svg",
     tag: data.tag || "wmt-reminder",
     data: { url: data.url || "/" },
     requireInteraction: true

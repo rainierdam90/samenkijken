@@ -375,7 +375,44 @@
   .uc b{font-size:14px; color:var(--txt)}
   .uc .uc-d{font-size:12px; color:var(--muted); line-height:1.4}
 
-  /* memories wall items */
+  /* content picker tabs */
+  .pick-tabs{display:flex; gap:6px; flex-wrap:wrap; margin:2px 0 16px}
+  .pick-tab{flex:1 1 auto; padding:9px 8px; border-radius:10px; border:1px solid var(--line); background:var(--panel-2); color:var(--muted); font-size:13px; font-family:inherit; cursor:pointer; white-space:nowrap}
+  .pick-tab.active{background:linear-gradient(180deg,var(--amber-2),var(--amber)); color:#2a1c06; border-color:transparent}
+  .pick-row{display:flex; gap:8px}
+  .pick-row input{flex:1; min-width:0; background:var(--panel); border:1px solid var(--line); color:var(--txt); border-radius:11px; padding:11px 13px; font-size:14px; font-family:inherit}
+  .pick-row input:focus{outline:none; border-color:rgba(244,177,74,.7)}
+
+  /* free-wall expiry banner */
+  .expiry-bar{position:fixed; left:0; right:0; top:0; z-index:120; display:none; align-items:center; justify-content:center; gap:14px; flex-wrap:wrap; padding:10px 44px 10px 16px; background:linear-gradient(180deg,#3a2a10,#241a0a); border-bottom:1px solid rgba(244,177,74,.45); color:var(--txt); font-size:13.5px; line-height:1.4; box-shadow:0 8px 20px rgba(0,0,0,.45)}
+  .expiry-bar.show{display:flex}
+  .expiry-bar .btn{padding:7px 14px; font-size:13px}
+  .expiry-bar .x{position:absolute; right:12px; top:8px; background:none; border:none; color:var(--muted); font-size:20px; cursor:pointer; line-height:1}
+  .expiry-bar .x:hover{color:var(--txt)}
+
+  /* connecting overlay — covers the room until you're admitted (or asked for a password) */
+  .connecting{position:fixed; inset:0; z-index:208; display:none; flex-direction:column; align-items:center; justify-content:center; gap:16px; text-align:center; padding:24px;
+    background:radial-gradient(900px 600px at 50% -80px, rgba(244,177,74,.12), transparent 60%), #0b0a0c; color:var(--muted)}
+  .connecting.show{display:flex}
+  .connecting .spin{width:38px; height:38px; border-radius:50%; border:3px solid rgba(255,255,255,.14); border-top-color:var(--amber); animation:spin 1s linear infinite}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  .connecting .ctxt{font-size:15px}
+
+  /* memories ON the wall (stage background collage) */
+  .wall-stage{position:absolute; inset:0; z-index:3; display:none; overflow-y:auto; padding:22px 16px 96px; flex-wrap:wrap; gap:16px; align-content:flex-start; justify-content:center}
+  .wall-stage.show{display:flex}
+  .wall-stage .wtitle{flex-basis:100%; text-align:center; color:var(--muted); font-size:12px; letter-spacing:2px; text-transform:uppercase; margin:2px 0 4px}
+  .wcard{padding:8px 8px 28px; background:#fbf8f2; border-radius:4px; box-shadow:0 10px 24px rgba(0,0,0,.5); transform:rotate(var(--r,-2deg)); max-width:190px; transition:transform .15s, box-shadow .15s; cursor:pointer}
+  .wcard:hover{transform:rotate(0deg) scale(1.05); box-shadow:0 16px 34px rgba(0,0,0,.6); z-index:4}
+  .wcard img{display:block; width:100%; max-height:240px; object-fit:cover; border-radius:2px; background:#000}
+  .wcard .cap{color:#3a3128; font-size:12px; text-align:center; margin-top:8px}
+  .wnote{padding:16px 15px; background:linear-gradient(180deg,#fff4c2,#ffe79a); color:#4a3a10; border-radius:3px; box-shadow:0 10px 24px rgba(0,0,0,.45); transform:rotate(var(--r,1.5deg)); max-width:190px; font-size:14px; line-height:1.45; word-break:break-word; transition:transform .15s}
+  .wnote:hover{transform:rotate(0deg) scale(1.05)}
+  .wnote .who{font-size:10px; opacity:.65; margin-top:10px}
+  .wall-add-hint{position:absolute; left:50%; bottom:70px; transform:translateX(-50%); z-index:5; font-size:12px; color:var(--muted); background:rgba(20,16,24,.7); border:1px solid var(--line); border-radius:999px; padding:6px 13px; display:none}
+  .wall-stage.show ~ .wall-add-hint{display:block}
+
+  /* memories wall items (panel) */
   .wall-img{max-width:100%; border-radius:10px; display:block; margin-top:3px; cursor:pointer}
   #wallLog .msg .bub{background:var(--panel-2); border:1px solid var(--line)}
   #wallLog .msg.photo .bub{padding:5px; background:transparent; border:none}
@@ -466,10 +503,14 @@
           <button class="share-btn" id="shareCopy"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg><span id="shareCopyTxt">Copy</span></button>
         </div>
         <p class="ph-note" id="ph_note">Paste a video file or YouTube link above, or use “▶ YouTube” to search together. Tip: use headphones to avoid echo.</p>
-        <button class="btn" id="notifyMeBtn" style="display:none;margin-top:14px">🔔 <span id="notifyMeTxt">Tell me when someone's here</span></button>
+        <button class="btn primary" id="pickOpenBtn" style="margin-top:16px">🎬 <span id="pickOpenTxt">Choose something to watch</span></button>
+        <button class="btn" id="notifyMeBtn" style="display:none;margin-top:10px">🔔 <span id="notifyMeTxt">Tell me when someone's here</span></button>
         <button class="btn" id="roomLockBtn" style="display:none;margin-top:10px">🔒 <span id="roomLockTxt">Set a room password</span></button>
       </div>
     </div>
+
+    <div class="wall-stage" id="wallStage"></div>
+    <div class="wall-add-hint" id="wallAddHint">Tap 📌 to add a memory</div>
 
     <div class="playgate" id="playgate" hidden>
       <button id="playgateBtn"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg> <span id="playgateTxt">Click to watch along</span></button>
@@ -684,6 +725,28 @@
     </div>
   </div>
 
+  <!-- Content picker (tabs: YouTube / Vimeo / Video URL / Local file / Photos) -->
+  <div class="modal" id="picker">
+    <div class="modal-card">
+      <button class="modal-x" id="pickX" aria-label="Close">×</button>
+      <h3 id="pickTitle">What shall we watch?</h3>
+      <div class="pick-tabs">
+        <button class="pick-tab active" data-k="youtube" id="pkt_youtube">YouTube</button>
+        <button class="pick-tab" data-k="vimeo" id="pkt_vimeo">Vimeo</button>
+        <button class="pick-tab" data-k="url" id="pkt_url">Video URL</button>
+        <button class="pick-tab" data-k="local" id="pkt_local">Local file</button>
+        <button class="pick-tab" data-k="photos" id="pkt_photos">Photos</button>
+      </div>
+      <div id="pickUrlRow" class="pick-row"><input id="pickUrl" type="text" inputmode="url" spellcheck="false" placeholder="Paste a YouTube link…" /><button class="btn primary" id="pickLoad">Load</button></div>
+      <p class="m-sub" id="pickHint" style="margin-top:12px"><button class="l-link-btn" id="pickSearch">Search YouTube ↗</button></p>
+      <div id="pickFileRow" style="display:none"><button class="btn primary" id="pickFileBtn" style="width:100%">📁 <span id="pickChooseTxt">Choose</span></button></div>
+    </div>
+  </div>
+
+  <div class="expiry-bar" id="expiryBar"><span id="expiryMsg"></span><a class="btn primary" id="expiryExtend" target="_blank" rel="noopener noreferrer">Extend</a><button class="x" id="expiryDismiss" aria-label="Dismiss">×</button></div>
+
+  <div class="connecting" id="connecting"><div class="spin"></div><div class="ctxt" id="connectingTxt">Connecting…</div></div>
+
   <div class="toast" id="toast"></div>
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/peerjs/1.5.5/peerjs.min.js"></script>
@@ -852,6 +915,24 @@
       ar:{wall_title:"ذكريات",wall_notice:"تبقى هنا للجميع — حتى وأنت غير متصل.",wall_empty:"لا ذكريات بعد. اترك ملاحظة أو صورة 💛",wall_ph:"اترك ملاحظة…",wall_off:"الذكريات غير مفعّلة على الخادم بعد.",wall_fail:"تعذّر النشر — حاول مرة أخرى.",wall_uploading:"جارٍ إضافة صورتك…",t_wall:"جدار الذكريات"}
     };
     Object.keys(WALLCOPY).forEach(function(k){ if(I18N[k]) Object.keys(WALLCOPY[k]).forEach(function(j){ I18N[k][j]=WALLCOPY[k][j]; }); });
+    var PICKCOPY = {
+      en:{pick_title:"What shall we watch?",pick_open:"Choose something to watch",pick_load:"Load",pick_search:"Search YouTube ↗",pick_choose_video:"Choose a video",pick_choose_photos:"Choose photos",ph_yt:"Paste a YouTube link…",ph_vimeo:"Paste a Vimeo link…",ph_videourl:"Paste a video link (.mp4 / .webm)…"},
+      nl:{pick_title:"Wat gaan we kijken?",pick_open:"Kies iets om te kijken",pick_load:"Laden",pick_search:"Zoek op YouTube ↗",pick_choose_video:"Kies een video",pick_choose_photos:"Kies foto's",ph_yt:"Plak een YouTube-link…",ph_vimeo:"Plak een Vimeo-link…",ph_videourl:"Plak een videolink (.mp4 / .webm)…"},
+      de:{pick_title:"Was schauen wir?",pick_open:"Etwas zum Anschauen wählen",pick_load:"Laden",pick_search:"YouTube durchsuchen ↗",pick_choose_video:"Video wählen",pick_choose_photos:"Fotos wählen",ph_yt:"YouTube-Link einfügen…",ph_vimeo:"Vimeo-Link einfügen…",ph_videourl:"Videolink einfügen (.mp4 / .webm)…"},
+      fr:{pick_title:"Qu'est-ce qu'on regarde ?",pick_open:"Choisir quelque chose à regarder",pick_load:"Charger",pick_search:"Rechercher sur YouTube ↗",pick_choose_video:"Choisir une vidéo",pick_choose_photos:"Choisir des photos",ph_yt:"Coller un lien YouTube…",ph_vimeo:"Coller un lien Vimeo…",ph_videourl:"Coller un lien vidéo (.mp4 / .webm)…"},
+      es:{pick_title:"¿Qué vemos?",pick_open:"Elige algo para ver",pick_load:"Cargar",pick_search:"Buscar en YouTube ↗",pick_choose_video:"Elegir un vídeo",pick_choose_photos:"Elegir fotos",ph_yt:"Pega un enlace de YouTube…",ph_vimeo:"Pega un enlace de Vimeo…",ph_videourl:"Pega un enlace de vídeo (.mp4 / .webm)…"},
+      ar:{pick_title:"ماذا نشاهد؟",pick_open:"اختر شيئًا لمشاهدته",pick_load:"تحميل",pick_search:"ابحث في يوتيوب ↗",pick_choose_video:"اختر فيديو",pick_choose_photos:"اختر صورًا",ph_yt:"الصق رابط يوتيوب…",ph_vimeo:"الصق رابط Vimeo…",ph_videourl:"الصق رابط فيديو (.mp4 / .webm)…"}
+    };
+    Object.keys(PICKCOPY).forEach(function(k){ if(I18N[k]) Object.keys(PICKCOPY[k]).forEach(function(j){ I18N[k][j]=PICKCOPY[k][j]; }); });
+    var EXPIRYCOPY = {
+      en:{expiry_msg:"Your free wall expires in {n} days — keep your memories.",expiry_today:"Your free wall expires today — keep your memories.",expiry_extend:"Extend · $2.99/wk"},
+      nl:{expiry_msg:"Je gratis muur verloopt over {n} dagen — bewaar je herinneringen.",expiry_today:"Je gratis muur verloopt vandaag — bewaar je herinneringen.",expiry_extend:"Verlengen · $2,99/wk"},
+      de:{expiry_msg:"Deine kostenlose Wand läuft in {n} Tagen ab — behalte deine Erinnerungen.",expiry_today:"Deine kostenlose Wand läuft heute ab — behalte deine Erinnerungen.",expiry_extend:"Verlängern · $2,99/Wo"},
+      fr:{expiry_msg:"Ton mur gratuit expire dans {n} jours — garde tes souvenirs.",expiry_today:"Ton mur gratuit expire aujourd'hui — garde tes souvenirs.",expiry_extend:"Prolonger · 2,99 $/sem"},
+      es:{expiry_msg:"Tu muro gratis caduca en {n} días — guarda tus recuerdos.",expiry_today:"Tu muro gratis caduca hoy — guarda tus recuerdos.",expiry_extend:"Ampliar · 2,99 $/sem"},
+      ar:{expiry_msg:"ينتهي جدارك المجاني خلال {n} أيام — احتفظ بذكرياتك.",expiry_today:"ينتهي جدارك المجاني اليوم — احتفظ بذكرياتك.",expiry_extend:"تمديد · 2.99$/أسبوع"}
+    };
+    Object.keys(EXPIRYCOPY).forEach(function(k){ if(I18N[k]) Object.keys(EXPIRYCOPY[k]).forEach(function(j){ I18N[k][j]=EXPIRYCOPY[k][j]; }); });
     var landingMode="home";
 
     var lang = (function(){ try{ return localStorage.getItem("wmt_lang")||"en"; }catch(e){ return "en"; } })();
@@ -938,7 +1019,7 @@
 
     function loadConfig(){
       return fetch(httpBase()+"/config").then(function(r){ return r.json(); }).then(function(c){
-        peerCfg={ host:c.peerHost||location.hostname, port:c.peerPort||443, path:c.peerPath||"/peerjs", secure:!!c.peerSecure }; hasYouTube=!!c.hasYouTube; hasPush=!!c.hasPush; vapidPublic=c.vapidPublic||""; hasWall=!!c.hasWall;
+        peerCfg={ host:c.peerHost||location.hostname, port:c.peerPort||443, path:c.peerPath||"/peerjs", secure:!!c.peerSecure }; hasYouTube=!!c.hasYouTube; hasPush=!!c.hasPush; vapidPublic=c.vapidPublic||""; hasWall=!!c.hasWall; stripeLink=c.stripeLink||"";
       }).catch(function(){ /* same-origin defaults already set */ });
     }
     function loadTurn(){
@@ -1016,12 +1097,12 @@
         case "full": showRoomFull(); break;
         case "roster":
           joined=true; if(m.you&&m.you.name) myName=m.you.name;
-          isHost=!!m.host; roomHasPass=!!m.hasPass; if(passModalEl) passModalEl.classList.remove("show"); updateHostControls();
+          hideConnecting(); isHost=!!m.host; roomHasPass=!!m.hasPass; if(passModalEl) passModalEl.classList.remove("show"); updateHostControls(); if(hasWall) fetchWall(); roomExpiresAt=m.expiresAt||0; maybeShowExpiryBanner();
           (m.peers||[]).forEach(function(pp){ if(pp.peerId===myPeerId) return; peers[pp.peerId]=peers[pp.peerId]||{}; peers[pp.peerId].name=pp.name||"Guest"; if(shouldInitiate(myPeerId,pp.peerId)) callPeer(pp.peerId); });
           recomputeAuthority(); updatePresenceStatus();
           if(isAuthority&&currentMedia){ rtSend({ type:"video", mode:currentMedia.mode, url:currentMedia.url, id:currentMedia.id }); }
           break;
-        case "need-pass": openPassEnter(!!m.wrong); break;
+        case "need-pass": hideConnecting(); openPassEnter(!!m.wrong); break;
         case "pass-set": if(m.denied){ toast(tr("pass_denied"),5000); } else { roomHasPass=!!m.hasPass; updateHostControls(); toast(m.hasPass?tr("pass_on"):tr("pass_off"),5000); } break;
         case "room-locked": roomHasPass=!!m.hasPass; toast((m.by||tr("others"))+" "+(m.hasPass?tr("pass_locked"):tr("pass_unlocked")),5000); break;
         case "wall-add": if(m.item){ addWallItem(m.item); if(wallPanel&&wallPanel.hidden) toast(tr("wall_new"),4000); } break;
@@ -1066,20 +1147,44 @@
 
     /* ===================== Media: file / youtube / embed ===================== */
     var mode="none", currentMedia=null, pending=null, closing=false, movieErrored=false;
-    function detectMedia(url){ var yt=parseYouTube(url); if(yt) return { mode:"youtube", id:yt, url:url }; var clean=url.split("#")[0].split("?")[0]; if(/\.(mp4|webm|ogg|ogv|m4v|mov)$/i.test(clean)) return { mode:"file", url:url }; return { mode:"embed", url:url }; }
+    function detectMedia(url){ var yt=parseYouTube(url); if(yt) return { mode:"youtube", id:yt, url:url }; var vim=parseVimeo(url); if(vim) return { mode:"vimeo", id:vim.id, url:url }; var clean=url.split("#")[0].split("?")[0]; if(/\.(mp4|webm|ogg|ogv|m4v|mov)$/i.test(clean)) return { mode:"file", url:url }; return { mode:"embed", url:url }; }
+    function parseVimeo(url){ try{ var u=new URL(url), h=u.hostname.replace(/^www\./,""); if(h!=="vimeo.com"&&h!=="player.vimeo.com") return null; var m=u.pathname.match(/\/(?:video\/)?(\d+)(?:\/(\w+))?/); if(m) return { id:m[1], h:m[2]||u.searchParams.get("h")||"" }; }catch(e){} return null; }
     function parseYouTube(url){ try{ var u=new URL(url), h=u.hostname.replace(/^www\./,""); if(h==="youtu.be") return u.pathname.slice(1).split("/")[0]||null; if(h==="youtube.com"||h==="m.youtube.com"||h==="youtube-nocookie.com"){ if(u.pathname==="/watch") return u.searchParams.get("v"); var m=u.pathname.match(/^\/(embed|shorts|v|live)\/([^\/?#]+)/); if(m) return m[2]; } }catch(e){} return null; }
     function updateStageChrome(){ if(stage) stage.classList.toggle("file-mode", !!(movie && movie.style.display==="block")); }   // lift our controls above the native video bar
-    function clearPlayers(){ try{ movie.pause(); }catch(e){} try{ movie.removeAttribute("src"); movie.load(); }catch(e){} movie.style.display="none"; if(galleryImg) galleryImg.style.display="none"; if(ytPlayer){ try{ ytPlayer.destroy(); }catch(e){} ytPlayer=null; } ytwrap.style.display="none"; ytwrap.innerHTML=""; try{ frame.src="about:blank"; }catch(e){} framewrap.style.display="none"; playgate.hidden=true; pending=null; movieErrored=false; updateStageChrome(); }
+    function clearPlayers(){ try{ movie.pause(); }catch(e){} try{ movie.removeAttribute("src"); movie.load(); }catch(e){} movie.style.display="none"; if(galleryImg) galleryImg.style.display="none"; if(ytPlayer){ try{ ytPlayer.destroy(); }catch(e){} ytPlayer=null; } if(vimPlayer){ try{ vimPlayer.destroy(); }catch(e){} vimPlayer=null; vimReady=false; } ytwrap.style.display="none"; ytwrap.innerHTML=""; try{ frame.src="about:blank"; }catch(e){} framewrap.style.display="none"; playgate.hidden=true; pending=null; movieErrored=false; updateStageChrome(); }
     function setEmbedUI(on){ cdwidget.hidden=!on; if(!on){ clearInterval(cdTimer); cdNum.textContent="\u25B6"; cdNum.classList.remove("go"); cdBtn.disabled=false; cdBusy=false; } }
     function applyMedia(m,url,id){
       if(gallery){ if(amPresenter()) stopSharing(); else { gallery=null; closeGalleryUI(); } }
       clearPlayers(); ducked=false; mode=m; currentMedia={ mode:m, url:url, id:id }; placeholder.style.display="none";
       if(m==="file"){ setEmbedUI(false); movie.style.display="block"; movie.src=url; movie.load(); }
       else if(m==="youtube"){ setEmbedUI(false); ytwrap.style.display="block"; loadYouTube(id); }
+      else if(m==="vimeo"){ setEmbedUI(false); ytwrap.style.display="block"; loadVimeo(url); }
       else { setEmbedUI(true); framewrap.style.display="flex"; try{ frame.src=url; }catch(e){} openTab.href=url; }
-      updateStageChrome();
+      updateStageChrome(); if(typeof updateRoomView==="function") updateRoomView();
     }
-    loadBtn.addEventListener("click", function(){ var url=(urlInput.value||"").trim(); if(!url){ toast("Paste a link first."); return; } if(!/^https?:\/\//i.test(url)){ toast("The link must start with http:// or https://"); return; } var det=detectMedia(url); applyMedia(det.mode,det.url,det.id); rtSend({ type:"video", mode:det.mode, url:det.url, id:det.id }); if(det.mode==="embed") toast("Loaded — use the countdown on the left to start together.",6000); });
+    function loadUrl(url){ url=(url||"").trim(); if(!url){ toast("Paste a link first."); return false; } if(!/^https?:\/\//i.test(url)){ toast("The link must start with http:// or https://"); return false; } var det=detectMedia(url); applyMedia(det.mode,det.url,det.id); rtSend({ type:"video", mode:det.mode, url:det.url, id:det.id }); if(det.mode==="embed") toast("Loaded — use the countdown on the left to start together.",6000); return true; }
+    loadBtn.addEventListener("click", function(){ loadUrl(urlInput.value); });
+
+    /* ---- content picker (tabs: YouTube / Vimeo / Video URL / Local file / Photos) ---- */
+    var pickerEl=$("picker"), pickKind="youtube";
+    function setPickTab(k){
+      pickKind=k;
+      [].slice.call(document.querySelectorAll(".pick-tab")).forEach(function(b){ b.classList.toggle("active", b.getAttribute("data-k")===k); });
+      var isFile=(k==="local"||k==="photos");
+      if($("pickUrlRow")) $("pickUrlRow").style.display=isFile?"none":"flex";
+      if($("pickHint")) $("pickHint").style.display=(k==="youtube")?"":"none";
+      if($("pickFileRow")) $("pickFileRow").style.display=isFile?"":"none";
+      if($("pickUrl")) $("pickUrl").placeholder=tr(k==="vimeo"?"ph_vimeo":k==="url"?"ph_videourl":"ph_yt");
+      if($("pickChooseTxt")) setText("pickChooseTxt", k==="photos"?tr("pick_choose_photos"):tr("pick_choose_video"));
+    }
+    function openPicker(){ if(pickerEl){ setPickTab(pickKind); pickerEl.classList.add("show"); setTimeout(function(){ if($("pickUrl")&&pickKind!=="local"&&pickKind!=="photos") $("pickUrl").focus(); },60); } }
+    [].slice.call(document.querySelectorAll(".pick-tab")).forEach(function(b){ b.addEventListener("click", function(){ setPickTab(b.getAttribute("data-k")); }); });
+    if($("pickOpenBtn")) $("pickOpenBtn").addEventListener("click", openPicker);
+    if($("pickX")) $("pickX").addEventListener("click", function(){ pickerEl.classList.remove("show"); });
+    if($("pickLoad")) $("pickLoad").addEventListener("click", function(){ if(loadUrl($("pickUrl").value)){ pickerEl.classList.remove("show"); $("pickUrl").value=""; } });
+    if($("pickUrl")) $("pickUrl").addEventListener("keydown", function(e){ if(e.key==="Enter"&&$("pickLoad")) $("pickLoad").click(); });
+    if($("pickSearch")) $("pickSearch").addEventListener("click", function(){ pickerEl.classList.remove("show"); if(browseBtn) browseBtn.click(); });
+    if($("pickFileBtn")) $("pickFileBtn").addEventListener("click", function(){ if(fileInput){ try{ fileInput.accept=(pickKind==="photos")?"image/*":"video/*"; }catch(e){} pickerEl.classList.remove("show"); fileInput.click(); } });
     urlInput.addEventListener("keydown", function(e){ if(e.key==="Enter") loadBtn.click(); });
     movie.addEventListener("error", function(){ if(mode!=="file"||!movie.src) return; movieErrored=true; try{ playgate.hidden=true; }catch(e){} toast(tr("vid_fail"),10000); });
 
@@ -1088,16 +1193,37 @@
     function loadYouTube(id){ ensureYTApi(function(){ ytwrap.innerHTML='<div id="ytplayer"></div>'; ytPlayer=new YT.Player("ytplayer",{ videoId:id, playerVars:{ rel:0, modestbranding:1, playsinline:1 }, events:{ onStateChange:onYtState, onReady:function(){ applyUserVolume(); } } }); }); }
     function onYtState(e){ if(applyingRemote||mode!=="youtube") return; if(e.data===1) broadcast("play"); else if(e.data===2) broadcast("pause"); }
 
-    function getTime(){ if(mode==="file") return movie.currentTime||0; if(mode==="youtube"&&ytPlayer&&ytPlayer.getCurrentTime) return ytPlayer.getCurrentTime()||0; return 0; }
-    function setTime(t){ if(mode==="file"){ try{movie.currentTime=t;}catch(e){} } else if(mode==="youtube"&&ytPlayer&&ytPlayer.seekTo){ try{ytPlayer.seekTo(t,true);}catch(e){} } }
-    function playMedia(){ if(mode==="file") safePlay(); else if(mode==="youtube"&&ytPlayer&&ytPlayer.playVideo){ try{ytPlayer.playVideo();}catch(e){} } }
-    function pauseMedia(){ if(mode==="file") movie.pause(); else if(mode==="youtube"&&ytPlayer&&ytPlayer.pauseVideo){ try{ytPlayer.pauseVideo();}catch(e){} } }
-    function isPausedMedia(){ if(mode==="file") return movie.paused; if(mode==="youtube"&&ytPlayer&&ytPlayer.getPlayerState){ var s=ytPlayer.getPlayerState(); return !(s===1||s===3); } return true; }
-    function mediaReady(){ if(mode==="file") return movie.readyState>=1&&!isNaN(movie.duration); if(mode==="youtube") return !!(ytPlayer&&ytPlayer.getDuration&&ytPlayer.getDuration()>0); return false; }
+    /* ---- Vimeo provider (Player API; same sync events) ---- */
+    var vimApiReady=false, vimApiLoading=false, vimPending=null, vimPlayer=null, vimReady=false, vimPaused=true, vimTime=0;
+    function ensureVimeoApi(cb){ if(vimApiReady){ cb(); return; } vimPending=cb; if(vimApiLoading) return; vimApiLoading=true; var s=document.createElement("script"); s.src="https://player.vimeo.com/api/player.js"; s.onload=function(){ vimApiReady=true; if(vimPending){ var f=vimPending; vimPending=null; f(); } }; s.onerror=function(){ toast("Could not load Vimeo.",6000); }; document.head.appendChild(s); }
+    function loadVimeo(url){ var info=parseVimeo(url)||{};
+      // build the iframe ourselves (reliable), then attach the Player API for sync
+      ytwrap.innerHTML=""; vimReady=false; vimPaused=true; vimTime=0;
+      var ifr=document.createElement("iframe");
+      ifr.src="https://player.vimeo.com/video/"+encodeURIComponent(info.id)+"?dnt=1&playsinline=1"+(info.h?("&h="+encodeURIComponent(info.h)):"");
+      ifr.allow="autoplay; fullscreen; picture-in-picture"; ifr.setAttribute("allowfullscreen",""); ifr.style.cssText="width:100%;height:100%;border:0;display:block";
+      ytwrap.appendChild(ifr);
+      ensureVimeoApi(function(){
+        if(typeof Vimeo==="undefined"){ vimReady=true; return; }   // video still plays; sync just won't be available
+        try{ vimPlayer=new Vimeo.Player(ifr); }catch(e){ vimReady=true; return; }
+        vimPlayer.on("loaded", function(){ vimReady=true; applyUserVolume(); applyPending(); });
+        vimPlayer.on("play", function(){ vimPaused=false; if(!applyingRemote&&mode==="vimeo") broadcast("play"); });
+        vimPlayer.on("pause", function(){ vimPaused=true; if(!applyingRemote&&mode==="vimeo") broadcast("pause"); });
+        vimPlayer.on("seeked", function(d){ if(d&&typeof d.seconds==="number") vimTime=d.seconds; if(!applyingRemote&&mode==="vimeo") broadcast("seek"); });
+        vimPlayer.on("timeupdate", function(d){ if(d&&typeof d.seconds==="number") vimTime=d.seconds; });
+    }); }
+
+    function getTime(){ if(mode==="file") return movie.currentTime||0; if(mode==="youtube"&&ytPlayer&&ytPlayer.getCurrentTime) return ytPlayer.getCurrentTime()||0; if(mode==="vimeo") return vimTime||0; return 0; }
+    function setTime(t){ if(mode==="file"){ try{movie.currentTime=t;}catch(e){} } else if(mode==="youtube"&&ytPlayer&&ytPlayer.seekTo){ try{ytPlayer.seekTo(t,true);}catch(e){} } else if(mode==="vimeo"&&vimPlayer){ try{ vimPlayer.setCurrentTime(t); }catch(e){} } }
+    function playMedia(){ if(mode==="file") safePlay(); else if(mode==="youtube"&&ytPlayer&&ytPlayer.playVideo){ try{ytPlayer.playVideo();}catch(e){} } else if(mode==="vimeo"&&vimPlayer){ try{ var p=vimPlayer.play(); if(p&&p.catch) p.catch(function(){}); }catch(e){} } }
+    function pauseMedia(){ if(mode==="file") movie.pause(); else if(mode==="youtube"&&ytPlayer&&ytPlayer.pauseVideo){ try{ytPlayer.pauseVideo();}catch(e){} } else if(mode==="vimeo"&&vimPlayer){ try{ vimPlayer.pause(); }catch(e){} } }
+    function isPausedMedia(){ if(mode==="file") return movie.paused; if(mode==="youtube"&&ytPlayer&&ytPlayer.getPlayerState){ var s=ytPlayer.getPlayerState(); return !(s===1||s===3); } if(mode==="vimeo") return vimPaused; return true; }
+    function mediaReady(){ if(mode==="file") return movie.readyState>=1&&!isNaN(movie.duration); if(mode==="youtube") return !!(ytPlayer&&ytPlayer.getDuration&&ytPlayer.getDuration()>0); if(mode==="vimeo") return vimReady; return false; }
+    function isSyncable(){ return mode==="file"||mode==="youtube"||mode==="vimeo"; }
 
     /* ---- sync (relayed by server to whole room) ---- */
     var applyingRemote=false, applyingTimer, lastActionAt=0;
-    function broadcast(kind){ if(applyingRemote) return; if(mode!=="file"&&mode!=="youtube") return; lastActionAt=Date.now(); rtSend({ type:"sync", kind:kind, time:getTime(), playing:!isPausedMedia() }); }
+    function broadcast(kind){ if(applyingRemote) return; if(!isSyncable()) return; lastActionAt=Date.now(); rtSend({ type:"sync", kind:kind, time:getTime(), playing:!isPausedMedia() }); }
     function markApplying(){ applyingRemote=true; clearTimeout(applyingTimer); applyingTimer=setTimeout(function(){ applyingRemote=false; },700); }
     movie.addEventListener("play", function(){ broadcast("play"); });
     movie.addEventListener("pause", function(){ broadcast("pause"); });
@@ -1116,7 +1242,7 @@
         case "heartbeat": if(!isAuthority && (Date.now()-lastActionAt)>2500){ if(data.playing&&isPausedMedia()) playMedia(); if(!data.playing&&!isPausedMedia()) pauseMedia(); if(Math.abs(getTime()-data.time)>1.5) setTime(data.time); } break;
       }
     }
-    setInterval(function(){ if(isAuthority&&rtReady&&(mode==="file"||mode==="youtube")&&mediaReady()) rtSend({ type:"sync", kind:"heartbeat", time:getTime(), playing:!isPausedMedia() }); },4000);
+    setInterval(function(){ if(isAuthority&&rtReady&&isSyncable()&&mediaReady()) rtSend({ type:"sync", kind:"heartbeat", time:getTime(), playing:!isPausedMedia() }); },4000);
     var lastPoll={ t:0, time:0, playing:false };
     setInterval(function(){ applyPending(); updateDuck(); if(mode==="youtube"&&mediaReady()&&!applyingRemote){ var nowS=getTime(), playing=!isPausedMedia(), nowMs=Date.now(); if(lastPoll.t){ var dt=(nowMs-lastPoll.t)/1000; var exp=lastPoll.time+(lastPoll.playing?dt:0); if(Math.abs(nowS-exp)>1.2) broadcast("seek"); } lastPoll={ t:nowMs, time:nowS, playing:playing }; } else { lastPoll={ t:Date.now(), time:getTime(), playing:!isPausedMedia() }; } },400);
     function safePlay(){ if(shareMode||movieErrored){ playgate.hidden=true; return; } var p=movie.play(); if(p&&typeof p.then==="function"){ p.then(function(){ playgate.hidden=true; }).catch(function(){ playgate.hidden=false; }); } }
@@ -1130,12 +1256,12 @@
     /* auto reaction-moment detection (on-device, opt-in): a loud sustained spike = a "moment" → auto-capture a clip */
     var autoMoments=(function(){ try{ return localStorage.getItem("wmt_automoments")==="1"; }catch(e){ return false; } })();
     var MOMENT_THRESHOLD=0.14, MOMENT_SUSTAIN=450, MOMENT_COOLDOWN=30000, momentAbove=0, momentCooldownUntil=0;
-    function setMovieVol(v){ v=Math.max(0,Math.min(1,v)); if(mode==="file"){ try{movie.volume=v;}catch(e){} } else if(mode==="youtube"&&ytPlayer&&ytPlayer.setVolume){ try{ytPlayer.setVolume(Math.round(v*100));}catch(e){} } }
+    function setMovieVol(v){ v=Math.max(0,Math.min(1,v)); if(mode==="file"){ try{movie.volume=v;}catch(e){} } else if(mode==="youtube"&&ytPlayer&&ytPlayer.setVolume){ try{ytPlayer.setVolume(Math.round(v*100));}catch(e){} } else if(mode==="vimeo"&&vimPlayer){ try{ vimPlayer.setVolume(v); }catch(e){} } }
     function curMovieVol(){ if(mode==="file") return (typeof movie.volume==="number")?movie.volume:1; if(mode==="youtube"&&ytPlayer&&ytPlayer.getVolume) return (ytPlayer.getVolume()||0)/100; return userVolume; }
     function rampMovieVol(t){ clearInterval(rampTimer); t=Math.max(0,Math.min(1,t)); var start=curMovieVol(), steps=8, i=0, d=(t-start)/steps; rampTimer=setInterval(function(){ i++; setMovieVol(start+d*i); if(i>=steps){ clearInterval(rampTimer); setMovieVol(t); } },20); }
     function applyUserVolume(){ rampMovieVol(ducked?userVolume*DUCK_FACTOR:userVolume); }
     function anyTalking(){ return localTalking || Object.keys(talkingSet).length>0; }
-    function updateDuck(){ var should=duckEnabled && anyTalking() && (mode==="file"||mode==="youtube") && mediaReady(); if(should&&!ducked){ ducked=true; applyUserVolume(); } else if(!should&&ducked){ ducked=false; applyUserVolume(); } }
+    function updateDuck(){ var should=duckEnabled && anyTalking() && isSyncable() && mediaReady(); if(should&&!ducked){ ducked=true; applyUserVolume(); } else if(!should&&ducked){ ducked=false; applyUserVolume(); } }
     function setLocalTalking(on){ if(localTalking===on) return; localTalking=on; if(selfCam) selfCam.classList.toggle("talking",on); updateDuck(); rtSend({ type:"talking", on:on }); }
     function startVAD(){
       var aTrack=localStream&&localStream.getAudioTracks()[0]; if(!aTrack) return;
@@ -1379,6 +1505,7 @@
       localURLs={}; myFiles={}; gallery=null; closeGalleryUI();
       if(galleryImg){ galleryImg.style.display="none"; try{ galleryImg.removeAttribute("src"); }catch(e){} }
       if(mode==="gallery-image"){ clearPlayers(); placeholder.style.display=""; mode="none"; }
+      if(typeof updateRoomView==="function") updateRoomView();
     }
     function galleryRT(m){
       if(m.type==="gallery"){
@@ -1404,13 +1531,18 @@
     if(gStop) gStop.addEventListener("click", stopSharing);
 
     function showRoomFull(){
+      hideConnecting();
       try{ if(peer) peer.destroy(); }catch(e){} try{ if(rt) rt.close(); }catch(e){}
       clearPlayers(); placeholder.style.display="";
       placeholder.innerHTML='<div class="ph-card"><p class="kicker">Sorry…</p><h2>'+tr("full_title")+'</h2><p style="color:#d7cdc3;line-height:1.5;margin:0 0 22px">'+tr("full_body")+'</p><a class="btn primary" style="text-decoration:none;display:inline-block" href="'+location.pathname+'">'+tr("new_room")+'</a></div>';
     }
 
     /* ===================== Boot / landing ===================== */
+    var connectingEl=$("connecting"), connectingTimer=null;
+    function showConnecting(){ if(!connectingEl) return; setText("connectingTxt",tr("st_conn")); connectingEl.classList.add("show"); clearTimeout(connectingTimer); connectingTimer=setTimeout(hideConnecting,25000); }
+    function hideConnecting(){ if(connectingEl) connectingEl.classList.remove("show"); clearTimeout(connectingTimer); }
     function boot(){
+      showConnecting();   // hide the room until we're joined / asked for a password
       initRoom(); initSW();
       if(!window.isSecureContext&&location.hostname!=="localhost"&&location.hostname!=="127.0.0.1") toast("Open this via the hosted https link. Camera/mic only work on https.",9000);
       loadConfig().then(loadTurn).then(setupMedia).then(function(){
@@ -1533,7 +1665,7 @@
       var ics=["BEGIN:VCALENDAR","VERSION:2.0","PRODID:-//WatchMovieTogether//EN","BEGIN:VEVENT","UID:"+info.code+"@watchmovietogether","DTSTAMP:"+calDates(Date.now()).start,"DTSTART:"+cd.start,"DTEND:"+cd.end,"SUMMARY:"+tr("cal_event")+": "+info.title,"DESCRIPTION:"+info.url,"URL:"+info.url,"END:VEVENT","END:VCALENDAR"].join("\r\n");
       var a=document.createElement("a"); a.href="data:text/calendar;charset=utf-8,"+encodeURIComponent(ics); a.download="watch-party.ics"; document.body.appendChild(a); a.click(); setTimeout(function(){ a.remove(); },120);
     }
-    var schedModal=$("schedModal"), schWhen=$("schWhen"), schWhat=$("schWhat"), schCreate=$("schCreate"), schStep1=$("schStep1"), schStep2=$("schStep2"), schLink=$("schLink"), schCopy=$("schCopy"), schGoNow=$("schGoNow"), schX=$("schX"), schGcal=$("schGcal"), schIcs=$("schIcs");
+    var schedModal=$("schedModal"), schWhen=$("schWhen"), schWhat=$("schWhat"), schCreate=$("schCreate"), schStep1=$("schStep1"), schStep2=$("schStep2"), schLink=$("schLink"), schCopy=$("schCopy"), schGoNow=$("schGoNow"), schX=$("schedX"), schGcal=$("schGcal"), schIcs=$("schIcs");
     var schedInfo=null;
     function openSched(){
       if(!schedModal) return;
@@ -1657,6 +1789,21 @@
       else { bub.textContent=it.data||""; }
       row.appendChild(bub);
       if(wallLog){ wallLog.appendChild(row); wallLog.scrollTop=wallLog.scrollHeight; }
+      renderWallCard(it); wallItemsCount++; updateRoomView();
+    }
+    var wallStageEl=$("wallStage"), wallItemsCount=0;
+    function ensureWallTitle(){ if(wallStageEl && !wallStageEl.querySelector(".wtitle")){ var h=document.createElement("div"); h.className="wtitle"; h.textContent=tr("room_kicker"); wallStageEl.insertBefore(h, wallStageEl.firstChild); } }
+    function renderWallCard(it){
+      if(!wallStageEl) return; var el;
+      if(it.kind==="photo"){ el=document.createElement("div"); el.className="wcard"; var img=document.createElement("img"); img.loading="lazy"; img.alt=""; img.src=it.data; el.appendChild(img); if(it.author){ var c=document.createElement("div"); c.className="cap"; c.textContent=it.author; el.appendChild(c); } el.addEventListener("click", function(){ try{ window.open(it.data,"_blank"); }catch(e){} }); }
+      else { el=document.createElement("div"); el.className="wnote"; var tx=document.createElement("div"); tx.textContent=it.data||""; el.appendChild(tx); var w=document.createElement("div"); w.className="who"; w.textContent="— "+(it.author||tr("others")); el.appendChild(w); }
+      el.style.setProperty("--r", (Math.random()*6-3).toFixed(1)+"deg");
+      wallStageEl.appendChild(el);
+    }
+    function updateRoomView(){
+      var idle = (mode==="none" || !mode);
+      if(idle && wallItemsCount>0){ ensureWallTitle(); if(wallStageEl) wallStageEl.classList.add("show"); if(placeholder) placeholder.style.display="none"; }
+      else { if(wallStageEl) wallStageEl.classList.remove("show"); if(idle && placeholder) placeholder.style.display=""; }
     }
     function postWallNote(){ var t=((wallText&&wallText.value)||"").trim(); if(!t) return; if(!hasWall){ toast(tr("wall_off"),5000); return; } wallText.value="";
       fetch(httpBase()+"/wall",{ method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({ room:roomCode, kind:"note", text:t, author:myName }) }).then(function(r){ return r.json(); }).then(function(d){ if(d&&d.item) addWallItem(d.item); else toast(tr("wall_fail"),5000); }).catch(function(){ toast(tr("wall_fail"),5000); }); }
@@ -1671,6 +1818,22 @@
     if(chatBtn) chatBtn.addEventListener("click", function(){ if(wallPanel) wallPanel.hidden=true; });   // keep only one panel open
     ensureConfig().then(function(){ if(hasWall && wallBtn && !shareMode) wallBtn.style.display=""; });
 
+    /* ===================== Feature: free-wall expiry → extend (Stripe) ===================== */
+    var stripeLink="", roomExpiresAt=0;
+    function maybeShowExpiryBanner(){
+      if(!roomExpiresAt) return;
+      var left=roomExpiresAt-Date.now();
+      if(left>2*86400000 || left< -2*86400000) return;   // only in the final ~2 days
+      var key="wmt_exp_"+roomCode, seen; try{ seen=sessionStorage.getItem(key); }catch(e){}
+      if(seen) return; try{ sessionStorage.setItem(key,"1"); }catch(e){}   // one notice per session
+      var days=Math.ceil(left/86400000);
+      setText("expiryMsg", days<=0?tr("expiry_today"):tr("expiry_msg").replace("{n}", days));
+      var ex=$("expiryExtend");
+      if(ex){ ex.textContent=tr("expiry_extend"); if(stripeLink){ ex.href=stripeLink+(stripeLink.indexOf("?")<0?"?":"&")+"client_reference_id="+encodeURIComponent(roomCode||""); ex.style.display=""; } else ex.style.display="none"; }
+      if($("expiryBar")) $("expiryBar").classList.add("show");
+    }
+    if($("expiryDismiss")) $("expiryDismiss").addEventListener("click", function(){ if($("expiryBar")) $("expiryBar").classList.remove("show"); });
+
     /* translations for all new UI (called from applyLang) */
     function applyLang4(){
       setTitle("reactBtn",tr("t_react")); setTitle("clipBtn",tr("t_clip"));
@@ -1684,6 +1847,7 @@
       setText("ph_kicker",tr("room_kicker")); setText("ph_title",tr("room_title"));   // "living room" framing
       setText("notifyMeTxt",tr("notify_me"));
       setText("wallTitle",tr("wall_title")); setText("wallNotice",tr("wall_notice")); setPh("wallText",tr("wall_ph")); setTitle("wallBtn",tr("t_wall")); if($("wallEmpty")) $("wallEmpty").textContent=tr("wall_empty");
+      setText("pickTitle",tr("pick_title")); setText("pickOpenTxt",tr("pick_open")); setText("pickLoad",tr("pick_load")); setText("pickSearch",tr("pick_search"));
       if(typeof updateHostControls==="function") updateHostControls();
       setText("ph_note",tr("legal_tip"));   // copyright positioning on the main screen
       setText("shareModalTitle",tr("share_modal_title")); setText("shareModalSub",tr("legal_share"));

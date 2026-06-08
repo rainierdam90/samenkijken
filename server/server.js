@@ -154,7 +154,9 @@ app.get("/config", (req, res) => {
     hasYouTube: !!YT_API_KEY,
     hasPush: HAS_PUSH,
     vapidPublic: HAS_PUSH ? VAPID_PUBLIC : "",
-    hasWall: store.enabled()
+    hasWall: store.enabled(),
+    freeDays: store.freeDays(),
+    stripeLink: process.env.STRIPE_LINK || ""
   });
 });
 
@@ -378,7 +380,7 @@ wss.on("connection", (ws) => {
       const code = String(m.room || "").slice(0, 80);
       if (!code) return;
       const r = getRoom(code);
-      if (!r._loadP) { r._loadP = store.getRoom(code).then(row => { if (row) { if (row.passHash) r.pass = row.passHash; if (row.host) r.host = row.host; } }).catch(() => {}); }
+      if (!r._loadP) { r._loadP = store.getRoom(code).then(row => { if (row) { if (row.passHash) r.pass = row.passHash; if (row.host) r.host = row.host; if (row.expiresAt) r._expiresAt = row.expiresAt; } }).catch(() => {}); }
       await r._loadP;   // restore a persisted lock/host (awaited so the password check sees it; concurrent joins share one load)
       if (r.members.size >= MAX_ROOM && !r.members.has(ws)) { sendJSON(ws, { type: "full" }); return; }
       if (r.pass && !r.members.has(ws) && hashPass(m.pass) !== r.pass) {   // protected room → must supply the right password
@@ -391,11 +393,12 @@ wss.on("connection", (ws) => {
       ws._name = (String(m.name || "").trim().slice(0, 40)) || "Guest";
       r.members.set(ws, { peerId: ws._peerId, name: ws._name });
       if (!r.host) { r.host = ws._peerId; store.ensureRoom(code, ws._peerId); }   // first person in becomes the host (persisted)
+      if (!r._expiresAt && store.enabled()) r._expiresAt = Date.now() + store.freeDays() * 86400000;   // free wall lifetime
       if (wasEmpty) notifyRoomAlive(code, ws._name);
       r.lastActivity = Date.now();
       if (!ws._joinedAt) { ws._joinedAt = Date.now(); metrics.joins++; }   // count this session join once
       // tell the joiner who is already here; tell others someone joined
-      sendJSON(ws, { type: "roster", you: { peerId: ws._peerId, name: ws._name }, peers: rosterArr(r), host: r.host === ws._peerId, hasPass: !!r.pass });
+      sendJSON(ws, { type: "roster", you: { peerId: ws._peerId, name: ws._name }, peers: rosterArr(r), host: r.host === ws._peerId, hasPass: !!r.pass, expiresAt: r._expiresAt || 0 });
       broadcastRoom(r, { type: "peer-joined", peerId: ws._peerId, name: ws._name }, ws);
       if (r.gallery && r.gallery.items.length) sendJSON(ws, { type: "gallery", presenter: r.gallery.presenter, items: r.gallery.items, current: r.gallery.current });
       pushStats();
@@ -525,6 +528,9 @@ if (HAS_PUSH) {
     }
   }, 20000).unref();
 }
+
+/* prune expired free walls (their memories + room) periodically */
+if (store.enabled()) { store.pruneExpired(); setInterval(() => store.pruneExpired(), 3600000).unref(); }
 
 server.listen(PORT, () => {
   console.log("WatchMovieTogether server on :" + PORT);
