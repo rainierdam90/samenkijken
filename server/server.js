@@ -221,8 +221,19 @@ const admins = new Set();
 const rooms = new Map();
 function getRoom(code) {
   let r = rooms.get(code);
-  if (!r) { r = { members: new Map(), chat: [], lastActivity: Date.now() }; rooms.set(code, r); }
+  if (!r) { r = { members: new Map(), chat: [], lastActivity: Date.now(), played: false }; rooms.set(code, r); metrics.roomsCreated++; }
   return r;
+}
+
+/* ---- lightweight, privacy-friendly growth metrics (aggregate counts only — no personal data) ---- */
+const metrics = { startedAt: Date.now(), roomsCreated: 0, joins: 0, firstPlays: 0, shares: 0, sessionsEnded: 0, sessionMsTotal: 0 };
+function metricsSnapshot() {
+  const avgSessionMin = metrics.sessionsEnded ? Math.round(metrics.sessionMsTotal / metrics.sessionsEnded / 60000 * 10) / 10 : 0;
+  const joinRate = metrics.roomsCreated ? Math.round(metrics.joins / metrics.roomsCreated * 100) / 100 : 0;       // avg people per room
+  const playRate = metrics.roomsCreated ? Math.round(metrics.firstPlays / metrics.roomsCreated * 100) : 0;        // % of rooms that started a video
+  const shareRate = metrics.roomsCreated ? Math.round(metrics.shares / metrics.roomsCreated * 100) : 0;           // shares per 100 rooms
+  return { roomsCreated: metrics.roomsCreated, joins: metrics.joins, firstPlays: metrics.firstPlays, shares: metrics.shares,
+    avgSessionMin, joinRate, playRate, shareRate, sinceMs: Date.now() - metrics.startedAt };
 }
 function rosterArr(room) {
   const a = []; room.members.forEach(v => a.push({ peerId: v.peerId, name: v.name })); return a;
@@ -239,7 +250,7 @@ function stats() {
     if (n > 0) list.push({ room: code, count: n, lastActivity: r.lastActivity });
   });
   list.sort((a, b) => b.lastActivity - a.lastActivity);
-  return { activeConversations, peopleInConversations, totalPresence, rooms: list, ts: Date.now() };
+  return { activeConversations, peopleInConversations, totalPresence, rooms: list, metrics: metricsSnapshot(), ts: Date.now() };
 }
 function pushStats() {
   const payload = JSON.stringify({ type: "stats", ...stats() });
@@ -257,6 +268,7 @@ function leaveRoom(ws) {
     r.lastActivity = Date.now();
     if (r.members.size === 0 && r.chat.length === 0) rooms.delete(ws._room);
   }
+  if (ws._joinedAt) { metrics.sessionsEnded++; metrics.sessionMsTotal += Date.now() - ws._joinedAt; ws._joinedAt = 0; }   // record session length
   ws._room = null;
   pushStats();
 }
@@ -308,6 +320,7 @@ wss.on("connection", (ws) => {
       ws._name = (String(m.name || "").trim().slice(0, 40)) || "Guest";
       r.members.set(ws, { peerId: ws._peerId, name: ws._name });
       r.lastActivity = Date.now();
+      if (!ws._joinedAt) { ws._joinedAt = Date.now(); metrics.joins++; }   // count this session join once
       // tell the joiner who is already here; tell others someone joined
       sendJSON(ws, { type: "roster", you: { peerId: ws._peerId, name: ws._name }, peers: rosterArr(r) });
       broadcastRoom(r, { type: "peer-joined", peerId: ws._peerId, name: ws._name }, ws);
@@ -340,7 +353,12 @@ wss.on("connection", (ws) => {
     }
 
     if (m.type === MSG.SYNC) {
+      if (m.kind === "play" && !r.played) { r.played = true; metrics.firstPlays++; }   // first time this room starts playing
       broadcastRoom(r, { type: "sync", from: ws._peerId, kind: m.kind, time: m.time, playing: m.playing }, ws);
+      return;
+    }
+    if (m.type === "ev") {   // lightweight client analytics events (aggregate only)
+      if (m.name === "share") metrics.shares++;
       return;
     }
     if (m.type === MSG.REACT) {

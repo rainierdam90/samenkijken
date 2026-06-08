@@ -72,6 +72,15 @@
       <div class="card"><div class="n" id="cPeople">0</div><div class="l">People in conversations</div></div>
       <div class="card"><div class="n" id="cTotal">0</div><div class="l">Total people present</div></div>
     </div>
+    <h2 style="font-size:14px;margin:0 0 12px;color:var(--muted);font-weight:600">Growth <span style="font-weight:400;font-size:12px" id="mSince">— since server start</span></h2>
+    <div class="cards">
+      <div class="card"><div class="n" id="mRooms">0</div><div class="l">Rooms created</div></div>
+      <div class="card"><div class="n" id="mJoins">0</div><div class="l">Total joins</div></div>
+      <div class="card"><div class="n" id="mJoinRate">0</div><div class="l">Avg. people per room</div></div>
+      <div class="card"><div class="n" id="mPlay">0%</div><div class="l">Rooms that started a video</div></div>
+      <div class="card"><div class="n" id="mAvg">0</div><div class="l">Avg. session (min)</div></div>
+      <div class="card"><div class="n" id="mShares">0</div><div class="l">Link shares</div></div>
+    </div>
     <div class="grid2">
       <div class="pane">
         <h2>Rooms <span class="sub" id="roomsSub">live</span></h2>
@@ -90,8 +99,10 @@
 (function(){
   "use strict";
   var $=function(id){ return document.getElementById(id); };
-  var SERVER_BASE="https://watchmovietogether-j59u.onrender.com"; // Node server origin (works whether this page is hosted on Render or elsewhere)
-  function rtUrl(){ if(SERVER_BASE) return SERVER_BASE.replace(/^http/,"ws")+"/rt"; return (location.protocol==="https:"?"wss://":"ws://")+location.host+"/rt"; }
+  var REMOTE_BACKEND="https://watchmovietogether-j59u.onrender.com"; // Node server origin when this page is hosted elsewhere
+  var servedByBackend=/(^|\.)onrender\.com$/i.test(location.hostname)||location.hostname==="localhost"||location.hostname==="127.0.0.1";
+  var SERVER_BASE=servedByBackend?"":REMOTE_BACKEND;  // use same origin locally / on the backend host
+  function rtUrl(){ var b=SERVER_BASE?SERVER_BASE.replace(/^http/,"ws"):(location.protocol==="https:"?"wss://":"ws://")+location.host; return b+"/rt"; }
 
   var ws=null, pw="", watching=null, rooms=[];
   try{ pw=sessionStorage.getItem("wmt_admin_pw")||""; }catch(e){}
@@ -121,6 +132,16 @@
     $("cActive").textContent=s.activeConversations||0;
     $("cPeople").textContent=s.peopleInConversations||0;
     $("cTotal").textContent=s.totalPresence||0;
+    var mm=s.metrics||{};
+    if($("mRooms")){
+      $("mRooms").textContent=mm.roomsCreated||0;
+      $("mJoins").textContent=mm.joins||0;
+      $("mJoinRate").textContent=mm.joinRate||0;
+      $("mPlay").textContent=(mm.playRate||0)+"%";
+      $("mAvg").textContent=mm.avgSessionMin||0;
+      $("mShares").textContent=mm.shares||0;
+      if(typeof mm.sinceMs==="number"){ var h=Math.floor(mm.sinceMs/3600000), mn=Math.floor((mm.sinceMs%3600000)/60000); $("mSince").textContent="— since server start ("+(h>0?h+"h ":"")+mn+"m ago)"; }
+    }
     rooms=s.rooms||[];
     var box=$("rooms");
     if(!rooms.length){ box.innerHTML='<div class="empty">No active rooms right now.</div>'; return; }
