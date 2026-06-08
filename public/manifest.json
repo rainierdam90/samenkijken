@@ -1,0 +1,16 @@
+{
+  "name": "WatchMovieTogether",
+  "short_name": "Together",
+  "description": "Be together, even when you're apart. A private living room for you and the people back home.",
+  "start_url": "/?pwa=1",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#0b0a0c",
+  "theme_color": "#0b0a0c",
+  "categories": ["social", "entertainment", "lifestyle"],
+  "icons": [
+    { "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" },
+    { "src": "/icon-maskable.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "maskable" }
+  ]
+}

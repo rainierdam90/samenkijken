@@ -27,6 +27,7 @@ const express = require("express");
 const { WebSocketServer } = require("ws");
 const { ExpressPeerServer } = require("peer");
 let webpush = null; try { webpush = require("web-push"); } catch (e) { /* optional */ }
+const store = require("./store");   // optional SQLite persistence (degrades gracefully)
 
 const PORT = process.env.PORT || 8080;
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "";
@@ -75,7 +76,9 @@ if (!HAS_TURN) console.warn("[WARN] No usable TURN (need TURN_URLS plus either T
 
 const app = express();
 app.disable("x-powered-by");
-app.use(express.json({ limit: "16kb" }));   // for POST /push-subscribe
+const jsonSmall = express.json({ limit: "16kb" });   // most POSTs are tiny
+const jsonWall = express.json({ limit: "3mb" });     // wall photos (downscaled client-side) need headroom
+app.use((req, res, next) => (req.path === "/wall" ? jsonWall : jsonSmall)(req, res, next));
 const server = http.createServer(app);
 
 /* ---- small CORS for the public GET endpoints (front-end may be on another origin) ---- */
@@ -150,7 +153,8 @@ app.get("/config", (req, res) => {
     hasTurn: HAS_TURN,
     hasYouTube: !!YT_API_KEY,
     hasPush: HAS_PUSH,
-    vapidPublic: HAS_PUSH ? VAPID_PUBLIC : ""
+    vapidPublic: HAS_PUSH ? VAPID_PUBLIC : "",
+    hasWall: store.enabled()
   });
 });
 
@@ -209,6 +213,33 @@ function notifyRoomAlive(room, arriverName) {
   });
 }
 
+/* ---- Persistent wall: notes & photos that stay between sessions (the "living room" memory) ---- */
+app.options("/wall", (req, res) => { cors(req, res); res.setHeader("Access-Control-Allow-Methods", "GET,POST,OPTIONS"); res.sendStatus(204); });
+app.get("/wall", async (req, res) => {
+  cors(req, res);
+  if (!httpLimiter(clientIp(req))) return tooMany(res);
+  res.setHeader("Cache-Control", "no-store");
+  const room = String(req.query.room || "").slice(0, 80);
+  const items = room ? await store.getWall(room, 100) : [];
+  res.json({ enabled: store.enabled(), items });
+});
+app.post("/wall", async (req, res) => {
+  cors(req, res); res.setHeader("Access-Control-Allow-Methods", "GET,POST,OPTIONS");
+  if (!httpLimiter(clientIp(req))) return tooMany(res);
+  if (!store.enabled()) return res.status(503).json({ error: "no_store" });
+  const b = req.body || {};
+  const room = String(b.room || "").slice(0, 80);
+  if (!room) return res.status(400).json({ error: "bad_request" });
+  const kind = b.kind === "photo" ? "photo" : "note";
+  let data, mime = null;
+  if (kind === "note") { data = String(b.text || "").trim().slice(0, 1000); if (!data) return res.status(400).json({ error: "empty" }); }
+  else { data = String(b.data || ""); mime = String(b.mime || "image/jpeg").slice(0, 40); if (!/^data:image\//.test(data)) return res.status(400).json({ error: "bad_image" }); if (data.length > 3000000) return res.status(413).json({ error: "too_big" }); }
+  const item = { id: "w" + crypto.randomBytes(6).toString("hex"), room, kind, author: String(b.author || "Someone").slice(0, 40), mime, data, ts: Date.now() };
+  await store.addWall(item);
+  try { const r = rooms.get(room); if (r) broadcastRoom(r, { type: "wall-add", item }); } catch (e) {}   // live members see it instantly
+  res.json({ ok: true, item });
+});
+
 /* ---- YouTube search proxy: the API key stays on the server, never in the browser ---- */
 app.get("/yt-search", (req, res) => {
   cors(req, res);
@@ -253,9 +284,10 @@ const admins = new Set();
 const rooms = new Map();
 function getRoom(code) {
   let r = rooms.get(code);
-  if (!r) { r = { members: new Map(), chat: [], lastActivity: Date.now(), played: false }; rooms.set(code, r); metrics.roomsCreated++; }
+  if (!r) { r = { members: new Map(), chat: [], lastActivity: Date.now(), played: false, pass: null, host: null }; rooms.set(code, r); metrics.roomsCreated++; }
   return r;
 }
+function hashPass(p) { return crypto.createHash("sha256").update("wmt:" + String(p || "")).digest("hex"); }
 
 /* ---- lightweight, privacy-friendly growth metrics (aggregate counts only — no personal data) ---- */
 const metrics = { startedAt: Date.now(), roomsCreated: 0, joins: 0, firstPlays: 0, shares: 0, sessionsEnded: 0, sessionMsTotal: 0 };
@@ -315,7 +347,7 @@ wss.on("connection", (ws) => {
   ws._msgN = 0; ws._msgReset = 0; ws._chatN = 0; ws._chatReset = 0;
   if (ws._ip) ipConns.set(ws._ip, (ipConns.get(ws._ip) || 0) + 1);
 
-  ws.on("message", (raw) => {
+  ws.on("message", async (raw) => {
     // per-connection flood guard: drop messages above the burst budget
     const now = Date.now();
     if (now >= ws._msgReset) { ws._msgReset = now + RL_MSG_WINDOW; ws._msgN = 0; }
@@ -346,17 +378,24 @@ wss.on("connection", (ws) => {
       const code = String(m.room || "").slice(0, 80);
       if (!code) return;
       const r = getRoom(code);
+      if (!r._loadP) { r._loadP = store.getRoom(code).then(row => { if (row) { if (row.passHash) r.pass = row.passHash; if (row.host) r.host = row.host; } }).catch(() => {}); }
+      await r._loadP;   // restore a persisted lock/host (awaited so the password check sees it; concurrent joins share one load)
       if (r.members.size >= MAX_ROOM && !r.members.has(ws)) { sendJSON(ws, { type: "full" }); return; }
+      if (r.pass && !r.members.has(ws) && hashPass(m.pass) !== r.pass) {   // protected room → must supply the right password
+        sendJSON(ws, { type: "need-pass", wrong: !!(m.pass) });
+        return;
+      }
       const wasEmpty = r.members.size === 0;   // first arrival → notify anyone watching this room
       ws._room = code;
       ws._peerId = String(m.peerId || "").slice(0, 64) || ("p" + crypto.randomBytes(4).toString("hex"));
       ws._name = (String(m.name || "").trim().slice(0, 40)) || "Guest";
       r.members.set(ws, { peerId: ws._peerId, name: ws._name });
+      if (!r.host) { r.host = ws._peerId; store.ensureRoom(code, ws._peerId); }   // first person in becomes the host (persisted)
       if (wasEmpty) notifyRoomAlive(code, ws._name);
       r.lastActivity = Date.now();
       if (!ws._joinedAt) { ws._joinedAt = Date.now(); metrics.joins++; }   // count this session join once
       // tell the joiner who is already here; tell others someone joined
-      sendJSON(ws, { type: "roster", you: { peerId: ws._peerId, name: ws._name }, peers: rosterArr(r) });
+      sendJSON(ws, { type: "roster", you: { peerId: ws._peerId, name: ws._name }, peers: rosterArr(r), host: r.host === ws._peerId, hasPass: !!r.pass });
       broadcastRoom(r, { type: "peer-joined", peerId: ws._peerId, name: ws._name }, ws);
       if (r.gallery && r.gallery.items.length) sendJSON(ws, { type: "gallery", presenter: r.gallery.presenter, items: r.gallery.items, current: r.gallery.current });
       pushStats();
@@ -369,6 +408,16 @@ wss.on("connection", (ws) => {
     const r = rooms.get(ws._room);
     if (!r) return;
     r.lastActivity = Date.now();
+
+    if (m.type === "set-pass") {                    // only the host may lock/unlock the room
+      if (r.host !== ws._peerId) { sendJSON(ws, { type: "pass-set", hasPass: !!r.pass, denied: true }); return; }
+      const p = String(m.password || "");
+      r.pass = p ? hashPass(p) : null;
+      store.setPass(ws._room, r.pass);   // survive restarts
+      sendJSON(ws, { type: "pass-set", hasPass: !!r.pass });
+      broadcastRoom(r, { type: "room-locked", hasPass: !!r.pass, by: ws._name }, ws);
+      return;
+    }
 
     if (m.type === MSG.CHAT) {
       // tighter per-connection limit for chat specifically (anti-spam)

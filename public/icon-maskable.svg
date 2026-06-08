@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <radialGradient id="gm" cx="38%" cy="32%" r="70%">
+      <stop offset="0%" stop-color="#ffe6b0"/>
+      <stop offset="45%" stop-color="#ffcf86"/>
+      <stop offset="100%" stop-color="#f4b14a"/>
+    </radialGradient>
+  </defs>
+  <rect width="512" height="512" fill="#0b0a0c"/>
+  <!-- content kept within the central ~66% safe zone for maskable cropping -->
+  <circle cx="256" cy="236" r="92" fill="url(#gm)"/>
+  <text x="256" y="372" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-weight="700" font-size="62" fill="#efe7dd" letter-spacing="2">WMT</text>
+</svg>
