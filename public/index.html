@@ -328,6 +328,27 @@
   .wr-actions .btn{padding:13px 22px; font-size:15px}
   .wr-cal{display:flex; gap:10px; flex-wrap:wrap; justify-content:center; margin-top:16px}
   .wr-cal .share-btn{font-size:13px}
+
+  /* ===================== Share: desktop QR + phone companion ===================== */
+  .share-opts{display:flex; gap:18px; flex-wrap:wrap; align-items:stretch; margin-top:6px}
+  .share-opt{flex:1 1 180px; display:flex; flex-direction:column; align-items:center; text-align:center; gap:12px; padding:18px; border:1px solid var(--line); border-radius:16px; background:rgba(255,255,255,.02)}
+  .share-opt h4{margin:0; font-size:15px; color:var(--txt)}
+  .share-opt p{margin:0; font-size:12px; color:var(--muted); line-height:1.45}
+  .share-opt .qrbox{width:168px; height:168px; background:#fff; border-radius:12px; padding:10px; display:flex; align-items:center; justify-content:center}
+  .share-opt .qrbox img, .share-opt .qrbox canvas{width:100%!important; height:100%!important; display:block}
+  .share-or{display:flex; align-items:center; color:var(--muted); font-size:12px; text-transform:uppercase; letter-spacing:1px}
+  @media (max-width:560px){ .share-or{display:none} }
+
+  .companion{position:fixed; inset:0; z-index:215; display:none; flex-direction:column; align-items:center; justify-content:center; gap:6px; padding:26px; text-align:center;
+    background:radial-gradient(900px 600px at 50% -80px, rgba(244,177,74,.16), transparent 60%), #0b0a0c}
+  .companion.show{display:flex}
+  .companion .c-emoji{font-size:46px}
+  .companion h1{font-family:'Bebas Neue',sans-serif; font-weight:400; letter-spacing:1px; font-size:clamp(26px,7vw,40px); margin:8px 0 4px}
+  .companion p{color:#cabfb4; font-size:15px; line-height:1.5; margin:0 0 22px; max-width:420px}
+  .companion .btn.primary{font-size:18px; padding:16px 30px}
+  .companion .c-status{margin-top:18px; font-size:14px; color:var(--good); min-height:20px}
+  .companion .c-grid{display:flex; flex-wrap:wrap; gap:8px; justify-content:center; margin-top:16px; max-width:90vw}
+  .companion .c-thumb{font-size:12px; color:var(--txt); background:var(--panel-2); border:1px solid var(--line); border-radius:8px; padding:6px 10px}
 </style>
 </head>
 <body>
@@ -542,9 +563,42 @@
     </div>
   </div>
 
+  <!-- Desktop: share via this computer OR scan a QR to add from your phone -->
+  <div class="modal" id="shareModal">
+    <div class="modal-card">
+      <button class="modal-x" id="shareModalX" aria-label="Close">×</button>
+      <h3 id="shareModalTitle">Share photos &amp; videos</h3>
+      <p class="m-sub" id="shareModalSub">Only share photos and videos you own or have the right to share.</p>
+      <div class="share-opts">
+        <div class="share-opt">
+          <h4 id="shareOptPcTitle">From this computer</h4>
+          <p id="shareOptPcSub">Pick files saved on this device.</p>
+          <button class="btn primary" id="shareFromPc">📁 <span id="shareFromPcTxt">Choose files</span></button>
+        </div>
+        <div class="share-or">or</div>
+        <div class="share-opt">
+          <h4 id="shareOptPhoneTitle">From your phone</h4>
+          <div class="qrbox" id="shareQr"></div>
+          <p id="shareOptPhoneSub">Scan to add photos &amp; videos from your phone — no camera needed.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Phone companion (opened by scanning the QR): join room without camera, share media -->
+  <div class="companion" id="companion">
+    <div class="c-emoji">📷</div>
+    <h1 id="compTitle">Share your photos &amp; videos</h1>
+    <p id="compSub">Everyone in the room will see them on the big screen.</p>
+    <button class="btn primary" id="compChoose">📷 <span id="compChooseTxt">Choose from your phone</span></button>
+    <div class="c-status" id="compStatus"></div>
+    <div class="c-grid" id="compGrid"></div>
+  </div>
+
   <div class="toast" id="toast"></div>
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/peerjs/1.5.5/peerjs.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
   <script>
   (function () {
     "use strict";
@@ -571,8 +625,8 @@
 
     /* ===================== i18n (base) ===================== */
     var I18N = {
-      en:{lang:"English",tagline:"Watch any movie together — in sync, face to face.",sub:"Create a private room for two, share the link, and press play in perfect sync — while you see and hear each other in the corner.",create:"Create a room",browse:"Browse YouTube",got:"Already have a link? Just open it to join.",foot:"End-to-end encrypted peer-to-peer video, audio and chat. One-to-one.",load:"Load",url_ph:"Paste a video file (.mp4/.webm), a YouTube link, or another video page…",share:"Share link",copy:"Copy link",copied:"Copied!",st_wait:"Waiting for the other person…",st_conn:"Connecting…",st_ok:"Connected",ph_kicker:"Private cinema for two",ph_title:"Ready for movie night?",room_code:"Your room code:",same_link:"the other person must see the exact same code. If not, click “Copy link” and send that.",ph_note:"Paste a video file or YouTube link above, or use “▶ YouTube” to search together. Tip: use headphones to avoid echo.",cam_conn:"Connecting to the other person…",cam_fail:"Connection failed — try again",retry:"Try again",you:"You",other:"The other person",chat:"Chat",chat_ph:"Type a message…",send:"Send",chat_empty:"No messages yet. Say hi 👋",cd_title:"Start together",cd_hint:"One of you taps Count down. On NOW, you both press play in the player.",cd_btn:"3 · 2 · 1 — Count down",cd_now:"NOW ▶",open_tab:"Open in new tab ↗",playgate:"Click to watch along",movie_vol:"Movie volume",their_vol:"Their volume",yt_title:"Browse YouTube together",yt_ph:"Search YouTube…",yt_search:"Search",open_yt:"Open YouTube ↗",yt_none:"No results.",yt_nokey:"Search needs a YouTube API key (see README). For now, use “Open YouTube”, find a video and paste its link.",yt_hint:"Search above to find a video to watch together.",full_title:"This room is full",full_body:"Two people are already watching here. It’s one-to-one. Create a new room and share that link.",new_room:"Create a new room",t_mic:"Microphone on/off",t_cam:"Camera on/off",t_duck:"Auto-lower movie when talking",t_chat:"Show/hide chat",t_fs:"Fullscreen",t_diag:"Connection diagnostics",t_browse:"Browse YouTube"},
-      nl:{lang:"Nederlands",tagline:"Kijk samen naar elke film — synchroon, met elkaar in beeld.",sub:"Maak een privékamer voor twee, deel de link en druk synchroon op play — terwijl jullie elkaar in een hoekje zien en horen.",create:"Maak een kamer",browse:"YouTube bladeren",got:"Heb je al een link? Open die om mee te doen.",foot:"End-to-end versleutelde peer-to-peer video, audio en chat. Eén-op-één.",load:"Laden",url_ph:"Plak een filmbestand (.mp4/.webm), een YouTube-link of een andere video-pagina…",share:"Deel-link",copy:"Kopieer link",copied:"Gekopieerd!",st_wait:"Wachten op de ander…",st_conn:"Verbinden…",st_ok:"Verbonden",ph_kicker:"Privé bioscoop voor twee",ph_title:"Klaar voor de filmavond?",room_code:"Jullie kamercode:",same_link:"de ander moet exact dezelfde code zien. Zo niet, klik op “Kopieer link” en stuur die.",ph_note:"Plak hierboven een filmbestand of YouTube-link, of gebruik “▶ YouTube” om samen te zoeken. Tip: koptelefoon op tegen galm.",cam_conn:"Verbinden met de ander…",cam_fail:"Verbinding mislukt — probeer opnieuw",retry:"Opnieuw proberen",you:"Jij",other:"De ander",chat:"Chat",chat_ph:"Typ een bericht…",send:"Stuur",chat_empty:"Nog geen berichten. Zeg hallo 👋",cd_title:"Samen starten",cd_hint:"Eén van jullie klikt op aftellen. Bij NU drukken jullie allebei op play.",cd_btn:"3 · 2 · 1 — Aftellen",cd_now:"NU ▶",open_tab:"Openen in nieuw tabblad ↗",playgate:"Klik om mee te kijken",movie_vol:"Filmvolume",their_vol:"Hun volume",yt_title:"Samen YouTube bladeren",yt_ph:"Zoek op YouTube…",yt_search:"Zoeken",open_yt:"YouTube openen ↗",yt_none:"Geen resultaten.",yt_nokey:"Zoeken vereist een YouTube API-sleutel (zie README). Gebruik nu “YouTube openen”, zoek een video en plak de link.",yt_hint:"Zoek hierboven een video om samen te kijken.",full_title:"Deze kamer zit vol",full_body:"Er kijken al twee mensen. Het is één-op-één. Maak een nieuwe kamer en deel die link.",new_room:"Nieuwe kamer maken",t_mic:"Microfoon aan/uit",t_cam:"Camera aan/uit",t_duck:"Film zachter als je praat",t_chat:"Chat tonen/verbergen",t_fs:"Volledig scherm",t_diag:"Verbindingsdiagnose",t_browse:"YouTube bladeren"},
+      en:{lang:"English",tagline:"Movie night with the people you miss.",sub:"Watch YouTube, home videos and memories together — face to face, in sync, from anywhere. No app, no sign-up: send a link and you're together in seconds.",create:"Create a room",browse:"Browse YouTube",got:"Already have a link? Just open it to join.",foot:"End-to-end encrypted peer-to-peer video, audio and chat. One-to-one.",load:"Load",url_ph:"Paste a video file (.mp4/.webm), a YouTube link, or another video page…",share:"Share link",copy:"Copy link",copied:"Copied!",st_wait:"Waiting for the other person…",st_conn:"Connecting…",st_ok:"Connected",ph_kicker:"Private cinema for two",ph_title:"Ready for movie night?",room_code:"Your room code:",same_link:"the other person must see the exact same code. If not, click “Copy link” and send that.",ph_note:"Paste a video file or YouTube link above, or use “▶ YouTube” to search together. Tip: use headphones to avoid echo.",cam_conn:"Connecting to the other person…",cam_fail:"Connection failed — try again",retry:"Try again",you:"You",other:"The other person",chat:"Chat",chat_ph:"Type a message…",send:"Send",chat_empty:"No messages yet. Say hi 👋",cd_title:"Start together",cd_hint:"One of you taps Count down. On NOW, you both press play in the player.",cd_btn:"3 · 2 · 1 — Count down",cd_now:"NOW ▶",open_tab:"Open in new tab ↗",playgate:"Click to watch along",movie_vol:"Movie volume",their_vol:"Their volume",yt_title:"Browse YouTube together",yt_ph:"Search YouTube…",yt_search:"Search",open_yt:"Open YouTube ↗",yt_none:"No results.",yt_nokey:"Search needs a YouTube API key (see README). For now, use “Open YouTube”, find a video and paste its link.",yt_hint:"Search above to find a video to watch together.",full_title:"This room is full",full_body:"Two people are already watching here. It’s one-to-one. Create a new room and share that link.",new_room:"Create a new room",t_mic:"Microphone on/off",t_cam:"Camera on/off",t_duck:"Auto-lower movie when talking",t_chat:"Show/hide chat",t_fs:"Fullscreen",t_diag:"Connection diagnostics",t_browse:"Browse YouTube"},
+      nl:{lang:"Nederlands",tagline:"Filmavond met de mensen die je mist.",sub:"Kijk samen YouTube, thuisvideo's en herinneringen — oog in oog, synchroon, waar je ook bent. Geen app, geen account: stuur een link en je bent samen binnen seconden.",create:"Maak een kamer",browse:"YouTube bladeren",got:"Heb je al een link? Open die om mee te doen.",foot:"End-to-end versleutelde peer-to-peer video, audio en chat. Eén-op-één.",load:"Laden",url_ph:"Plak een filmbestand (.mp4/.webm), een YouTube-link of een andere video-pagina…",share:"Deel-link",copy:"Kopieer link",copied:"Gekopieerd!",st_wait:"Wachten op de ander…",st_conn:"Verbinden…",st_ok:"Verbonden",ph_kicker:"Privé bioscoop voor twee",ph_title:"Klaar voor de filmavond?",room_code:"Jullie kamercode:",same_link:"de ander moet exact dezelfde code zien. Zo niet, klik op “Kopieer link” en stuur die.",ph_note:"Plak hierboven een filmbestand of YouTube-link, of gebruik “▶ YouTube” om samen te zoeken. Tip: koptelefoon op tegen galm.",cam_conn:"Verbinden met de ander…",cam_fail:"Verbinding mislukt — probeer opnieuw",retry:"Opnieuw proberen",you:"Jij",other:"De ander",chat:"Chat",chat_ph:"Typ een bericht…",send:"Stuur",chat_empty:"Nog geen berichten. Zeg hallo 👋",cd_title:"Samen starten",cd_hint:"Eén van jullie klikt op aftellen. Bij NU drukken jullie allebei op play.",cd_btn:"3 · 2 · 1 — Aftellen",cd_now:"NU ▶",open_tab:"Openen in nieuw tabblad ↗",playgate:"Klik om mee te kijken",movie_vol:"Filmvolume",their_vol:"Hun volume",yt_title:"Samen YouTube bladeren",yt_ph:"Zoek op YouTube…",yt_search:"Zoeken",open_yt:"YouTube openen ↗",yt_none:"Geen resultaten.",yt_nokey:"Zoeken vereist een YouTube API-sleutel (zie README). Gebruik nu “YouTube openen”, zoek een video en plak de link.",yt_hint:"Zoek hierboven een video om samen te kijken.",full_title:"Deze kamer zit vol",full_body:"Er kijken al twee mensen. Het is één-op-één. Maak een nieuwe kamer en deel die link.",new_room:"Nieuwe kamer maken",t_mic:"Microfoon aan/uit",t_cam:"Camera aan/uit",t_duck:"Film zachter als je praat",t_chat:"Chat tonen/verbergen",t_fs:"Volledig scherm",t_diag:"Verbindingsdiagnose",t_browse:"YouTube bladeren"},
       de:{lang:"Deutsch",tagline:"Schaut jeden Film zusammen — synchron, von Angesicht zu Angesicht.",sub:"Erstellt einen privaten Raum für zwei, teilt den Link und drückt synchron auf Play — während ihr euch in der Ecke seht und hört.",create:"Raum erstellen",browse:"YouTube durchsuchen",got:"Schon einen Link? Einfach öffnen zum Beitreten.",foot:"Ende-zu-Ende verschlüsseltes Peer-to-Peer Video, Audio und Chat. Eins-zu-eins.",load:"Laden",url_ph:"Videodatei (.mp4/.webm), YouTube-Link oder andere Video-Seite einfügen…",share:"Link teilen",copy:"Link kopieren",copied:"Kopiert!",st_wait:"Warten auf die andere Person…",st_conn:"Verbinden…",st_ok:"Verbunden",ph_kicker:"Privates Kino für zwei",ph_title:"Bereit für den Filmabend?",room_code:"Euer Raumcode:",same_link:"die andere Person muss genau denselben Code sehen. Sonst „Link kopieren“ klicken und senden.",ph_note:"Oben eine Videodatei oder YouTube-Link einfügen, oder „▶ YouTube“ zum gemeinsamen Suchen. Tipp: Kopfhörer gegen Echo.",cam_conn:"Verbinden mit der anderen Person…",cam_fail:"Verbindung fehlgeschlagen — erneut versuchen",retry:"Erneut versuchen",you:"Du",other:"Die andere Person",chat:"Chat",chat_ph:"Nachricht schreiben…",send:"Senden",chat_empty:"Noch keine Nachrichten. Sag Hallo 👋",cd_title:"Gemeinsam starten",cd_hint:"Einer tippt auf Countdown. Bei JETZT drückt ihr beide auf Play.",cd_btn:"3 · 2 · 1 — Countdown",cd_now:"JETZT ▶",open_tab:"In neuem Tab öffnen ↗",playgate:"Klicken zum Mitschauen",movie_vol:"Filmlautstärke",their_vol:"Ihre Lautstärke",yt_title:"YouTube gemeinsam durchsuchen",yt_ph:"YouTube durchsuchen…",yt_search:"Suchen",open_yt:"YouTube öffnen ↗",yt_none:"Keine Ergebnisse.",yt_nokey:"Die Suche braucht einen YouTube-API-Schlüssel (siehe README). Nutze vorerst „YouTube öffnen“ und füge einen Link ein.",yt_hint:"Oben suchen, um ein Video gemeinsam zu schauen.",full_title:"Dieser Raum ist voll",full_body:"Hier schauen schon zwei Personen. Es ist eins-zu-eins. Erstelle einen neuen Raum und teile den Link.",new_room:"Neuen Raum erstellen",t_mic:"Mikrofon an/aus",t_cam:"Kamera an/aus",t_duck:"Film leiser beim Sprechen",t_chat:"Chat ein/aus",t_fs:"Vollbild",t_diag:"Verbindungsdiagnose",t_browse:"YouTube durchsuchen"},
       zh:{lang:"中文",tagline:"一起看任何电影 — 同步播放，面对面。",sub:"为两人创建私人房间，分享链接，同步按下播放 — 同时在角落里看到并听到彼此。",create:"创建房间",browse:"浏览 YouTube",got:"已有链接？打开即可加入。",foot:"端到端加密的点对点视频、音频和聊天。一对一。",load:"加载",url_ph:"粘贴视频文件 (.mp4/.webm)、YouTube 链接或其他视频页面…",share:"分享链接",copy:"复制链接",copied:"已复制！",st_wait:"等待对方…",st_conn:"连接中…",st_ok:"已连接",ph_kicker:"两人的私人影院",ph_title:"准备好电影之夜了吗？",room_code:"你们的房间代码：",same_link:"对方必须看到完全相同的代码。如果不同，请点击“复制链接”并发送。",ph_note:"在上方粘贴视频文件或 YouTube 链接，或用“▶ YouTube”一起搜索。提示：戴耳机以避免回声。",cam_conn:"正在连接对方…",cam_fail:"连接失败 — 请重试",retry:"重试",you:"你",other:"对方",chat:"聊天",chat_ph:"输入消息…",send:"发送",chat_empty:"还没有消息，打个招呼吧 👋",cd_title:"一起开始",cd_hint:"一人点击倒计时。到“现在”时，你们一起按播放。",cd_btn:"3 · 2 · 1 — 倒计时",cd_now:"现在 ▶",open_tab:"在新标签页打开 ↗",playgate:"点击一起观看",movie_vol:"影片音量",their_vol:"对方音量",yt_title:"一起浏览 YouTube",yt_ph:"搜索 YouTube…",yt_search:"搜索",open_yt:"打开 YouTube ↗",yt_none:"没有结果。",yt_nokey:"搜索需要 YouTube API 密钥（见 README）。暂时请用“打开 YouTube”找视频并粘贴链接。",yt_hint:"在上方搜索，找到一起观看的视频。",full_title:"房间已满",full_body:"这里已有两人在看。这是一对一。请创建新房间并分享链接。",new_room:"创建新房间",t_mic:"麦克风开/关",t_cam:"摄像头开/关",t_duck:"说话时自动降低影片音量",t_chat:"显示/隐藏聊天",t_fs:"全屏",t_diag:"连接诊断",t_browse:"浏览 YouTube"},
       ja:{lang:"日本語",tagline:"どんな映画も一緒に — 同期再生で、顔を見ながら。",sub:"2人用のプライベートルームを作り、リンクを共有して、ぴったり同期で再生。すみでお互いの顔と声も。",create:"ルームを作成",browse:"YouTube を見る",got:"リンクをお持ちですか？開くだけで参加できます。",foot:"エンドツーエンド暗号化のP2P映像・音声・チャット。1対1。",load:"読み込む",url_ph:"動画ファイル(.mp4/.webm)、YouTubeリンク、または動画ページを貼り付け…",share:"リンクを共有",copy:"リンクをコピー",copied:"コピーしました！",st_wait:"相手を待っています…",st_conn:"接続中…",st_ok:"接続済み",ph_kicker:"2人だけの映画館",ph_title:"映画ナイトの準備はいい？",room_code:"ルームコード：",same_link:"相手も全く同じコードを見ている必要があります。違う場合は「リンクをコピー」して送ってください。",ph_note:"上に動画ファイルかYouTubeリンクを貼るか、「▶ YouTube」で一緒に検索。ヒント：エコー防止にヘッドホンを。",cam_conn:"相手に接続しています…",cam_fail:"接続に失敗 — もう一度",retry:"再試行",you:"あなた",other:"相手",chat:"チャット",chat_ph:"メッセージを入力…",send:"送信",chat_empty:"まだメッセージはありません。挨拶しよう 👋",cd_title:"一緒にスタート",cd_hint:"どちらかがカウントダウン。「NOW」で2人同時に再生を押します。",cd_btn:"3 · 2 · 1 — カウントダウン",cd_now:"NOW ▶",open_tab:"新しいタブで開く ↗",playgate:"クリックして一緒に見る",movie_vol:"動画の音量",their_vol:"相手の音量",yt_title:"一緒にYouTubeを見る",yt_ph:"YouTubeを検索…",yt_search:"検索",open_yt:"YouTubeを開く ↗",yt_none:"結果がありません。",yt_nokey:"検索にはYouTube APIキーが必要です（README参照）。今は「YouTubeを開く」で動画を探しリンクを貼ってください。",yt_hint:"上で検索して一緒に見る動画を探そう。",full_title:"このルームは満員です",full_body:"すでに2人が視聴中です。1対1です。新しいルームを作ってリンクを共有してください。",new_room:"新しいルームを作成",t_mic:"マイクのオン/オフ",t_cam:"カメラのオン/オフ",t_duck:"話すと動画を自動で小さく",t_chat:"チャット表示/非表示",t_fs:"全画面",t_diag:"接続診断",t_browse:"YouTube を見る"},
@@ -656,6 +710,13 @@
     };
     Object.keys(MORE_LANGS).forEach(function(k){ I18N[k]=Object.assign({}, I18N.en, MORE_LANGS[k]); });
     LANG_ORDER = LANG_ORDER.concat(["ar","tl","fr","es","pt","ru","id","bn","ta","ml"]);
+
+    /* strings for the desktop share modal + phone companion (en + nl; rest fall back to en) */
+    var EXTRA5 = {
+      en:{share_modal_title:"Share photos & videos",share_opt_pc_title:"From this computer",share_opt_pc_sub:"Pick files saved on this device.",share_from_pc:"Choose files",share_opt_phone_title:"From your phone",share_opt_phone_sub:"Scan to add photos & videos from your phone — no camera needed.",share_qr_fail:"Couldn't draw the QR code. Copy the room link and open it on your phone instead.",comp_title:"Share your photos & videos",comp_sub:"Everyone in the room will see them on the big screen.",comp_choose:"Choose from your phone",comp_shared:"Shared! Pick more anytime. 🎉",comp_connecting:"Connecting to the room…",comp_connected:"Connected — pick what to show."},
+      nl:{share_modal_title:"Foto's & video's delen",share_opt_pc_title:"Vanaf deze computer",share_opt_pc_sub:"Kies bestanden op dit apparaat.",share_from_pc:"Bestanden kiezen",share_opt_phone_title:"Vanaf je telefoon",share_opt_phone_sub:"Scan om foto's & video's vanaf je telefoon toe te voegen — geen camera nodig.",share_qr_fail:"QR-code tekenen mislukt. Kopieer de roomlink en open die op je telefoon.",comp_title:"Deel je foto's & video's",comp_sub:"Iedereen in de room ziet ze op het grote scherm.",comp_choose:"Kies vanaf je telefoon",comp_shared:"Gedeeld! Kies wanneer je wilt meer. 🎉",comp_connecting:"Verbinden met de room…",comp_connected:"Verbonden — kies wat je wilt tonen."}
+    };
+    Object.keys(EXTRA5).forEach(function(k){ if(I18N[k]) Object.keys(EXTRA5[k]).forEach(function(j){ I18N[k][j]=EXTRA5[k][j]; }); });
     var landingMode="home";
 
     var lang = (function(){ try{ return localStorage.getItem("wmt_lang")||"en"; }catch(e){ return "en"; } })();
@@ -668,7 +729,7 @@
     function fillLangSelect(sel){ if(!sel) return; sel.innerHTML=""; LANG_ORDER.forEach(function(c){ var o=document.createElement("option"); o.value=c; o.textContent=I18N[c].lang; sel.appendChild(o); }); sel.value=lang; }
     function applyLang(code){
       if(code){ lang=I18N[code]?code:"en"; try{ localStorage.setItem("wmt_lang",lang); }catch(e){} }
-      document.documentElement.lang=lang; document.documentElement.dir=(lang==="ur")?"rtl":"ltr";
+      document.documentElement.lang=lang; document.documentElement.dir=(lang==="ur"||lang==="ar")?"rtl":"ltr";
       if($("langSel")) $("langSel").value=lang; if($("langSelL")) $("langSelL").value=lang;
       setText("ld_tagline",tr("tagline")); setText("ld_sub",tr("sub")); setText("ld_create",tr("create")); setText("ld_joinbtn",tr("join_room")); setText("ld_join",tr("join")); setText("ld_or",tr("or_code")); setPh("ld_code",tr("room_code_ph")); setText("ld_got", landingMode==="join"?tr("joining"):tr("got")); setPh("ld_name",tr("name_ph"));
       setText("loadBtn",tr("load")); setPh("urlInput",tr("url_ph")); setText("shareLbl",tr("share")); setText("browseBtn","\u25B6 "+tr("browse")); if(!copyBusy) setText("copyBtn",tr("copy"));
@@ -985,6 +1046,7 @@
     /* ===================== Camera / mic ===================== */
     var localStream=null;
     function setupMedia(){
+      if(shareMode){ localStream=null; try{ micBtn.classList.add("off"); micBtn.disabled=true; camBtn.classList.add("off"); camBtn.disabled=true; }catch(e){} return Promise.resolve(); }   // phone companion: join without camera/mic
       var full={ video:{ width:{ideal:640}, height:{ideal:480} }, audio:{ echoCancellation:true, noiseSuppression:true, autoGainControl:true } };
       return navigator.mediaDevices.getUserMedia(full)
         .catch(function(){ return navigator.mediaDevices.getUserMedia({ audio:{ echoCancellation:true } }).then(function(s){ toast("No camera found — joining with audio only."); camBtn.classList.add("off"); camBtn.disabled=true; return s; }); })
@@ -1149,6 +1211,7 @@
       rtSend({type:"gallery", presenter:myPeerId, items:items, current:items[0].fileId});
       openGalleryUI(); showGalleryItem(items[0].fileId);
       toast(items.length+(items.length===1?" item":" items")+" shared. Others can now watch along.",6000);
+      if(shareMode) updateCompanionShared(items);
     }
     function stopSharing(){ if(!amPresenter()) return; rtSend({type:"gallery-clear"}); teardownGallery(); }
     function teardownGallery(){
@@ -1171,7 +1234,10 @@
       if(m.type==="gallery-clear"){ if(!amPresenter()){ gallery=null; closeGalleryUI(); if(galleryImg){ galleryImg.style.display="none"; try{ galleryImg.removeAttribute("src"); }catch(e){} } if(mode==="gallery-image"){ clearPlayers(); placeholder.style.display=""; mode="none"; } } return true; }
       return false;
     }
-    if(shareMediaBtn) shareMediaBtn.addEventListener("click", function(){ var seen; try{ seen=sessionStorage.getItem("wmt_legal"); }catch(e){} if(!seen){ toast(tr("legal_share"),6000); try{ sessionStorage.setItem("wmt_legal","1"); }catch(e){} } if(fileInput) fileInput.click(); });
+    if(shareMediaBtn) shareMediaBtn.addEventListener("click", function(){
+      if(isMobileDevice()){ var seen; try{ seen=sessionStorage.getItem("wmt_legal"); }catch(e){} if(!seen){ toast(tr("legal_share"),6000); try{ sessionStorage.setItem("wmt_legal","1"); }catch(e){} } if(fileInput) fileInput.click(); }
+      else openShareModal();   // desktop: offer "this computer" + a QR to add from the phone
+    });
     if(fileInput) fileInput.addEventListener("change", function(){ startSharing(fileInput.files); try{ fileInput.value=""; }catch(e){} });
     if(gPrev) gPrev.addEventListener("click", function(){ presenterStep(-1); });
     if(gNext) gNext.addEventListener("click", function(){ presenterStep(1); });
@@ -1390,11 +1456,47 @@
       setText("schWaTxt",tr("wa")); setText("schMailTxt",tr("email")); setText("schRemindTxt",tr("remind")); setText("wrRemindTxt",tr("remind"));
       setText("wrKicker",tr("wr_kicker")); setText("wrJoin",tr("wr_join")); setText("wrCopy",tr("wr_copy"));
       setText("ph_note",tr("legal_tip"));   // copyright positioning on the main screen
+      setText("shareModalTitle",tr("share_modal_title")); setText("shareModalSub",tr("legal_share"));
+      setText("shareOptPcTitle",tr("share_opt_pc_title")); setText("shareOptPcSub",tr("share_opt_pc_sub")); setText("shareFromPcTxt",tr("share_from_pc"));
+      setText("shareOptPhoneTitle",tr("share_opt_phone_title")); setText("shareOptPhoneSub",tr("share_opt_phone_sub"));
+      setText("compTitle",tr("comp_title")); setText("compSub",tr("comp_sub")); setText("compChooseTxt",tr("comp_choose"));
     }
+
+    /* ===================== Feature: desktop QR share + phone companion ===================== */
+    var shareMode=false, compShareCount=0;
+    var shareModal=$("shareModal"), shareModalX=$("shareModalX"), shareFromPc=$("shareFromPc"), shareQr=$("shareQr");
+    var companion=$("companion"), compChoose=$("compChoose"), compStatus=$("compStatus"), compGrid=$("compGrid");
+    function isMobileDevice(){ try{ if(navigator.userAgentData && navigator.userAgentData.mobile) return true; }catch(e){} if(/Mobi|Android|iPhone|iPad|iPod|IEMobile|Opera Mini/i.test(navigator.userAgent)) return true; return !!(window.matchMedia && window.matchMedia("(pointer:coarse)").matches && window.matchMedia("(max-width:820px)").matches); }
+    function shareCompanionUrl(){ return location.origin+location.pathname+"?room="+encodeURIComponent(roomCode||"")+"&share=1"; }
+    function renderShareQr(){
+      if(!shareQr) return; shareQr.innerHTML="";
+      var url=shareCompanionUrl();
+      if(typeof QRCode!=="undefined"){ try{ new QRCode(shareQr,{ text:url, width:150, height:150, correctLevel:QRCode.CorrectLevel.M }); return; }catch(e){} }
+      var p=document.createElement("div"); p.style.cssText="font-size:11px;color:#222;word-break:break-all;padding:6px;text-align:center"; p.textContent=tr("share_qr_fail"); shareQr.appendChild(p);
+    }
+    function openShareModal(){ if(!shareModal) return; renderShareQr(); shareModal.classList.add("show"); }
+    if(shareModalX) shareModalX.addEventListener("click", function(){ shareModal.classList.remove("show"); });
+    if(shareFromPc) shareFromPc.addEventListener("click", function(){ try{ sessionStorage.setItem("wmt_legal","1"); }catch(e){} if(shareModal) shareModal.classList.remove("show"); if(fileInput) fileInput.click(); });
+    function showCompanion(){ if(!companion) return; if(compStatus) compStatus.textContent=tr("comp_connecting"); companion.classList.add("show");
+      var t=setInterval(function(){ if(rtReady){ if(compStatus && compShareCount===0) compStatus.textContent=tr("comp_connected"); clearInterval(t); } },500); setTimeout(function(){ clearInterval(t); },15000); }
+    function updateCompanionShared(items){
+      compShareCount += (items?items.length:0);
+      if(compStatus) compStatus.textContent=tr("comp_shared");
+      if(compGrid){ (items||[]).forEach(function(it){ var d=document.createElement("div"); d.className="c-thumb"; d.textContent=(it.type==="image"?"🖼 ":"🎬 ")+(it.name||it.fileId); compGrid.appendChild(d); }); }
+    }
+    if(compChoose) compChoose.addEventListener("click", function(){ if(fileInput) fileInput.click(); });
 
     (function start(){
       fillLangSelect($("langSel")); fillLangSelect($("langSelL")); applyLang(); applyCamSize();
       if(ldName&&myName) ldName.value=myName;
+      // phone companion via scanned QR: join this room without a camera, go straight to sharing
+      if(roomCode && params.get("share")==="1"){
+        shareMode=true;
+        if(!myName) myName="📱";
+        if(landing) landing.classList.remove("show");
+        boot(); showCompanion();
+        return;
+      }
       var atParam=parseInt(params.get("at")||"",10);
       if(roomCode && atParam && (atParam-Date.now())>60000){   // scheduled link opened early → waiting room
         showWaitroom(roomCode, atParam, params.get("t")||"");
