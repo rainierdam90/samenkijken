@@ -177,6 +177,38 @@ app.post("/push-subscribe", (req, res) => {
   res.json({ ok: true });
 });
 
+/* ---- "Tell me when the room comes alive": store a push sub per room, fire when an empty room gets its first arrival ---- */
+const roomSubs = new Map();        // roomCode -> Map(endpoint -> { sub, name })
+const roomNotifiedAt = new Map();  // roomCode -> ts (cooldown so we don't spam)
+const MAX_ROOMSUBS = parseInt(process.env.MAX_ROOMSUBS || "20000", 10);
+let roomSubCount = 0;
+app.options("/room-notify", (req, res) => { cors(req, res); res.setHeader("Access-Control-Allow-Methods", "POST,OPTIONS"); res.sendStatus(204); });
+app.post("/room-notify", (req, res) => {
+  cors(req, res); res.setHeader("Access-Control-Allow-Methods", "POST,OPTIONS");
+  if (!httpLimiter(clientIp(req))) return tooMany(res);
+  if (!HAS_PUSH) return res.status(503).json({ error: "push_disabled" });
+  const b = req.body || {};
+  const sub = b.subscription, room = String(b.room || "").slice(0, 80);
+  if (!sub || !sub.endpoint || !room) return res.status(400).json({ error: "bad_request" });
+  if (roomSubCount >= MAX_ROOMSUBS) return res.status(503).json({ error: "busy" });
+  let m = roomSubs.get(room); if (!m) { m = new Map(); roomSubs.set(room, m); }
+  if (!m.has(sub.endpoint)) roomSubCount++;
+  m.set(sub.endpoint, { sub, name: String(b.name || "Someone").slice(0, 40) });
+  res.json({ ok: true });
+});
+function notifyRoomAlive(room, arriverName) {
+  if (!HAS_PUSH) return;
+  const m = roomSubs.get(room); if (!m || !m.size) return;
+  const last = roomNotifiedAt.get(room) || 0;
+  if (Date.now() - last < 60000) return;   // at most once a minute per room
+  roomNotifiedAt.set(room, Date.now());
+  const url = "/?room=" + encodeURIComponent(room);
+  const payload = JSON.stringify({ title: "Your living room is live 🛋️", body: (arriverName || "Someone") + " just arrived — come hang out", url, tag: "wmt-room-" + room });
+  m.forEach((v, endpoint) => {
+    webpush.sendNotification(v.sub, payload).catch(() => { m.delete(endpoint); roomSubCount--; });   // drop dead subs
+  });
+}
+
 /* ---- YouTube search proxy: the API key stays on the server, never in the browser ---- */
 app.get("/yt-search", (req, res) => {
   cors(req, res);
@@ -315,10 +347,12 @@ wss.on("connection", (ws) => {
       if (!code) return;
       const r = getRoom(code);
       if (r.members.size >= MAX_ROOM && !r.members.has(ws)) { sendJSON(ws, { type: "full" }); return; }
+      const wasEmpty = r.members.size === 0;   // first arrival → notify anyone watching this room
       ws._room = code;
       ws._peerId = String(m.peerId || "").slice(0, 64) || ("p" + crypto.randomBytes(4).toString("hex"));
       ws._name = (String(m.name || "").trim().slice(0, 40)) || "Guest";
       r.members.set(ws, { peerId: ws._peerId, name: ws._name });
+      if (wasEmpty) notifyRoomAlive(code, ws._name);
       r.lastActivity = Date.now();
       if (!ws._joinedAt) { ws._joinedAt = Date.now(); metrics.joins++; }   // count this session join once
       // tell the joiner who is already here; tell others someone joined

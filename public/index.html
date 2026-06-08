@@ -134,6 +134,8 @@
   .chat{position:absolute; right:0; top:0; bottom:0; z-index:60; width:320px; max-width:86vw; display:flex; flex-direction:column; background:linear-gradient(180deg, rgba(24,20,29,.96), rgba(17,13,20,.97)); border-left:1px solid var(--line); box-shadow:-20px 0 50px rgba(0,0,0,.5); backdrop-filter:blur(10px); animation:slidein .25s ease}
   .chat[hidden]{display:none}
   @keyframes slidein{from{transform:translateX(100%)}to{transform:none}}
+  @keyframes slideup{from{transform:translateY(100%)}to{transform:none}}
+  .sheet-grip{display:none}
   .chat-head{display:flex; align-items:center; justify-content:space-between; padding:14px 16px; border-bottom:1px solid var(--line); font-family:'Bebas Neue',sans-serif; letter-spacing:1.5px; font-size:19px}
   .chat-x{background:none; border:none; color:var(--muted); font-size:26px; cursor:pointer; line-height:1}
   .chat-x:hover{color:var(--txt)}
@@ -262,17 +264,24 @@
     .share{order:6; flex-basis:100%; justify-content:space-between}
     .linkpill{flex:1 1 auto; max-width:none}
     select.lang{padding:8px}
-    .floatctrls{left:10px; bottom:calc(10px + env(safe-area-inset-bottom)); gap:8px; max-width:72vw}
-    .fbtn{width:44px; height:44px}
-    .fbtn svg{width:20px; height:20px}
-    .cams{right:10px; bottom:calc(10px + env(safe-area-inset-bottom)); gap:8px}
-    .stage.chat-open .cams{right:10px; bottom:auto; top:10px}
-    .volpop{width:200px; bottom:54px}
+    /* controls: one tidy row across the bottom */
+    .floatctrls{left:8px; right:8px; bottom:calc(9px + env(safe-area-inset-bottom)); gap:5px; max-width:none; justify-content:space-between; flex-wrap:nowrap}
+    .fbtn{width:38px; height:38px; flex:0 0 auto}
+    .fbtn svg{width:18px; height:18px}
+    /* faces: smaller PiP tiles near the top so they don't cover content or buttons */
+    .cams{right:8px; left:auto; top:12px; bottom:auto; gap:8px}
+    .cam{width:88px}
+    .stage.chat-open .cams{right:8px; left:auto; top:12px; bottom:auto}
+    .volpop{width:200px; bottom:52px}
+    /* chat as a bottom-sheet on phones */
+    .chat{left:0; right:0; top:auto; bottom:0; width:100%; max-width:100%; height:74vh; border-left:none; border-top:1px solid var(--line); border-radius:20px 20px 0 0; box-shadow:0 -22px 50px rgba(0,0,0,.55); animation:slideup .25s ease}
+    .chat-head{padding-top:18px}
+    .sheet-grip{display:block; position:absolute; top:7px; left:50%; transform:translateX(-50%); width:40px; height:4px; border-radius:3px; background:rgba(255,255,255,.25)}
     .ph-card{padding:24px 18px}
     .ph-card h2{font-size:27px}
     .landing .l-actions .btn{width:100%; max-width:300px}
   }
-  @media (max-width:380px){ .fbtn{width:42px; height:42px} .cam{width:118px} }
+  @media (max-width:380px){ .fbtn{width:36px; height:36px} .fbtn svg{width:17px; height:17px} .floatctrls{gap:4px} .cam{width:78px} }
 
   /* ===================== Emoji reactions ===================== */
   .reactions-layer{position:absolute; inset:0; z-index:58; pointer-events:none; overflow:hidden}
@@ -356,6 +365,25 @@
   .uc .uc-emoji{font-size:27px; line-height:1}
   .uc b{font-size:14px; color:var(--txt)}
   .uc .uc-d{font-size:12px; color:var(--muted); line-height:1.4}
+
+  /* when a video FILE is playing, lift our floating controls above the native video control bar */
+  .stage.file-mode .floatctrls{ bottom:calc(58px + env(safe-area-inset-bottom)) }
+  @media (max-width:760px){ .stage.file-mode .floatctrls{ bottom:calc(54px + env(safe-area-inset-bottom)) } }
+
+  /* mobile: collapse the action controls behind a menu toggle so content gets the screen */
+  .bar-toggle{ display:none }
+  .bar-toggle svg{ width:22px; height:22px }
+  @media (max-width:760px){
+    .topbar{ row-gap:8px }
+    .status #statusText, #statusText{ display:none }   /* keep only the coloured status dot to save a row */
+    .status{ padding:6px 8px }
+    .bar-toggle{ display:inline-flex; align-items:center; justify-content:center; margin-left:auto; padding:8px 12px }
+    .topbar > .grow, .topbar > #browseBtn, .topbar > #shareMediaBtn, .topbar > .share, .topbar > #langSel{ display:none }
+    .topbar.open > .grow{ display:flex }
+    .topbar.open > #browseBtn, .topbar.open > #shareMediaBtn{ display:inline-flex }
+    .topbar.open > .share{ display:flex }
+    .topbar.open > #langSel{ display:block }
+  }
 </style>
 </head>
 <body>
@@ -388,6 +416,7 @@
   <header class="topbar">
     <div class="brand"><span class="bulb"></span><b>WatchMovie<i>Together</i></b></div>
     <div class="status"><span class="dot waiting" id="statusDot"></span><span id="statusText">Waiting for the other person…</span></div>
+    <button class="btn ghost bar-toggle" id="barToggle" aria-label="Menu" aria-expanded="false"><svg id="barToggleIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg></button>
     <div class="grow">
       <div class="urlrow">
         <input class="url" id="urlInput" type="text" inputmode="url" spellcheck="false" placeholder="Paste a video file (.mp4/.webm), a YouTube link, or another video page…" />
@@ -422,6 +451,7 @@
           <button class="share-btn" id="shareCopy"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg><span id="shareCopyTxt">Copy</span></button>
         </div>
         <p class="ph-note" id="ph_note">Paste a video file or YouTube link above, or use “▶ YouTube” to search together. Tip: use headphones to avoid echo.</p>
+        <button class="btn" id="notifyMeBtn" style="display:none;margin-top:14px">🔔 <span id="notifyMeTxt">Tell me when someone's here</span></button>
       </div>
     </div>
 
@@ -445,6 +475,7 @@
         <div class="volpop" id="volpop">
           <div class="row"><span class="lbl" id="volLbl">Volume</span><input type="range" class="vol" id="movieVol" min="0" max="100" value="100" /></div>
           <label class="switch"><input type="checkbox" id="duckChk" checked /><span class="track"></span><span id="duckLbl">Auto-lower when talking</span></label>
+          <label class="switch"><input type="checkbox" id="autoMomentChk" /><span class="track"></span><span id="autoMomentLbl">Auto-catch funny moments</span></label>
         </div>
       </div>
       <div style="position:relative">
@@ -486,6 +517,7 @@
     </div>
 
     <aside class="chat" id="chat" hidden>
+      <div class="sheet-grip" aria-hidden="true"></div>
       <div class="chat-head"><span id="chatTitle">Chat</span><button class="chat-x" id="chatClose" aria-label="Close">×</button></div>
       <div class="chat-notice" id="chatNotice">Messages may be reviewed to keep everyone safe.</div>
       <div class="chat-log" id="chatLog"><div class="chat-empty" id="chatEmpty">No messages yet. Say hi 👋</div></div>
@@ -725,10 +757,38 @@
 
     /* strings for the desktop share modal + phone companion (en + nl; rest fall back to en) */
     var EXTRA5 = {
-      en:{share_modal_title:"Share photos & videos",share_opt_pc_title:"From this computer",share_opt_pc_sub:"Pick files saved on this device.",share_from_pc:"Choose files",share_opt_phone_title:"From your phone",share_opt_phone_sub:"Scan to add photos & videos from your phone — no camera needed.",share_qr_fail:"Couldn't draw the QR code. Copy the room link and open it on your phone instead.",comp_title:"Share your photos & videos",comp_sub:"Everyone in the room will see them on the big screen.",comp_choose:"Choose from your phone",comp_shared:"Shared! Pick more anytime. 🎉",comp_connecting:"Connecting to the room…",comp_connected:"Connected — pick what to show.",uc_couples_t:"Long-distance couples",uc_couples_d:"Date night, any distance.",uc_family_t:"Family abroad",uc_family_d:"One room, one movie, the whole family.",uc_friends_t:"Friends who moved away",uc_friends_d:"Bring back movie night."},
-      nl:{share_modal_title:"Foto's & video's delen",share_opt_pc_title:"Vanaf deze computer",share_opt_pc_sub:"Kies bestanden op dit apparaat.",share_from_pc:"Bestanden kiezen",share_opt_phone_title:"Vanaf je telefoon",share_opt_phone_sub:"Scan om foto's & video's vanaf je telefoon toe te voegen — geen camera nodig.",share_qr_fail:"QR-code tekenen mislukt. Kopieer de roomlink en open die op je telefoon.",comp_title:"Deel je foto's & video's",comp_sub:"Iedereen in de room ziet ze op het grote scherm.",comp_choose:"Kies vanaf je telefoon",comp_shared:"Gedeeld! Kies wanneer je wilt meer. 🎉",comp_connecting:"Verbinden met de room…",comp_connected:"Verbonden — kies wat je wilt tonen.",uc_couples_t:"Stellen op afstand",uc_couples_d:"Een date-avond, welke afstand dan ook.",uc_family_t:"Familie in het buitenland",uc_family_d:"Eén kamer, één film, de hele familie.",uc_friends_t:"Vrienden die verhuisd zijn",uc_friends_d:"Breng de filmavond terug."}
+      en:{share_modal_title:"Share photos & videos",share_opt_pc_title:"From this computer",share_opt_pc_sub:"Pick files saved on this device.",share_from_pc:"Choose files",share_opt_phone_title:"From your phone",share_opt_phone_sub:"Scan to add photos & videos from your phone — no camera needed.",share_qr_fail:"Couldn't draw the QR code. Copy the room link and open it on your phone instead.",comp_title:"Share your photos & videos",comp_sub:"Everyone in the room will see them on the big screen.",comp_choose:"Choose from your phone",comp_shared:"Shared! Pick more anytime. 🎉",comp_connecting:"Connecting to the room…",comp_connected:"Connected — pick what to show.",uc_couples_t:"Long-distance couples",uc_couples_d:"Date night, any distance.",uc_family_t:"Family abroad",uc_family_d:"One room, one movie, the whole family.",uc_friends_t:"Friends who moved away",uc_friends_d:"Bring back movie night.",vid_fail:"This video couldn't load here. External links are often blocked for the other person — for reliable watch-alongs use a YouTube link, or share the video file itself (📷 Share) so it streams directly to everyone."},
+      nl:{share_modal_title:"Foto's & video's delen",share_opt_pc_title:"Vanaf deze computer",share_opt_pc_sub:"Kies bestanden op dit apparaat.",share_from_pc:"Bestanden kiezen",share_opt_phone_title:"Vanaf je telefoon",share_opt_phone_sub:"Scan om foto's & video's vanaf je telefoon toe te voegen — geen camera nodig.",share_qr_fail:"QR-code tekenen mislukt. Kopieer de roomlink en open die op je telefoon.",comp_title:"Deel je foto's & video's",comp_sub:"Iedereen in de room ziet ze op het grote scherm.",comp_choose:"Kies vanaf je telefoon",comp_shared:"Gedeeld! Kies wanneer je wilt meer. 🎉",comp_connecting:"Verbinden met de room…",comp_connected:"Verbonden — kies wat je wilt tonen.",uc_couples_t:"Stellen op afstand",uc_couples_d:"Een date-avond, welke afstand dan ook.",uc_family_t:"Familie in het buitenland",uc_family_d:"Eén kamer, één film, de hele familie.",uc_friends_t:"Vrienden die verhuisd zijn",uc_friends_d:"Breng de filmavond terug.",vid_fail:"Deze video kon hier niet laden. Externe links worden vaak geblokkeerd voor de ander — gebruik voor zeker samen kijken een YouTube-link, of deel het videobestand zelf (📷 Delen) zodat het rechtstreeks naar iedereen streamt."}
     };
     Object.keys(EXTRA5).forEach(function(k){ if(I18N[k]) Object.keys(EXTRA5[k]).forEach(function(j){ I18N[k][j]=EXTRA5[k][j]; }); });
+
+    /* "living room" repositioning of the in-room placeholder (rest fall back to en) */
+    var ROOMCOPY = {
+      en:{room_kicker:"Your living room",room_title:"What shall we share today?"},
+      nl:{room_kicker:"Jullie huiskamer",room_title:"Wat delen we vandaag?"},
+      de:{room_kicker:"Euer Wohnzimmer",room_title:"Was teilen wir heute?"},
+      fr:{room_kicker:"Votre salon",room_title:"Qu'est-ce qu'on partage aujourd'hui ?"},
+      es:{room_kicker:"Vuestro salón",room_title:"¿Qué compartimos hoy?"},
+      pt:{room_kicker:"A vossa sala",room_title:"O que partilhamos hoje?"},
+      ru:{room_kicker:"Ваша гостиная",room_title:"Чем поделимся сегодня?"},
+      id:{room_kicker:"Ruang santai kalian",room_title:"Mau berbagi apa hari ini?"},
+      ar:{room_kicker:"غرفة جلوسكم",room_title:"ماذا نشارك اليوم؟"},
+      zh:{room_kicker:"你们的客厅",room_title:"今天分享点什么？"},
+      ja:{room_kicker:"みんなのリビング",room_title:"今日は何をシェアする？"},
+      ko:{room_kicker:"우리의 거실",room_title:"오늘 무엇을 함께 볼까요?"},
+      hi:{room_kicker:"आपका बैठक कक्ष",room_title:"आज क्या साझा करें?"},
+      ur:{room_kicker:"آپ کا بیٹھک",room_title:"آج کیا شیئر کریں؟"}
+    };
+    Object.keys(ROOMCOPY).forEach(function(k){ if(I18N[k]) Object.keys(ROOMCOPY[k]).forEach(function(j){ I18N[k][j]=ROOMCOPY[k][j]; }); });
+    var NOTIFYCOPY = {
+      en:{notify_me:"Tell me when someone's here",notify_set:"Done — we'll ping you when the room comes alive. 🔔",auto_moment_lbl:"Auto-catch funny moments",auto_moment:"Caught a moment! 🎬"},
+      nl:{notify_me:"Laat me weten als er iemand is",notify_set:"Gelukt — we seinen je als de huiskamer tot leven komt. 🔔",auto_moment_lbl:"Leuke momenten automatisch vastleggen",auto_moment:"Moment vastgelegd! 🎬"},
+      de:{notify_me:"Sag mir, wenn jemand da ist",notify_set:"Erledigt — wir melden uns, wenn der Raum lebendig wird. 🔔",auto_moment_lbl:"Lustige Momente automatisch einfangen",auto_moment:"Moment eingefangen! 🎬"},
+      fr:{notify_me:"Préviens-moi quand quelqu'un arrive",notify_set:"C'est fait — on te prévient quand le salon s'anime. 🔔",auto_moment_lbl:"Capter les moments drôles automatiquement",auto_moment:"Moment capturé ! 🎬"},
+      es:{notify_me:"Avísame cuando haya alguien",notify_set:"Listo — te avisamos cuando el salón cobre vida. 🔔",auto_moment_lbl:"Capturar momentos divertidos automáticamente",auto_moment:"¡Momento capturado! 🎬"},
+      ar:{notify_me:"أخبرني عندما يأتي أحد",notify_set:"تم — سننبهك عندما تنبض الغرفة بالحياة. 🔔",auto_moment_lbl:"التقاط اللحظات المضحكة تلقائيًا",auto_moment:"تم التقاط لحظة! 🎬"}
+    };
+    Object.keys(NOTIFYCOPY).forEach(function(k){ if(I18N[k]) Object.keys(NOTIFYCOPY[k]).forEach(function(j){ I18N[k][j]=NOTIFYCOPY[k][j]; }); });
     var landingMode="home";
 
     var lang = (function(){ try{ return localStorage.getItem("wmt_lang")||"en"; }catch(e){ return "en"; } })();
@@ -837,6 +897,7 @@
 
     function shouldInitiate(a,b){ return (""+a) < (""+b); }   // smaller id calls → no double connections
     function callPeer(pid){
+      if(shareMode) return;   // phone companion: never pull anyone's webcam/audio
       if(!pid||pid===myPeerId||(peers[pid]&&peers[pid].call)) return;
       try{ var c=peer.call(pid, localStream||new MediaStream()); if(c) wireCall(c); }catch(e){}
     }
@@ -851,6 +912,7 @@
     }
     function addPeerStream(pid, stream){
       var p=peers[pid]; if(!p){ p=peers[pid]={ name:"Guest" }; }
+      if(shareMode){ return; }   // phone companion stays silent — don't play anyone's audio/video
       p.stream=stream;
       if(!p.audioEl){ var a=document.createElement("audio"); a.autoplay=true; a.playsInline=true; a.style.display="none"; document.body.appendChild(a); p.audioEl=a; }
       try{ p.audioEl.srcObject=stream; }catch(e){}
@@ -874,7 +936,7 @@
     function armAudioUnlock(){ if(audioUnlockArmed) return; audioUnlockArmed=true; toast("Tap the screen to hear everyone.",6000); document.addEventListener("click", function once(){ document.removeEventListener("click",once); Object.keys(peers).forEach(function(id){ var a=peers[id].audioEl; if(a&&a.play) a.play().catch(function(){}); }); }, { once:true }); }
 
     function updatePresenceStatus(){ var n=Object.keys(peers).length; setStatus(n>0?"connected":"waiting"); }
-    function recomputeAuthority(){ var ids=[myPeerId].concat(Object.keys(peers)).filter(Boolean).sort(); isAuthority=(ids[0]===myPeerId); diag.role=isAuthority?"host (sync authority)":"guest"; }
+    function recomputeAuthority(){ if(shareMode){ isAuthority=false; diag.role="companion (share only)"; return; } var ids=[myPeerId].concat(Object.keys(peers)).filter(Boolean).sort(); isAuthority=(ids[0]===myPeerId); diag.role=isAuthority?"host (sync authority)":"guest"; }
 
     /* ---- control plane ---- */
     function connectRT(){
@@ -935,10 +997,11 @@
     }
 
     /* ===================== Media: file / youtube / embed ===================== */
-    var mode="none", currentMedia=null, pending=null, closing=false;
+    var mode="none", currentMedia=null, pending=null, closing=false, movieErrored=false;
     function detectMedia(url){ var yt=parseYouTube(url); if(yt) return { mode:"youtube", id:yt, url:url }; var clean=url.split("#")[0].split("?")[0]; if(/\.(mp4|webm|ogg|ogv|m4v|mov)$/i.test(clean)) return { mode:"file", url:url }; return { mode:"embed", url:url }; }
     function parseYouTube(url){ try{ var u=new URL(url), h=u.hostname.replace(/^www\./,""); if(h==="youtu.be") return u.pathname.slice(1).split("/")[0]||null; if(h==="youtube.com"||h==="m.youtube.com"||h==="youtube-nocookie.com"){ if(u.pathname==="/watch") return u.searchParams.get("v"); var m=u.pathname.match(/^\/(embed|shorts|v|live)\/([^\/?#]+)/); if(m) return m[2]; } }catch(e){} return null; }
-    function clearPlayers(){ try{ movie.pause(); }catch(e){} try{ movie.removeAttribute("src"); movie.load(); }catch(e){} movie.style.display="none"; if(galleryImg) galleryImg.style.display="none"; if(ytPlayer){ try{ ytPlayer.destroy(); }catch(e){} ytPlayer=null; } ytwrap.style.display="none"; ytwrap.innerHTML=""; try{ frame.src="about:blank"; }catch(e){} framewrap.style.display="none"; playgate.hidden=true; pending=null; }
+    function updateStageChrome(){ if(stage) stage.classList.toggle("file-mode", !!(movie && movie.style.display==="block")); }   // lift our controls above the native video bar
+    function clearPlayers(){ try{ movie.pause(); }catch(e){} try{ movie.removeAttribute("src"); movie.load(); }catch(e){} movie.style.display="none"; if(galleryImg) galleryImg.style.display="none"; if(ytPlayer){ try{ ytPlayer.destroy(); }catch(e){} ytPlayer=null; } ytwrap.style.display="none"; ytwrap.innerHTML=""; try{ frame.src="about:blank"; }catch(e){} framewrap.style.display="none"; playgate.hidden=true; pending=null; movieErrored=false; updateStageChrome(); }
     function setEmbedUI(on){ cdwidget.hidden=!on; if(!on){ clearInterval(cdTimer); cdNum.textContent="\u25B6"; cdNum.classList.remove("go"); cdBtn.disabled=false; cdBusy=false; } }
     function applyMedia(m,url,id){
       if(gallery){ if(amPresenter()) stopSharing(); else { gallery=null; closeGalleryUI(); } }
@@ -946,10 +1009,11 @@
       if(m==="file"){ setEmbedUI(false); movie.style.display="block"; movie.src=url; movie.load(); }
       else if(m==="youtube"){ setEmbedUI(false); ytwrap.style.display="block"; loadYouTube(id); }
       else { setEmbedUI(true); framewrap.style.display="flex"; try{ frame.src=url; }catch(e){} openTab.href=url; }
+      updateStageChrome();
     }
     loadBtn.addEventListener("click", function(){ var url=(urlInput.value||"").trim(); if(!url){ toast("Paste a link first."); return; } if(!/^https?:\/\//i.test(url)){ toast("The link must start with http:// or https://"); return; } var det=detectMedia(url); applyMedia(det.mode,det.url,det.id); rtSend({ type:"video", mode:det.mode, url:det.url, id:det.id }); if(det.mode==="embed") toast("Loaded — use the countdown on the left to start together.",6000); });
     urlInput.addEventListener("keydown", function(e){ if(e.key==="Enter") loadBtn.click(); });
-    movie.addEventListener("error", function(){ if(mode!=="file"||!movie.src) return; toast("This file could not be loaded. Is it a direct .mp4/.webm link? Otherwise it may work as 'another video page'.",9000); });
+    movie.addEventListener("error", function(){ if(mode!=="file"||!movie.src) return; movieErrored=true; try{ playgate.hidden=true; }catch(e){} toast(tr("vid_fail"),10000); });
 
     var ytApiReady=false, ytApiLoading=false, ytPlayer=null, ytPending=null;
     function ensureYTApi(cb){ if(ytApiReady){ cb(); return; } ytPending=cb; if(ytApiLoading) return; ytApiLoading=true; window.onYouTubeIframeAPIReady=function(){ ytApiReady=true; if(ytPending){ var f=ytPending; ytPending=null; f(); } }; var s=document.createElement("script"); s.src="https://www.youtube.com/iframe_api"; document.head.appendChild(s); }
@@ -964,8 +1028,8 @@
     function mediaReady(){ if(mode==="file") return movie.readyState>=1&&!isNaN(movie.duration); if(mode==="youtube") return !!(ytPlayer&&ytPlayer.getDuration&&ytPlayer.getDuration()>0); return false; }
 
     /* ---- sync (relayed by server to whole room) ---- */
-    var applyingRemote=false, applyingTimer;
-    function broadcast(kind){ if(applyingRemote) return; if(mode!=="file"&&mode!=="youtube") return; rtSend({ type:"sync", kind:kind, time:getTime() }); }
+    var applyingRemote=false, applyingTimer, lastActionAt=0;
+    function broadcast(kind){ if(applyingRemote) return; if(mode!=="file"&&mode!=="youtube") return; lastActionAt=Date.now(); rtSend({ type:"sync", kind:kind, time:getTime(), playing:!isPausedMedia() }); }
     function markApplying(){ applyingRemote=true; clearTimeout(applyingTimer); applyingTimer=setTimeout(function(){ applyingRemote=false; },700); }
     movie.addEventListener("play", function(){ broadcast("play"); });
     movie.addEventListener("pause", function(){ broadcast("pause"); });
@@ -977,21 +1041,27 @@
       if(!mediaReady()){ var wp=(data.kind==="play"||(data.kind==="heartbeat"&&data.playing)); pending={ time:data.time, play: wp||(pending&&pending.play)||false }; return; }
       markApplying();
       switch(data.kind){
-        case "play": if(Math.abs(getTime()-data.time)>0.5) setTime(data.time); playMedia(); break;
-        case "pause": if(Math.abs(getTime()-data.time)>0.5) setTime(data.time); pauseMedia(); break;
-        case "seek": if(Math.abs(getTime()-data.time)>0.3) setTime(data.time); break;
-        case "heartbeat": if(!isAuthority){ if(data.playing&&isPausedMedia()) playMedia(); if(!data.playing&&!isPausedMedia()) pauseMedia(); if(Math.abs(getTime()-data.time)>1.5) setTime(data.time); } break;
+        case "play": lastActionAt=Date.now(); if(Math.abs(getTime()-data.time)>0.5) setTime(data.time); playMedia(); break;
+        case "pause": lastActionAt=Date.now(); if(Math.abs(getTime()-data.time)>0.5) setTime(data.time); pauseMedia(); break;
+        case "seek": lastActionAt=Date.now(); if(Math.abs(getTime()-data.time)>0.3) setTime(data.time); if(typeof data.playing==="boolean"){ if(data.playing&&isPausedMedia()) playMedia(); else if(!data.playing&&!isPausedMedia()) pauseMedia(); } break;
+        // heartbeat keeps latecomers/drifters aligned, but never fights a fresh local/remote action (grace window avoids resume-after-pause races)
+        case "heartbeat": if(!isAuthority && (Date.now()-lastActionAt)>2500){ if(data.playing&&isPausedMedia()) playMedia(); if(!data.playing&&!isPausedMedia()) pauseMedia(); if(Math.abs(getTime()-data.time)>1.5) setTime(data.time); } break;
       }
     }
     setInterval(function(){ if(isAuthority&&rtReady&&(mode==="file"||mode==="youtube")&&mediaReady()) rtSend({ type:"sync", kind:"heartbeat", time:getTime(), playing:!isPausedMedia() }); },4000);
     var lastPoll={ t:0, time:0, playing:false };
     setInterval(function(){ applyPending(); updateDuck(); if(mode==="youtube"&&mediaReady()&&!applyingRemote){ var nowS=getTime(), playing=!isPausedMedia(), nowMs=Date.now(); if(lastPoll.t){ var dt=(nowMs-lastPoll.t)/1000; var exp=lastPoll.time+(lastPoll.playing?dt:0); if(Math.abs(nowS-exp)>1.2) broadcast("seek"); } lastPoll={ t:nowMs, time:nowS, playing:playing }; } else { lastPoll={ t:Date.now(), time:getTime(), playing:!isPausedMedia() }; } },400);
-    function safePlay(){ var p=movie.play(); if(p&&typeof p.then==="function"){ p.then(function(){ playgate.hidden=true; }).catch(function(){ playgate.hidden=false; }); } }
-    playgateBtn.addEventListener("click", function(){ movie.play().then(function(){ playgate.hidden=true; }).catch(function(){}); });
+    function safePlay(){ if(shareMode||movieErrored){ playgate.hidden=true; return; } var p=movie.play(); if(p&&typeof p.then==="function"){ p.then(function(){ playgate.hidden=true; }).catch(function(){ playgate.hidden=false; }); } }
+    function dismissPlaygate(){ playgate.hidden=true; var p=movie.play&&movie.play(); if(p&&p.catch) p.catch(function(){}); }   // always dismiss on tap; try to play
+    playgateBtn.addEventListener("click", function(e){ e.stopPropagation(); dismissPlaygate(); });
+    playgate.addEventListener("click", function(e){ if(e.target===playgate) dismissPlaygate(); });   // tap the backdrop to close too
 
     /* ===================== Volume + auto-duck ===================== */
     var duckEnabled=true, DUCK_FACTOR=0.12, VAD_THRESHOLD=0.05, VAD_HANG=1100, SPEECH_ONSET=400, userVolume=1, peerVolume=1;
     var localTalking=false, ducked=false, audioCtx=null, analyser=null, vadData=null, rampTimer=null, aboveSince=0, belowSince=0;
+    /* auto reaction-moment detection (on-device, opt-in): a loud sustained spike = a "moment" → auto-capture a clip */
+    var autoMoments=(function(){ try{ return localStorage.getItem("wmt_automoments")==="1"; }catch(e){ return false; } })();
+    var MOMENT_THRESHOLD=0.14, MOMENT_SUSTAIN=450, MOMENT_COOLDOWN=30000, momentAbove=0, momentCooldownUntil=0;
     function setMovieVol(v){ v=Math.max(0,Math.min(1,v)); if(mode==="file"){ try{movie.volume=v;}catch(e){} } else if(mode==="youtube"&&ytPlayer&&ytPlayer.setVolume){ try{ytPlayer.setVolume(Math.round(v*100));}catch(e){} } }
     function curMovieVol(){ if(mode==="file") return (typeof movie.volume==="number")?movie.volume:1; if(mode==="youtube"&&ytPlayer&&ytPlayer.getVolume) return (ytPlayer.getVolume()||0)/100; return userVolume; }
     function rampMovieVol(t){ clearInterval(rampTimer); t=Math.max(0,Math.min(1,t)); var start=curMovieVol(), steps=8, i=0, d=(t-start)/steps; rampTimer=setInterval(function(){ i++; setMovieVol(start+d*i); if(i>=steps){ clearInterval(rampTimer); setMovieVol(t); } },20); }
@@ -1022,6 +1092,15 @@
         if(!localTalking && (now-aboveSince)>=SPEECH_ONSET) setLocalTalking(true);   // must be sustained → real talking, not a brief sound
       } else {
         aboveSince=0; if(localTalking){ if(belowSince===0) belowSince=now; else if((now-belowSince)>=VAD_HANG) setLocalTalking(false); }
+      }
+      /* auto-catch a "moment": a loud sustained burst (e.g. laughter) when enabled */
+      if(autoMoments && !shareMode){
+        if(micOn && rms>MOMENT_THRESHOLD){
+          if(momentAbove===0) momentAbove=now;
+          else if((now-momentAbove)>=MOMENT_SUSTAIN && now>momentCooldownUntil && !recording && faceVideos().length){
+            momentCooldownUntil=now+MOMENT_COOLDOWN; momentAbove=0; toast(tr("auto_moment"),4000); startClip();
+          }
+        } else momentAbove=0;
       }
       requestAnimationFrame(tickVAD);
     }
@@ -1058,7 +1137,7 @@
     /* ===================== Camera / mic ===================== */
     var localStream=null;
     function setupMedia(){
-      if(shareMode){ localStream=null; try{ micBtn.classList.add("off"); micBtn.disabled=true; camBtn.classList.add("off"); camBtn.disabled=true; }catch(e){} return Promise.resolve(); }   // phone companion: join without camera/mic
+      if(shareMode){ localStream=null; try{ micBtn.classList.add("off"); micBtn.disabled=true; camBtn.classList.add("off"); camBtn.disabled=true; movie.muted=true; }catch(e){} return Promise.resolve(); }   // phone companion: join without camera/mic, stay silent
       var full={ video:{ width:{ideal:640}, height:{ideal:480} }, audio:{ echoCancellation:true, noiseSuppression:true, autoGainControl:true } };
       return navigator.mediaDevices.getUserMedia(full)
         .catch(function(){ return navigator.mediaDevices.getUserMedia({ audio:{ echoCancellation:true } }).then(function(s){ toast("No camera found — joining with audio only."); camBtn.classList.add("off"); camBtn.disabled=true; return s; }); })
@@ -1135,9 +1214,9 @@
 
     /* ===================== Drag the camera cluster ===================== */
     (function makeDraggable(el){
-      var dragging=false, sx, sy, baseRight, baseBottom;
-      el.addEventListener("pointerdown", function(e){ if(e.target.closest(".pvol")||e.target.closest(".cam-tools")) return; dragging=true; try{el.setPointerCapture(e.pointerId);}catch(_){ } sx=e.clientX; sy=e.clientY; var rect=el.getBoundingClientRect(), par=el.parentElement.getBoundingClientRect(); baseRight=par.right-rect.right; baseBottom=par.bottom-rect.bottom; el.classList.add("dragging"); });
-      el.addEventListener("pointermove", function(e){ if(!dragging) return; var par=el.parentElement.getBoundingClientRect(); var right=baseRight-(e.clientX-sx), bottom=baseBottom-(e.clientY-sy); right=Math.max(8,Math.min(right,par.width-el.offsetWidth-8)); bottom=Math.max(8,Math.min(bottom,par.height-el.offsetHeight-8)); el.style.right=right+"px"; el.style.bottom=bottom+"px"; });
+      var dragging=false, moved=false, sx, sy, baseLeft, baseTop;
+      el.addEventListener("pointerdown", function(e){ if(e.target.closest(".pvol")||e.target.closest(".cam-tools")) return; dragging=true; moved=false; try{el.setPointerCapture(e.pointerId);}catch(_){ } sx=e.clientX; sy=e.clientY; var rect=el.getBoundingClientRect(), par=el.parentElement.getBoundingClientRect(); baseLeft=rect.left-par.left; baseTop=rect.top-par.top; el.classList.add("dragging"); });
+      el.addEventListener("pointermove", function(e){ if(!dragging) return; if(Math.abs(e.clientX-sx)+Math.abs(e.clientY-sy)>4) moved=true; var par=el.parentElement.getBoundingClientRect(); var left=baseLeft+(e.clientX-sx), top=baseTop+(e.clientY-sy); left=Math.max(8,Math.min(left,par.width-el.offsetWidth-8)); top=Math.max(8,Math.min(top,par.height-el.offsetHeight-8)); /* anchor by left/top so it works whether CSS pins it top or bottom */ el.style.left=left+"px"; el.style.top=top+"px"; el.style.right="auto"; el.style.bottom="auto"; });
       function stop(e){ if(dragging){ dragging=false; el.classList.remove("dragging"); try{el.releasePointerCapture(e.pointerId);}catch(_){ } } }
       el.addEventListener("pointerup", stop); el.addEventListener("pointercancel", stop);
     })(cams);
@@ -1188,8 +1267,8 @@
     function swRegisterFile(it){ try{ if(navigator.serviceWorker && navigator.serviceWorker.controller) navigator.serviceWorker.controller.postMessage({type:"register",fileId:it.fileId,size:it.size,mime:it.mime||""}); }catch(e){} }
 
     function amPresenter(){ return !!(gallery && gallery.presenter===myPeerId); }
-    function showImage(url){ clearPlayers(); mode="gallery-image"; currentMedia=null; placeholder.style.display="none"; if(galleryImg){ galleryImg.src=url; galleryImg.style.display="block"; } }
-    function showVideoSrc(url){ clearPlayers(); mode="file"; currentMedia={mode:"file",url:url}; placeholder.style.display="none"; movie.style.display="block"; try{ movie.src=url; movie.load(); }catch(e){} }
+    function showImage(url){ clearPlayers(); mode="gallery-image"; currentMedia=null; placeholder.style.display="none"; if(galleryImg){ galleryImg.src=url; galleryImg.style.display="block"; } updateStageChrome(); }
+    function showVideoSrc(url){ clearPlayers(); mode="file"; currentMedia={mode:"file",url:url}; placeholder.style.display="none"; movie.style.display="block"; try{ movie.src=url; movie.load(); }catch(e){} updateStageChrome(); }
     function showGalleryItem(fileId){
       if(!gallery) return; var it=null, i;
       for(i=0;i<gallery.items.length;i++){ if(gallery.items[i].fileId===fileId){ it=gallery.items[i]; break; } }
@@ -1372,6 +1451,12 @@
     function trackShare(){ try{ if(rtReady) rtSend({ type:"ev", name:"share" }); }catch(e){} }
     function copyText(t,btnEl){ if(navigator.clipboard&&navigator.clipboard.writeText){ navigator.clipboard.writeText(t).then(function(){ toast(tr("copied")); }).catch(function(){ toast(t); }); } else toast(t); trackShare(); }
     [["copyBtn"],["shareCopy"],["shareWa"],["shareMail"],["schWa"],["schMail"],["wrWa"],["wrMail"]].forEach(function(p){ var el=$(p[0]); if(el) el.addEventListener("click", trackShare); });
+
+    /* mobile: collapsible top bar (more screen for the shared content) */
+    var topbarEl=document.querySelector(".topbar"), barToggle=$("barToggle");
+    function setBar(open){ if(!topbarEl) return; topbarEl.classList.toggle("open",open); if(barToggle) barToggle.setAttribute("aria-expanded",open?"true":"false"); }
+    if(barToggle) barToggle.addEventListener("click", function(){ setBar(!topbarEl.classList.contains("open")); });
+    ["loadBtn","browseBtn","shareMediaBtn","copyBtn"].forEach(function(id){ var el=$(id); if(el) el.addEventListener("click", function(){ setBar(false); }); });
     function buildSchedLink(code,ms,title){ var u=location.origin+location.pathname+"?room="+encodeURIComponent(code)+"&at="+ms; if(title) u+="&t="+encodeURIComponent(title); return u; }
     function calDates(ms){ function f(d){ return d.getUTCFullYear()+pad2(d.getUTCMonth()+1)+pad2(d.getUTCDate())+"T"+pad2(d.getUTCHours())+pad2(d.getUTCMinutes())+"00Z"; } return { start:f(new Date(ms)), end:f(new Date(ms+2*3600*1000)) }; }
     function gcalUrl(info){ var cd=calDates(info.at); return "https://calendar.google.com/calendar/render?action=TEMPLATE&text="+encodeURIComponent(tr("cal_event")+": "+info.title)+"&dates="+cd.start+"/"+cd.end+"&details="+encodeURIComponent(info.url); }
@@ -1459,6 +1544,22 @@
     if($("schRemind")) $("schRemind").addEventListener("click", function(){ if(schedInfo) remindMe(schedInfo, $("schRemind")); });
     if($("wrRemind")) $("wrRemind").addEventListener("click", function(){ if(wrInfo) remindMe(wrInfo, $("wrRemind")); });
 
+    /* "Tell me when someone's here" — subscribe this device to the room's "came alive" push */
+    function notifyMe(btn){
+      if(!("serviceWorker" in navigator)||!("PushManager" in window)||!("Notification" in window)){ toast(tr("remind_unsupported"),6000); return; }
+      ensureConfig().then(function(){
+        if(!hasPush||!vapidPublic){ toast(tr("remind_unavailable"),7000); return; }
+        Notification.requestPermission().then(function(perm){
+          if(perm!=="granted"){ toast(tr("remind_denied"),6000); return; }
+          navigator.serviceWorker.ready.then(function(reg){ return reg.pushManager.getSubscription().then(function(s){ return s||reg.pushManager.subscribe({ userVisibleOnly:true, applicationServerKey:urlB64ToUint8(vapidPublic) }); }); })
+          .then(function(sub){ return fetch(httpBase()+"/room-notify",{ method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({ subscription:sub, room:roomCode, name:myName }) }); })
+          .then(function(r){ return r.json(); }).then(function(d){ if(d&&d.ok){ toast(tr("notify_set"),5000); if(btn){ btn.classList.add("ok"); btn.disabled=true; } } else toast(tr("remind_unavailable"),7000); }).catch(function(){ toast(tr("remind_fail"),6000); });
+        });
+      });
+    }
+    if($("notifyMeBtn")) $("notifyMeBtn").addEventListener("click", function(){ notifyMe($("notifyMeBtn")); });
+    ensureConfig().then(function(){ if(hasPush && $("notifyMeBtn") && !shareMode) $("notifyMeBtn").style.display=""; });
+
     /* translations for all new UI (called from applyLang) */
     function applyLang4(){
       setTitle("reactBtn",tr("t_react")); setTitle("clipBtn",tr("t_clip"));
@@ -1469,6 +1570,8 @@
       setText("schCreate",tr("sch_create")); setText("schLinkLbl",tr("sch_link")); setText("schCopy",tr("sch_copy")); setText("schGoNow",tr("sch_gonow")); setText("schGcalTxt",tr("sch_gcal")); setText("schIcsTxt",tr("sch_ics"));
       setText("schWaTxt",tr("wa")); setText("schMailTxt",tr("email")); setText("schRemindTxt",tr("remind")); setText("wrRemindTxt",tr("remind"));
       setText("wrKicker",tr("wr_kicker")); setText("wrJoin",tr("wr_join")); setText("wrCopy",tr("wr_copy"));
+      setText("ph_kicker",tr("room_kicker")); setText("ph_title",tr("room_title"));   // "living room" framing
+      setText("notifyMeTxt",tr("notify_me"));
       setText("ph_note",tr("legal_tip"));   // copyright positioning on the main screen
       setText("shareModalTitle",tr("share_modal_title")); setText("shareModalSub",tr("legal_share"));
       setText("shareOptPcTitle",tr("share_opt_pc_title")); setText("shareOptPcSub",tr("share_opt_pc_sub")); setText("shareFromPcTxt",tr("share_from_pc"));
