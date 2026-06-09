@@ -382,6 +382,7 @@ wss.on("connection", (ws) => {
       const r = getRoom(code);
       if (!r._loadP) { r._loadP = store.getRoom(code).then(row => { if (row) { if (row.passHash) r.pass = row.passHash; if (row.host) r.host = row.host; if (row.expiresAt) r._expiresAt = row.expiresAt; } }).catch(() => {}); }
       await r._loadP;   // restore a persisted lock/host (awaited so the password check sees it; concurrent joins share one load)
+      if (r._bans && r._bans.has(String(m.peerId || ""))) { sendJSON(ws, { type: "kicked" }); return; }   // removed by host
       if (r.members.size >= MAX_ROOM && !r.members.has(ws)) { sendJSON(ws, { type: "full" }); return; }
       if (r.pass && !r.members.has(ws) && hashPass(m.pass) !== r.pass) {   // protected room → must supply the right password
         sendJSON(ws, { type: "need-pass", wrong: !!(m.pass) });
@@ -411,6 +412,15 @@ wss.on("connection", (ws) => {
     const r = rooms.get(ws._room);
     if (!r) return;
     r.lastActivity = Date.now();
+
+    if (m.type === "kick") {                        // only the host may remove someone
+      if (r.host !== ws._peerId) return;
+      const targetId = String(m.peerId || "");
+      if (!targetId || targetId === ws._peerId) return;
+      r._bans = r._bans || new Set(); r._bans.add(targetId);   // soft ban for this session so they can't instantly rejoin
+      r.members.forEach((v, w) => { if (v.peerId === targetId) { sendJSON(w, { type: "kicked" }); setTimeout(() => { try { w.close(); } catch (e) {} }, 400); } });
+      return;
+    }
 
     if (m.type === "set-pass") {                    // only the host may lock/unlock the room
       if (r.host !== ws._peerId) { sendJSON(ws, { type: "pass-set", hasPass: !!r.pass, denied: true }); return; }

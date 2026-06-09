@@ -368,6 +368,15 @@
   .companion .c-grid{display:flex; flex-wrap:wrap; gap:8px; justify-content:center; margin-top:16px; max-width:90vw}
   .companion .c-thumb{font-size:12px; color:var(--txt); background:var(--panel-2); border:1px solid var(--line); border-radius:8px; padding:6px 10px}
 
+  /* landing: your saved rooms (recurring huiskamers) */
+  .l-rooms{margin-top:24px; max-width:440px; width:100%}
+  .l-rooms-title{font-size:12px; letter-spacing:1.5px; text-transform:uppercase; color:var(--muted); margin:0 0 10px}
+  .l-rooms-list{display:flex; gap:8px; flex-wrap:wrap; justify-content:center}
+  .l-room-chip{display:inline-flex; align-items:center; gap:9px; padding:8px 12px; border-radius:999px; border:1px solid var(--line); background:var(--panel-2); color:var(--txt); font-size:13px; cursor:pointer; transition:border-color .15s}
+  .l-room-chip:hover{border-color:rgba(244,177,74,.55)}
+  .l-room-chip .rm{opacity:.5; font-size:15px; line-height:1}
+  .l-room-chip .rm:hover{opacity:1; color:var(--bad)}
+
   /* landing use-case cards */
   .l-usecases{display:flex; gap:12px; flex-wrap:wrap; justify-content:center; margin:28px auto 0; max-width:700px}
   .uc{flex:1 1 180px; max-width:215px; display:flex; flex-direction:column; align-items:center; gap:6px; padding:16px 14px; border:1px solid var(--line); border-radius:14px; background:rgba(255,255,255,.025); text-align:center}
@@ -382,6 +391,14 @@
   .pick-row{display:flex; gap:8px}
   .pick-row input{flex:1; min-width:0; background:var(--panel); border:1px solid var(--line); color:var(--txt); border-radius:11px; padding:11px 13px; font-size:14px; font-family:inherit}
   .pick-row input:focus{outline:none; border-color:rgba(244,177,74,.7)}
+
+  /* peer moderation actions (block / host-remove) on the peer tile */
+  .peer-actions{position:absolute; left:6px; top:6px; z-index:6; display:flex; gap:5px; opacity:0; transition:opacity .15s}
+  .cam.peer:hover .peer-actions{opacity:1}
+  @media (pointer:coarse){ .peer-actions{opacity:.85} }
+  .pa-btn{width:26px; height:26px; border-radius:7px; border:1px solid var(--line); background:rgba(8,7,10,.72); color:#fff; font-size:13px; line-height:1; cursor:pointer; display:grid; place-items:center; backdrop-filter:blur(4px)}
+  .pa-btn:hover{background:rgba(40,32,48,.95)}
+  .pa-kick{color:var(--bad); border-color:rgba(232,115,107,.5)}
 
   /* free-wall expiry banner */
   .expiry-bar{position:fixed; left:0; right:0; top:0; z-index:120; display:none; align-items:center; justify-content:center; gap:14px; flex-wrap:wrap; padding:10px 44px 10px 16px; background:linear-gradient(180deg,#3a2a10,#241a0a); border-bottom:1px solid rgba(244,177,74,.45); color:var(--txt); font-size:13.5px; line-height:1.4; box-shadow:0 8px 20px rgba(0,0,0,.45)}
@@ -456,6 +473,10 @@
       <div class="l-joinrow"><input id="ld_code" type="text" maxlength="40" placeholder="Room code" /><button class="btn" id="ld_join">Join</button></div>
     </div>
     <div class="l-secondary" id="ld_secondary"><button class="l-link-btn" id="ld_schedule">📅 Schedule a watch party</button></div>
+    <div class="l-rooms" id="ld_rooms" style="display:none">
+      <div class="l-rooms-title" id="ld_rooms_title">Your rooms</div>
+      <div class="l-rooms-list" id="ld_rooms_list"></div>
+    </div>
     <div class="l-usecases" id="ld_usecases">
       <div class="uc"><span class="uc-emoji">👨‍👩‍👧</span><b id="uc_family_t">Family back home</b><span class="uc-d" id="uc_family_d">Be there for the evening, from anywhere.</span></div>
       <div class="uc"><span class="uc-emoji">📸</span><b id="uc_couples_t">The kids' moments</b><span class="uc-d" id="uc_couples_d">Share photos &amp; videos as they grow.</span></div>
@@ -559,6 +580,10 @@
       <div class="cam peer" id="peerCam">
         <video id="peerVideo" autoplay playsinline muted></video>
         <span class="who-badge" id="peerWho"></span>
+        <div class="peer-actions" id="peerActions">
+          <button class="pa-btn" id="peerBlock" title="Block">🔇</button>
+          <button class="pa-btn pa-kick" id="peerKick" title="Remove (host)" style="display:none">✕</button>
+        </div>
         <div class="cam-state" id="camState"><span id="camStateText">Waiting for others to join…</span></div>
         <div class="pvol" id="pvol">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/></svg>
@@ -933,6 +958,17 @@
       ar:{expiry_msg:"ينتهي جدارك المجاني خلال {n} أيام — احتفظ بذكرياتك.",expiry_today:"ينتهي جدارك المجاني اليوم — احتفظ بذكرياتك.",expiry_extend:"تمديد · 2.99$/أسبوع"}
     };
     Object.keys(EXPIRYCOPY).forEach(function(k){ if(I18N[k]) Object.keys(EXPIRYCOPY[k]).forEach(function(j){ I18N[k][j]=EXPIRYCOPY[k][j]; }); });
+    var MODCOPY = {
+      en:{mod_nobody:"No one to do that to right now.",mod_removed:"Removed {n} from the room.",mod_blocked:"Blocked {n} — you won't see or hear them.",mod_kicked_title:"You were removed",mod_kicked_body:"The host removed you from this room. You can create your own room and invite others."},
+      nl:{mod_nobody:"Er is nu niemand om dat mee te doen.",mod_removed:"{n} uit de kamer verwijderd.",mod_blocked:"{n} geblokkeerd — je ziet en hoort ze niet meer.",mod_kicked_title:"Je bent verwijderd",mod_kicked_body:"De host heeft je uit deze kamer verwijderd. Je kunt je eigen kamer maken en anderen uitnodigen."},
+      de:{mod_nobody:"Gerade niemand dafür da.",mod_removed:"{n} aus dem Raum entfernt.",mod_blocked:"{n} blockiert — du siehst und hörst sie nicht mehr.",mod_kicked_title:"Du wurdest entfernt",mod_kicked_body:"Der Host hat dich aus diesem Raum entfernt. Du kannst deinen eigenen Raum erstellen."},
+      fr:{mod_nobody:"Personne pour ça maintenant.",mod_removed:"{n} a été retiré du salon.",mod_blocked:"{n} bloqué — tu ne le verras plus.",mod_kicked_title:"Tu as été retiré",mod_kicked_body:"L'hôte t'a retiré de ce salon. Tu peux créer ton propre salon."},
+      es:{mod_nobody:"No hay nadie para eso ahora.",mod_removed:"Has quitado a {n} de la sala.",mod_blocked:"Has bloqueado a {n} — no lo verás ni oirás.",mod_kicked_title:"Te han quitado",mod_kicked_body:"El anfitrión te quitó de esta sala. Puedes crear tu propia sala."},
+      ar:{mod_nobody:"لا أحد لفعل ذلك الآن.",mod_removed:"تمت إزالة {n} من الغرفة.",mod_blocked:"تم حظر {n} — لن تراه أو تسمعه.",mod_kicked_title:"تمت إزالتك",mod_kicked_body:"قام المضيف بإزالتك من هذه الغرفة. يمكنك إنشاء غرفتك الخاصة."}
+    };
+    Object.keys(MODCOPY).forEach(function(k){ if(I18N[k]) Object.keys(MODCOPY[k]).forEach(function(j){ I18N[k][j]=MODCOPY[k][j]; }); });
+    var ROOMSCOPY = { en:{my_rooms_title:"Your rooms"}, nl:{my_rooms_title:"Jouw kamers"}, de:{my_rooms_title:"Deine Räume"}, fr:{my_rooms_title:"Tes salons"}, es:{my_rooms_title:"Tus salas"}, ar:{my_rooms_title:"غرفك"}, pt:{my_rooms_title:"As tuas salas"}, id:{my_rooms_title:"Ruangmu"}, hi:{my_rooms_title:"आपके कमरे"}, ur:{my_rooms_title:"آپ کے کمرے"} };
+    Object.keys(ROOMSCOPY).forEach(function(k){ if(I18N[k]) Object.keys(ROOMSCOPY[k]).forEach(function(j){ I18N[k][j]=ROOMSCOPY[k][j]; }); });
     var landingMode="home";
 
     var lang = (function(){ try{ return localStorage.getItem("wmt_lang")||"en"; }catch(e){ return "en"; } })();
@@ -1055,6 +1091,7 @@
       try{ var pc=call.peerConnection; if(pc) pc.addEventListener("icecandidate", function(e){ if(e&&e.candidate){ var t=e.candidate.type||((""+e.candidate.candidate).match(/ typ (\w+)/)||[])[1]; if(t==="relay"){ diag.relay=true; dbg(); } } }); }catch(_){}
     }
     function addPeerStream(pid, stream){
+      if(blockedSet&&blockedSet[pid]){ return; }   // locally blocked → ignore their stream
       var p=peers[pid]; if(!p){ p=peers[pid]={ name:"Guest" }; }
       if(shareMode){ return; }   // phone companion stays silent — don't play anyone's audio/video
       p.stream=stream;
@@ -1106,6 +1143,7 @@
         case "pass-set": if(m.denied){ toast(tr("pass_denied"),5000); } else { roomHasPass=!!m.hasPass; updateHostControls(); toast(m.hasPass?tr("pass_on"):tr("pass_off"),5000); } break;
         case "room-locked": roomHasPass=!!m.hasPass; toast((m.by||tr("others"))+" "+(m.hasPass?tr("pass_locked"):tr("pass_unlocked")),5000); break;
         case "wall-add": if(m.item){ addWallItem(m.item); if(wallPanel&&wallPanel.hidden) toast(tr("wall_new"),4000); } break;
+        case "kicked": closing=true; hideConnecting(); showKickedScreen(); break;
         case "peer-joined":
           peers[m.peerId]=peers[m.peerId]||{}; peers[m.peerId].name=m.name||"Guest";
           if(shouldInitiate(myPeerId,m.peerId)) callPeer(m.peerId);
@@ -1541,8 +1579,27 @@
     var connectingEl=$("connecting"), connectingTimer=null;
     function showConnecting(){ if(!connectingEl) return; setText("connectingTxt",tr("st_conn")); connectingEl.classList.add("show"); clearTimeout(connectingTimer); connectingTimer=setTimeout(hideConnecting,25000); }
     function hideConnecting(){ if(connectingEl) connectingEl.classList.remove("show"); clearTimeout(connectingTimer); }
+    /* your saved rooms (recurring "huiskamers") — localStorage, no account needed */
+    function getMyRooms(){ try{ return JSON.parse(localStorage.getItem("wmt_rooms")||"[]"); }catch(e){ return []; } }
+    function saveMyRoom(code){ if(!code) return; try{ var l=getMyRooms().filter(function(r){return r.code!==code;}); l.unshift({code:code, ts:Date.now()}); localStorage.setItem("wmt_rooms", JSON.stringify(l.slice(0,8))); }catch(e){} }
+    function removeMyRoom(code){ try{ localStorage.setItem("wmt_rooms", JSON.stringify(getMyRooms().filter(function(r){return r.code!==code;}))); }catch(e){} renderMyRooms(); }
+    function renderMyRooms(){
+      var box=$("ld_rooms_list"), sec=$("ld_rooms"); if(!box||!sec) return;
+      var list=getMyRooms(); box.innerHTML="";
+      if(!list.length){ sec.style.display="none"; return; }
+      setText("ld_rooms_title", tr("my_rooms_title"));
+      list.forEach(function(r){
+        var chip=document.createElement("div"); chip.className="l-room-chip";
+        var label=document.createElement("span"); label.textContent="🛋️ "+r.code; chip.appendChild(label);
+        var x=document.createElement("span"); x.className="rm"; x.textContent="×"; x.title="Remove"; x.addEventListener("click", function(e){ e.stopPropagation(); removeMyRoom(r.code); }); chip.appendChild(x);
+        chip.addEventListener("click", function(){ if(requireName()) goToRoom(r.code); });
+        box.appendChild(chip);
+      });
+      sec.style.display="";
+    }
     function boot(){
       showConnecting();   // hide the room until we're joined / asked for a password
+      saveMyRoom(roomCode);
       initRoom(); initSW();
       if(!window.isSecureContext&&location.hostname!=="localhost"&&location.hostname!=="127.0.0.1") toast("Open this via the hosted https link. Camera/mic only work on https.",9000);
       loadConfig().then(loadTurn).then(setupMedia).then(function(){
@@ -1560,6 +1617,7 @@
       showEl("ld_join_block", mode==="home");
       showEl("ld_joinbtn", mode==="join");
       setText("ld_got", mode==="join"?tr("joining"):tr("got"));
+      renderMyRooms();
       if(landing) landing.classList.add("show");
       setTimeout(function(){ if(ldName) ldName.focus(); },50);
     }
@@ -1763,7 +1821,7 @@
 
     /* ===================== Feature: room password (host-controlled) ===================== */
     var roomPass="", isHost=false, roomHasPass=false, passMode="enter", passModalEl=$("passModal");
-    function updateHostControls(){ var b=$("roomLockBtn"); if(b){ b.style.display=(isHost&&!shareMode)?"":"none"; var t=$("roomLockTxt"); if(t) t.textContent=roomHasPass?tr("pass_change"):tr("pass_set_btn"); } }
+    function updateHostControls(){ var b=$("roomLockBtn"); if(b){ b.style.display=(isHost&&!shareMode)?"":"none"; var t=$("roomLockTxt"); if(t) t.textContent=roomHasPass?tr("pass_change"):tr("pass_set_btn"); } var pk=$("peerKick"); if(pk) pk.style.display=(isHost&&!shareMode)?"":"none"; }
     function openPassEnter(wrong){ passMode="enter"; setText("passTitle",tr("pass_need_title")); setText("passSub",tr("pass_need_sub")); var pi=$("passInput"); if(pi) pi.value=""; setText("passErr", wrong?tr("pass_wrong"):""); if($("passRemove")) $("passRemove").style.display="none"; if($("passSubmit")) $("passSubmit").textContent=tr("join"); if(passModalEl) passModalEl.classList.add("show"); setTimeout(function(){ if($("passInput")) $("passInput").focus(); },60); }
     function openPassSet(){ passMode="set"; setText("passTitle",tr("pass_set_title")); setText("passSub",tr("pass_set_sub")); var pi=$("passInput"); if(pi) pi.value=""; setText("passErr",""); if($("passRemove")) $("passRemove").style.display=roomHasPass?"":"none"; if($("passSubmit")) $("passSubmit").textContent=tr("save"); if(passModalEl) passModalEl.classList.add("show"); setTimeout(function(){ if($("passInput")) $("passInput").focus(); },60); }
     function passSubmit(){ var v=($("passInput")&&$("passInput").value)||""; if(passMode==="enter"){ if(!v){ setText("passErr",tr("pass_wrong")); return; } roomPass=v; rtSend({ type:"join", room:roomCode, name:myName, peerId:myPeerId, pass:roomPass }); } else { rtSend({ type:"set-pass", password:v }); if(passModalEl) passModalEl.classList.remove("show"); } }
@@ -1833,6 +1891,14 @@
       if($("expiryBar")) $("expiryBar").classList.add("show");
     }
     if($("expiryDismiss")) $("expiryDismiss").addEventListener("click", function(){ if($("expiryBar")) $("expiryBar").classList.remove("show"); });
+
+    /* ===================== Feature: moderation (host remove + local block) ===================== */
+    var blockedSet={};
+    function kickPeer(){ if(!isHost){ return; } if(!displayed){ toast(tr("mod_nobody"),3500); return; } var nm=(peers[displayed]&&peers[displayed].name)||tr("others"); if(rtReady) rtSend({ type:"kick", peerId:displayed }); toast(tr("mod_removed").replace("{n}",nm),4000); }
+    function blockPeer(){ if(!displayed){ toast(tr("mod_nobody"),3500); return; } var pid=displayed, nm=(peers[pid]&&peers[pid].name)||tr("others"); blockedSet[pid]=1; var p=peers[pid]; if(p&&p.audioEl){ try{ p.audioEl.muted=true; }catch(e){} } removePeer(pid); toast(tr("mod_blocked").replace("{n}",nm),4000); }
+    if($("peerKick")) $("peerKick").addEventListener("click", function(e){ e.stopPropagation(); kickPeer(); });
+    if($("peerBlock")) $("peerBlock").addEventListener("click", function(e){ e.stopPropagation(); blockPeer(); });
+    function showKickedScreen(){ try{ if(peer) peer.destroy(); }catch(e){} try{ if(rt) rt.close(); }catch(e){} clearPlayers(); if(wallStageEl) wallStageEl.classList.remove("show"); placeholder.style.display=""; placeholder.innerHTML='<div class="ph-card"><p class="kicker">—</p><h2>'+tr("mod_kicked_title")+'</h2><p style="color:#d7cdc3;line-height:1.5;margin:0 0 22px">'+tr("mod_kicked_body")+'</p><a class="btn primary" style="text-decoration:none;display:inline-block" href="'+location.pathname+'">'+tr("new_room")+'</a></div>'; }
 
     /* translations for all new UI (called from applyLang) */
     function applyLang4(){
