@@ -3,7 +3,21 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-<title>WatchMovieTogether — watch movies together, anywhere</title>
+<title>WatchMovieTogether — be together, even when you're apart</title>
+<meta name="description" content="A private living room for you and the people back home. Watch YouTube and home videos together in perfect sync, see each other live, and leave photos and notes on your shared wall. No app, no sign-up — just send a link." />
+<link rel="canonical" href="https://watchmovietogether.com/" />
+<meta property="og:type" content="website" />
+<meta property="og:site_name" content="WatchMovieTogether" />
+<meta property="og:title" content="Movie night with the people you miss 🍿" />
+<meta property="og:description" content="A private living room for two-to-eight. Watch together in sync, see each other live, share memories. No app, no sign-up — just open the link." />
+<meta property="og:url" content="https://watchmovietogether.com/" />
+<meta property="og:image" content="https://watchmovietogether.com/og.jpg" />
+<meta property="og:image:width" content="1200" />
+<meta property="og:image:height" content="630" />
+<meta name="twitter:card" content="summary_large_image" />
+<meta name="twitter:title" content="Movie night with the people you miss 🍿" />
+<meta name="twitter:description" content="Watch together in sync, see each other live, share memories. No app, no sign-up." />
+<meta name="twitter:image" content="https://watchmovietogether.com/og.jpg" />
 <link rel="manifest" href="/manifest.json" />
 <meta name="theme-color" content="#0b0a0c" />
 <meta name="mobile-web-app-capable" content="yes" />
@@ -181,9 +195,10 @@
   .yt-card .t{padding:9px 11px; font-size:13px; line-height:1.35; color:#e7ddd3; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden}
   .ytb-msg{margin:auto; max-width:420px; text-align:center; color:var(--muted); font-size:14px; line-height:1.6; padding:20px}
 
-  .landing{position:fixed; inset:0; z-index:200; display:none; flex-direction:column; align-items:center; justify-content:center; padding:28px; text-align:center;
+  .landing{position:fixed; inset:0; z-index:200; display:none; flex-direction:column; align-items:center; justify-content:center; justify-content:safe center; padding:28px; text-align:center;
     background:radial-gradient(1000px 600px at 50% -100px, rgba(244,177,74,.14), transparent 60%), var(--bg); overflow:auto}
   .landing.show{display:flex}
+  .landing > *{flex-shrink:0}
   .landing .lang-top{position:absolute; top:16px; right:16px}
   .landing .l-brand{display:flex; align-items:center; gap:12px; margin-bottom:18px}
   .landing .l-brand .bulb{width:14px;height:14px}
@@ -194,7 +209,24 @@
   .landing .l-actions{display:flex; gap:14px; flex-wrap:wrap; justify-content:center}
   .landing .l-actions .btn{padding:15px 26px; font-size:16px}
   .landing .l-got{margin-top:22px; font-size:13px; color:var(--muted)}
-  .landing .l-foot{position:absolute; bottom:16px; left:0; right:0; font-size:11.5px; color:#6f655c; padding:0 16px}
+  .landing .l-foot{margin-top:40px; font-size:11.5px; color:#6f655c; padding:0 16px; line-height:1.6}
+  .landing .l-foot a{color:#8a7f74; text-decoration:underline; text-underline-offset:2px}
+  .landing .l-foot a:hover{color:var(--amber-2)}
+
+  /* landing: how it works + FAQ (SEO + first-visit clarity) */
+  .l-how{display:flex; gap:14px; flex-wrap:wrap; justify-content:center; margin:44px auto 0; max-width:760px}
+  .l-how .hw{flex:1 1 200px; max-width:236px; padding:18px 16px; border:1px solid var(--line); border-radius:16px; background:rgba(255,255,255,.02)}
+  .l-how .hw .n{width:30px; height:30px; margin:0 auto 10px; border-radius:50%; display:grid; place-items:center; font-weight:700; font-size:14px; color:#2a1c06; background:linear-gradient(180deg,var(--amber-2),var(--amber))}
+  .l-how .hw b{display:block; font-size:14.5px; margin-bottom:6px}
+  .l-how .hw span{font-size:12.5px; color:var(--muted); line-height:1.5}
+  .l-sec-title{font-family:'Bebas Neue',sans-serif; font-weight:400; letter-spacing:1.5px; font-size:24px; margin:46px 0 14px; color:var(--txt)}
+  .l-faq{max-width:620px; width:100%; margin:0 auto; text-align:left}
+  .l-faq details{border:1px solid var(--line); border-radius:13px; background:rgba(255,255,255,.02); margin-bottom:9px; overflow:hidden}
+  .l-faq summary{cursor:pointer; padding:14px 16px; font-size:14.5px; font-weight:600; list-style:none; position:relative; padding-right:38px}
+  .l-faq summary::-webkit-details-marker{display:none}
+  .l-faq summary::after{content:"+"; position:absolute; right:16px; top:50%; transform:translateY(-50%); color:var(--amber); font-size:18px; font-weight:400}
+  .l-faq details[open] summary::after{content:"–"}
+  .l-faq .fa{padding:0 16px 14px; font-size:13.5px; color:var(--muted); line-height:1.6}
 
   .toast{position:fixed; left:50%; bottom:26px; transform:translate(-50%, 30px); z-index:9998; max-width:min(560px, 90vw); background:var(--panel-2); color:var(--txt); border:1px solid var(--line); border-left:3px solid var(--amber); border-radius:12px; padding:13px 18px; font-size:14px; line-height:1.45; box-shadow:var(--shadow); opacity:0; pointer-events:none; transition:opacity .3s, transform .3s}
   .toast.show{opacity:1; transform:translate(-50%,0)}
@@ -483,7 +515,24 @@
       <div class="uc"><span class="uc-emoji">❤️</span><b id="uc_friends_t">Your partner, far away</b><span class="uc-d" id="uc_friends_d">Date night, any distance.</span></div>
     </div>
     <div class="l-got" id="ld_got">Already have a link? Just open it to join.</div>
-    <div class="l-foot" id="ld_foot">Video and audio are end-to-end encrypted peer-to-peer. Chat is relayed by the server and may be moderated.</div>
+
+    <div class="l-how" id="ld_how">
+      <div class="hw"><div class="n">1</div><b id="hw1_t">Create your room</b><span id="hw1_d">One click, no account. You get a private link that's yours.</span></div>
+      <div class="hw"><div class="n">2</div><b id="hw2_t">Send the link</b><span id="hw2_d">WhatsApp it to the people you miss. They tap it and they're in.</span></div>
+      <div class="hw"><div class="n">3</div><b id="hw3_t">Be together</b><span id="hw3_d">Watch in perfect sync, see and hear each other, leave memories on your wall.</span></div>
+    </div>
+
+    <div class="l-sec-title" id="ld_faq_title">Questions, answered</div>
+    <div class="l-faq" id="ld_faq">
+      <details><summary id="fq1_q">Is it really free?</summary><div class="fa" id="fq1_a">Yes. Creating rooms, watching together, video calling and chat are free. Your shared memories wall stays free for 10 days — you can extend it for a small fee if you want to keep it longer.</div></details>
+      <details><summary id="fq2_q">Do I need an app or account?</summary><div class="fa" id="fq2_a">No. Everything runs in the browser on any phone, tablet or computer. No downloads, no sign-up — just open the link. You can add it to your home screen if you like.</div></details>
+      <details><summary id="fq3_q">What can we watch together?</summary><div class="fa" id="fq3_a">YouTube and Vimeo videos, your own video files and photos straight from your phone or computer. Playback stays in sync for everyone: when one pauses, everyone pauses.</div></details>
+      <details><summary id="fq4_q">Is it private?</summary><div class="fa" id="fq4_a">Your room only exists for people who have the link, and the host can add a password. Video and audio go directly between you, end-to-end encrypted — they never touch our servers.</div></details>
+      <details><summary id="fq5_q">How many people can join?</summary><div class="fa" id="fq5_a">Up to 8 people in one room — perfect for a family evening or a movie night with friends across the world.</div></details>
+    </div>
+
+    <div class="l-foot" id="ld_footwrap"><span id="ld_foot">Video and audio are end-to-end encrypted peer-to-peer. Chat is relayed by the server and may be moderated.</span><br />
+      <a href="/privacy.html" id="ld_privacy">Privacy</a> · <a href="/terms.html" id="ld_terms">Terms</a> · <span>© WatchMovieTogether</span></div>
   </div>
 
   <header class="topbar">
@@ -969,6 +1018,11 @@
     Object.keys(MODCOPY).forEach(function(k){ if(I18N[k]) Object.keys(MODCOPY[k]).forEach(function(j){ I18N[k][j]=MODCOPY[k][j]; }); });
     var ROOMSCOPY = { en:{my_rooms_title:"Your rooms"}, nl:{my_rooms_title:"Jouw kamers"}, de:{my_rooms_title:"Deine Räume"}, fr:{my_rooms_title:"Tes salons"}, es:{my_rooms_title:"Tus salas"}, ar:{my_rooms_title:"غرفك"}, pt:{my_rooms_title:"As tuas salas"}, id:{my_rooms_title:"Ruangmu"}, hi:{my_rooms_title:"आपके कमरे"}, ur:{my_rooms_title:"آپ کے کمرے"} };
     Object.keys(ROOMSCOPY).forEach(function(k){ if(I18N[k]) Object.keys(ROOMSCOPY[k]).forEach(function(j){ I18N[k][j]=ROOMSCOPY[k][j]; }); });
+    var LANDCOPY = {
+      en:{hw1_t:"Create your room",hw1_d:"One click, no account. You get a private link that's yours.",hw2_t:"Send the link",hw2_d:"WhatsApp it to the people you miss. They tap it and they're in.",hw3_t:"Be together",hw3_d:"Watch in perfect sync, see and hear each other, leave memories on your wall.",faq_title:"Questions, answered",fq1_q:"Is it really free?",fq1_a:"Yes. Creating rooms, watching together, video calling and chat are free. Your shared memories wall stays free for 10 days — you can extend it for a small fee if you want to keep it longer.",fq2_q:"Do I need an app or account?",fq2_a:"No. Everything runs in the browser on any phone, tablet or computer. No downloads, no sign-up — just open the link. You can add it to your home screen if you like.",fq3_q:"What can we watch together?",fq3_a:"YouTube and Vimeo videos, your own video files and photos straight from your phone or computer. Playback stays in sync for everyone: when one pauses, everyone pauses.",fq4_q:"Is it private?",fq4_a:"Your room only exists for people who have the link, and the host can add a password. Video and audio go directly between you, end-to-end encrypted — they never touch our servers.",fq5_q:"How many people can join?",fq5_a:"Up to 8 people in one room — perfect for a family evening or a movie night with friends across the world.",conn_wake:"Waking up the room… the first visit of the day can take up to ~30 seconds. Hang tight 🛋️"},
+      nl:{hw1_t:"Maak je kamer",hw1_d:"Eén klik, geen account. Je krijgt een privélink die van jou is.",hw2_t:"Stuur de link",hw2_d:"App 'm naar de mensen die je mist. Zij tikken erop en zijn binnen.",hw3_t:"Wees samen",hw3_d:"Kijk perfect synchroon, zie en hoor elkaar, en laat herinneringen achter op jullie muur.",faq_title:"Vragen, beantwoord",fq1_q:"Is het echt gratis?",fq1_a:"Ja. Kamers maken, samen kijken, videobellen en chatten zijn gratis. Jullie herinneringenmuur blijft 10 dagen gratis staan — verlengen kan voor een klein bedrag.",fq2_q:"Heb ik een app of account nodig?",fq2_a:"Nee. Alles draait in de browser op elke telefoon, tablet of computer. Geen downloads, geen registratie — gewoon de link openen. Toevoegen aan je beginscherm kan ook.",fq3_q:"Wat kunnen we samen kijken?",fq3_a:"YouTube- en Vimeo-video's, je eigen videobestanden en foto's rechtstreeks vanaf je telefoon of computer. Het afspelen blijft voor iedereen synchroon: pauzeert er één, dan pauzeert iedereen.",fq4_q:"Is het privé?",fq4_a:"Jullie kamer bestaat alleen voor wie de link heeft, en de host kan een wachtwoord instellen. Beeld en geluid gaan rechtstreeks tussen jullie, end-to-end versleuteld — ze komen nooit op onze servers.",fq5_q:"Met hoeveel mensen kan het?",fq5_a:"Tot 8 mensen in één kamer — perfect voor een familieavond of filmavond met vrienden over de hele wereld.",conn_wake:"De kamer wordt wakker… het eerste bezoek van de dag kan tot ~30 seconden duren. Momentje 🛋️"}
+    };
+    Object.keys(LANDCOPY).forEach(function(k){ if(I18N[k]) Object.keys(LANDCOPY[k]).forEach(function(j){ I18N[k][j]=LANDCOPY[k][j]; }); });
     var landingMode="home";
 
     var lang = (function(){ try{ return localStorage.getItem("wmt_lang")||"en"; }catch(e){ return "en"; } })();
@@ -1576,9 +1630,11 @@
     }
 
     /* ===================== Boot / landing ===================== */
-    var connectingEl=$("connecting"), connectingTimer=null;
-    function showConnecting(){ if(!connectingEl) return; setText("connectingTxt",tr("st_conn")); connectingEl.classList.add("show"); clearTimeout(connectingTimer); connectingTimer=setTimeout(hideConnecting,25000); }
-    function hideConnecting(){ if(connectingEl) connectingEl.classList.remove("show"); clearTimeout(connectingTimer); }
+    var connectingEl=$("connecting"), connectingTimer=null, connectingWakeTimer=null;
+    function showConnecting(){ if(!connectingEl) return; setText("connectingTxt",tr("st_conn")); connectingEl.classList.add("show"); clearTimeout(connectingTimer); clearTimeout(connectingWakeTimer);
+      connectingWakeTimer=setTimeout(function(){ if(connectingEl.classList.contains("show")) setText("connectingTxt",tr("conn_wake")); },7000);   // be honest about server cold starts
+      connectingTimer=setTimeout(hideConnecting,60000); }
+    function hideConnecting(){ if(connectingEl) connectingEl.classList.remove("show"); clearTimeout(connectingTimer); clearTimeout(connectingWakeTimer); }
     /* your saved rooms (recurring "huiskamers") — localStorage, no account needed */
     function getMyRooms(){ try{ return JSON.parse(localStorage.getItem("wmt_rooms")||"[]"); }catch(e){ return []; } }
     function saveMyRoom(code){ if(!code) return; try{ var l=getMyRooms().filter(function(r){return r.code!==code;}); l.unshift({code:code, ts:Date.now()}); localStorage.setItem("wmt_rooms", JSON.stringify(l.slice(0,8))); }catch(e){} }
@@ -1914,6 +1970,8 @@
       setText("notifyMeTxt",tr("notify_me"));
       setText("wallTitle",tr("wall_title")); setText("wallNotice",tr("wall_notice")); setPh("wallText",tr("wall_ph")); setTitle("wallBtn",tr("t_wall")); if($("wallEmpty")) $("wallEmpty").textContent=tr("wall_empty");
       setText("pickTitle",tr("pick_title")); setText("pickOpenTxt",tr("pick_open")); setText("pickLoad",tr("pick_load")); setText("pickSearch",tr("pick_search"));
+      ["hw1_t","hw1_d","hw2_t","hw2_d","hw3_t","hw3_d","fq1_q","fq1_a","fq2_q","fq2_a","fq3_q","fq3_a","fq4_q","fq4_a","fq5_q","fq5_a"].forEach(function(id){ setText(id,tr(id)); });
+      setText("ld_faq_title",tr("faq_title"));
       if(typeof updateHostControls==="function") updateHostControls();
       setText("ph_note",tr("legal_tip"));   // copyright positioning on the main screen
       setText("shareModalTitle",tr("share_modal_title")); setText("shareModalSub",tr("legal_share"));

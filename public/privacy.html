@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Privacy — WatchMovieTogether</title>
+<meta name="description" content="How WatchMovieTogether handles your data: peer-to-peer encrypted video, relayed chat, shared walls and what we store." />
+<link rel="icon" href="/icon.svg" type="image/svg+xml" />
+<style>
+  :root{--bg:#0b0a0c;--panel:#161219;--line:rgba(255,255,255,.09);--txt:#efe7dd;--muted:#a59a90;--amber:#f4b14a}
+  body{margin:0;background:radial-gradient(1000px 600px at 50% -100px, rgba(244,177,74,.10), transparent 60%), var(--bg);color:var(--txt);font-family:ui-sans-serif,system-ui,sans-serif;line-height:1.65}
+  main{max-width:720px;margin:0 auto;padding:48px 22px 80px;font-size:15px}
+  h1{font-size:30px;margin:18px 0 6px} h2{font-size:18px;margin:30px 0 8px;color:var(--amber)}
+  p,li{color:var(--muted)} a{color:var(--amber)}
+  .back{display:inline-block;margin-bottom:8px;color:var(--muted);text-decoration:none}
+  .back:hover{color:var(--txt)}
+  .upd{font-size:12.5px;color:#6f655c}
+</style>
+</head>
+<body>
+<main>
+  <a class="back" href="/">← WatchMovieTogether</a>
+  <h1>Privacy Policy</h1>
+  <p class="upd">Last updated: June 2026</p>
+
+  <h2>The short version</h2>
+  <p>Your video and audio go directly between you and the people in your room, end-to-end encrypted — they never touch our servers and we cannot see or record them. We store only what's needed to make your room work: relayed chat, your shared memories wall, and anonymous usage counts.</p>
+
+  <h2>What we process</h2>
+  <ul>
+    <li><b>Video &amp; audio calls</b> — peer-to-peer and end-to-end encrypted (WebRTC/DTLS-SRTP). When a direct connection isn't possible, our relay server (TURN) forwards the <i>encrypted</i> stream without being able to read it. Nothing is recorded by us.</li>
+    <li><b>Chat messages</b> — relayed through our server and kept temporarily so they can be moderated for safety. They are not used for advertising.</li>
+    <li><b>Memories wall</b> — notes and photos you choose to post are stored so everyone in your room can see them later. Free walls are automatically deleted about 10 days after creation (extended walls stay as long as the extension runs).</li>
+    <li><b>Room settings</b> — room code, an irreversibly hashed password (if the host sets one) and the host identifier.</li>
+    <li><b>Display name</b> — whatever name you type; it's only shown to people in your room.</li>
+    <li><b>Push notifications</b> — only if you opt in; we store the browser subscription needed to deliver your reminders. You can revoke it in your browser at any time.</li>
+    <li><b>Usage statistics</b> — aggregate counters only (e.g. number of rooms created). No tracking cookies, no ad trackers, no profiles.</li>
+    <li><b>Payments</b> — handled entirely by Stripe; we never see your card details.</li>
+  </ul>
+
+  <h2>What we never do</h2>
+  <ul>
+    <li>No selling of data, no advertising profiles, no third-party trackers.</li>
+    <li>No recording of your calls — technically impossible on our side, since media is end-to-end encrypted.</li>
+    <li>No account, so no e-mail lists.</li>
+  </ul>
+
+  <h2>Reaction clips</h2>
+  <p>The "capture a moment" feature records locally on <i>your</i> device only. A clip exists only on your device unless you choose to save or share it. Please ask the people in your room before sharing clips that include them.</p>
+
+  <h2>Your rights</h2>
+  <p>You can ask us to delete a room, its wall and its chat at any time. Contact us at <a href="mailto:privacy@watchmovietogether.com">privacy@watchmovietogether.com</a> and include the room link.</p>
+
+  <h2>Children</h2>
+  <p>The service is not directed at children under 13. Rooms are private-by-link and there is no public discovery or random matching.</p>
+</main>
+</body>
+</html>
