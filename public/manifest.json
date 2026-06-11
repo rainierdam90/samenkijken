@@ -1,7 +1,7 @@
 {
-  "name": "WatchMovieTogether",
-  "short_name": "Together",
-  "description": "Be together, even when you're apart. A private living room for you and the people back home.",
+  "name": "SameCouch",
+  "short_name": "SameCouch",
+  "description": "Same couch, miles apart. A private living room for you and the people you miss.",
   "start_url": "/?pwa=1",
   "scope": "/",
   "display": "standalone",

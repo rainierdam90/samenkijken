@@ -2,4 +2,4 @@ User-agent: *
 Allow: /
 Disallow: /admin
 
-Sitemap: https://watchmovietogether.com/sitemap.xml
+Sitemap: https://samecouch.com/sitemap.xml

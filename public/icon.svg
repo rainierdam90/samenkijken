@@ -1,13 +1,19 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
   <defs>
-    <radialGradient id="g" cx="38%" cy="30%" r="75%">
-      <stop offset="0%" stop-color="#ffe6b0"/>
-      <stop offset="45%" stop-color="#ffcf86"/>
+    <linearGradient id="g" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#ffcf86"/>
       <stop offset="100%" stop-color="#f4b14a"/>
-    </radialGradient>
+    </linearGradient>
   </defs>
   <rect width="512" height="512" rx="112" fill="#0b0a0c"/>
-  <circle cx="256" cy="232" r="120" fill="url(#g)"/>
-  <circle cx="256" cy="232" r="120" fill="none" stroke="#f4b14a" stroke-opacity="0.25" stroke-width="18"/>
-  <text x="256" y="430" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-weight="700" font-size="78" fill="#efe7dd" letter-spacing="2">WMT</text>
+  <!-- warm glow -->
+  <circle cx="256" cy="150" r="150" fill="#f4b14a" opacity="0.14"/>
+  <!-- couch: backrest, seat cushions, armrests, legs -->
+  <rect x="116" y="176" width="280" height="120" rx="34" fill="url(#g)"/>
+  <rect x="76" y="246" width="72" height="120" rx="30" fill="url(#g)"/>
+  <rect x="364" y="246" width="72" height="120" rx="30" fill="url(#g)"/>
+  <rect x="116" y="266" width="280" height="100" rx="22" fill="url(#g)"/>
+  <line x1="256" y1="278" x2="256" y2="354" stroke="#0b0a0c" stroke-opacity="0.28" stroke-width="10" stroke-linecap="round"/>
+  <rect x="116" y="366" width="26" height="40" rx="10" fill="#b9792a"/>
+  <rect x="370" y="366" width="26" height="40" rx="10" fill="#b9792a"/>
 </svg>

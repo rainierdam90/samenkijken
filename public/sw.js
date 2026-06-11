@@ -1,4 +1,4 @@
-/* WatchMovieTogether — streaming Service Worker
+/* SameCouch — streaming Service Worker
  *
  * Lets a <video>/<img> play from a virtual URL (/wmt-stream/<fileId>) whose bytes
  * actually live on ANOTHER user's device (the presenter). For each range the media
@@ -25,7 +25,7 @@ self.addEventListener("message", (e) => {
 self.addEventListener("push", (e) => {
   let data = {};
   try { data = e.data ? e.data.json() : {}; } catch (_) {}
-  const title = data.title || "WatchMovieTogether";
+  const title = data.title || "SameCouch";
   const opts = {
     body: data.body || "Your watch party is starting!",
     icon: data.icon || "/icon.svg",

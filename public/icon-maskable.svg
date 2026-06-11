@@ -1,13 +1,18 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
   <defs>
-    <radialGradient id="gm" cx="38%" cy="32%" r="70%">
-      <stop offset="0%" stop-color="#ffe6b0"/>
-      <stop offset="45%" stop-color="#ffcf86"/>
+    <linearGradient id="gm" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#ffcf86"/>
       <stop offset="100%" stop-color="#f4b14a"/>
-    </radialGradient>
+    </linearGradient>
   </defs>
   <rect width="512" height="512" fill="#0b0a0c"/>
-  <!-- content kept within the central ~66% safe zone for maskable cropping -->
-  <circle cx="256" cy="236" r="92" fill="url(#gm)"/>
-  <text x="256" y="372" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-weight="700" font-size="62" fill="#efe7dd" letter-spacing="2">WMT</text>
+  <!-- content within central ~66% safe zone for maskable cropping -->
+  <circle cx="256" cy="190" r="110" fill="#f4b14a" opacity="0.13"/>
+  <rect x="156" y="196" width="200" height="88" rx="26" fill="url(#gm)"/>
+  <rect x="126" y="248" width="54" height="88" rx="24" fill="url(#gm)"/>
+  <rect x="332" y="248" width="54" height="88" rx="24" fill="url(#gm)"/>
+  <rect x="156" y="262" width="200" height="74" rx="18" fill="url(#gm)"/>
+  <line x1="256" y1="272" x2="256" y2="326" stroke="#0b0a0c" stroke-opacity="0.28" stroke-width="8" stroke-linecap="round"/>
+  <rect x="156" y="336" width="20" height="30" rx="8" fill="#b9792a"/>
+  <rect x="336" y="336" width="20" height="30" rx="8" fill="#b9792a"/>
 </svg>

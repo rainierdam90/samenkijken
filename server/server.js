@@ -1,5 +1,5 @@
 /* ============================================================================
- * WatchMovieTogether — single backend
+ * SameCouch — single backend
  *
  * One Node process that provides EVERYTHING the realtime app needs:
  *   - Static hosting of the front-end (public/)
@@ -58,7 +58,7 @@ const RL_CHAT_WINDOW     = parseInt(process.env.RL_CHAT_WINDOW     || "10000", 1
 /* ---- Web Push (scheduled watch-party reminders) ---- */
 const VAPID_PUBLIC  = process.env.VAPID_PUBLIC  || "";
 const VAPID_PRIVATE = process.env.VAPID_PRIVATE || "";
-const VAPID_SUBJECT = process.env.VAPID_SUBJECT || "mailto:admin@watchmovietogether.com";
+const VAPID_SUBJECT = process.env.VAPID_SUBJECT || "mailto:admin@samecouch.com";
 const HAS_PUSH = !!(webpush && VAPID_PUBLIC && VAPID_PRIVATE);
 if (HAS_PUSH) { try { webpush.setVapidDetails(VAPID_SUBJECT, VAPID_PUBLIC, VAPID_PRIVATE); } catch (e) { console.warn("[WARN] VAPID setup failed:", e.message); } }
 else console.warn("[WARN] Web Push disabled (set VAPID_PUBLIC + VAPID_PRIVATE; generate with: npx web-push generate-vapid-keys). Calendar reminders still work.");
@@ -175,7 +175,7 @@ app.post("/push-subscribe", (req, res) => {
   reminders.push({
     sub,
     at,
-    title: String(b.title || "WatchMovieTogether").slice(0, 80),
+    title: String(b.title || "SameCouch").slice(0, 80),
     body: String(b.body || "").slice(0, 140),
     url: String(b.url || "/").slice(0, 400),
     sent: false
@@ -543,7 +543,7 @@ if (HAS_PUSH) {
 if (store.enabled()) { store.pruneExpired(); setInterval(() => store.pruneExpired(), 3600000).unref(); }
 
 server.listen(PORT, () => {
-  console.log("WatchMovieTogether server on :" + PORT);
+  console.log("SameCouch server on :" + PORT);
   console.log("  app:    http://localhost:" + PORT + "/");
   console.log("  admin:  http://localhost:" + PORT + "/admin");
 });

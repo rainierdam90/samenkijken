@@ -1,6 +1,20 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
-  <url><loc>https://watchmovietogether.com/</loc><changefreq>weekly</changefreq><priority>1.0</priority></url>
-  <url><loc>https://watchmovietogether.com/privacy.html</loc><changefreq>yearly</changefreq><priority>0.3</priority></url>
-  <url><loc>https://watchmovietogether.com/terms.html</loc><changefreq>yearly</changefreq><priority>0.3</priority></url>
+  <url><loc>https://samecouch.com/</loc><changefreq>weekly</changefreq><priority>1.0</priority></url>
+  <url><loc>https://samecouch.com/rave-alternative.html</loc><changefreq>monthly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://samecouch.com/teleparty-alternative.html</loc><changefreq>monthly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://samecouch.com/watch2gether-alternative.html</loc><changefreq>monthly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://samecouch.com/kast-alternative.html</loc><changefreq>monthly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://samecouch.com/scener-alternative.html</loc><changefreq>monthly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://samecouch.com/kosmi-alternative.html</loc><changefreq>monthly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://samecouch.com/discord-watch-together-alternative.html</loc><changefreq>monthly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://samecouch.com/watch-youtube-together.html</loc><changefreq>monthly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://samecouch.com/long-distance-movie-night.html</loc><changefreq>monthly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://samecouch.com/long-distance-date-ideas.html</loc><changefreq>monthly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://samecouch.com/watch-videos-with-family-abroad.html</loc><changefreq>monthly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://samecouch.com/virtual-family-movie-night.html</loc><changefreq>monthly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://samecouch.com/how-to-watch-videos-together-online.html</loc><changefreq>monthly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://samecouch.com/watch-movies-with-friends-online.html</loc><changefreq>monthly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://samecouch.com/privacy.html</loc><changefreq>yearly</changefreq><priority>0.3</priority></url>
+  <url><loc>https://samecouch.com/terms.html</loc><changefreq>yearly</changefreq><priority>0.3</priority></url>
 </urlset>
