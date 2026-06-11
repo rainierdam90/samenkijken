@@ -36,6 +36,7 @@
     --good:#7bd88f; --bad:#e8736b; --shadow:0 22px 60px rgba(0,0,0,.6); --camw:200px;
   }
   *{box-sizing:border-box}
+  :focus-visible{outline:2px solid var(--amber); outline-offset:2px; border-radius:4px}
   html{height:100%; -webkit-text-size-adjust:100%; text-size-adjust:100%}
   body{height:100%; height:100dvh; margin:0; color:var(--txt);
     background:radial-gradient(1200px 700px at 50% -120px, rgba(244,177,74,.10), transparent 60%),radial-gradient(900px 600px at 90% 110%, rgba(120,90,200,.07), transparent 60%), var(--bg);
@@ -304,10 +305,11 @@
     .share{order:6; flex-basis:100%; justify-content:space-between}
     .linkpill{flex:1 1 auto; max-width:none}
     select.lang{padding:8px}
-    /* controls: one tidy row across the bottom */
+    /* controls: one tidy row across the bottom — diagnostics moves out of the way so the 8 everyday buttons get real tap targets */
     .floatctrls{left:6px; right:6px; bottom:calc(9px + env(safe-area-inset-bottom)); gap:4px; max-width:none; justify-content:space-between; flex-wrap:nowrap}
-    .fbtn{width:36px; height:36px; flex:0 0 auto}
-    .fbtn svg{width:17px; height:17px}
+    .fbtn{width:42px; height:42px; flex:0 0 auto}
+    .fbtn svg{width:19px; height:19px}
+    #dbgBtn{display:none}
     /* faces: small PiP tiles bottom-right, sitting just above the controls row */
     .cams{right:8px; left:auto; top:auto; bottom:calc(58px + env(safe-area-inset-bottom)); gap:8px}
     .cam{width:88px}
@@ -322,7 +324,8 @@
     .ph-card h2{font-size:27px}
     .landing .l-actions .btn{width:100%; max-width:300px}
   }
-  @media (max-width:380px){ .fbtn{width:36px; height:36px} .fbtn svg{width:17px; height:17px} .floatctrls{gap:4px} .cam{width:78px} }
+  @media (max-width:380px){ .fbtn{width:40px; height:40px} .fbtn svg{width:18px; height:18px} .floatctrls{gap:4px} .cam{width:78px} }
+  @media (max-width:350px){ .fbtn{width:36px; height:36px} .fbtn svg{width:17px; height:17px} }
 
   /* ===================== Emoji reactions ===================== */
   .reactions-layer{position:absolute; inset:0; z-index:58; pointer-events:none; overflow:hidden}
@@ -1020,8 +1023,8 @@
     var ROOMSCOPY = { en:{my_rooms_title:"Your rooms"}, nl:{my_rooms_title:"Jouw kamers"}, de:{my_rooms_title:"Deine Räume"}, fr:{my_rooms_title:"Tes salons"}, es:{my_rooms_title:"Tus salas"}, ar:{my_rooms_title:"غرفك"}, pt:{my_rooms_title:"As tuas salas"}, id:{my_rooms_title:"Ruangmu"}, hi:{my_rooms_title:"आपके कमरे"}, ur:{my_rooms_title:"آپ کے کمرے"} };
     Object.keys(ROOMSCOPY).forEach(function(k){ if(I18N[k]) Object.keys(ROOMSCOPY[k]).forEach(function(j){ I18N[k][j]=ROOMSCOPY[k][j]; }); });
     var LANDCOPY = {
-      en:{hw1_t:"Create your room",hw1_d:"One click, no account. You get a private link that's yours.",hw2_t:"Send the link",hw2_d:"WhatsApp it to the people you miss. They tap it and they're in.",hw3_t:"Be together",hw3_d:"Watch in perfect sync, see and hear each other, leave memories on your wall.",faq_title:"Questions, answered",fq1_q:"Is it really free?",fq1_a:"Yes. Creating rooms, watching together, video calling and chat are free. Your shared memories wall stays free for 10 days — you can extend it for a small fee if you want to keep it longer.",fq2_q:"Do I need an app or account?",fq2_a:"No. Everything runs in the browser on any phone, tablet or computer. No downloads, no sign-up — just open the link. You can add it to your home screen if you like.",fq3_q:"What can we watch together?",fq3_a:"YouTube and Vimeo videos, your own video files and photos straight from your phone or computer. Playback stays in sync for everyone: when one pauses, everyone pauses.",fq4_q:"Is it private?",fq4_a:"Your room only exists for people who have the link, and the host can add a password. Video and audio go directly between you, end-to-end encrypted — they never touch our servers.",fq5_q:"How many people can join?",fq5_a:"Up to 8 people in one room — perfect for a family evening or a movie night with friends across the world.",conn_wake:"Waking up the room… the first visit of the day can take up to ~30 seconds. Hang tight 🛋️"},
-      nl:{hw1_t:"Maak je kamer",hw1_d:"Eén klik, geen account. Je krijgt een privélink die van jou is.",hw2_t:"Stuur de link",hw2_d:"App 'm naar de mensen die je mist. Zij tikken erop en zijn binnen.",hw3_t:"Wees samen",hw3_d:"Kijk perfect synchroon, zie en hoor elkaar, en laat herinneringen achter op jullie muur.",faq_title:"Vragen, beantwoord",fq1_q:"Is het echt gratis?",fq1_a:"Ja. Kamers maken, samen kijken, videobellen en chatten zijn gratis. Jullie herinneringenmuur blijft 10 dagen gratis staan — verlengen kan voor een klein bedrag.",fq2_q:"Heb ik een app of account nodig?",fq2_a:"Nee. Alles draait in de browser op elke telefoon, tablet of computer. Geen downloads, geen registratie — gewoon de link openen. Toevoegen aan je beginscherm kan ook.",fq3_q:"Wat kunnen we samen kijken?",fq3_a:"YouTube- en Vimeo-video's, je eigen videobestanden en foto's rechtstreeks vanaf je telefoon of computer. Het afspelen blijft voor iedereen synchroon: pauzeert er één, dan pauzeert iedereen.",fq4_q:"Is het privé?",fq4_a:"Jullie kamer bestaat alleen voor wie de link heeft, en de host kan een wachtwoord instellen. Beeld en geluid gaan rechtstreeks tussen jullie, end-to-end versleuteld — ze komen nooit op onze servers.",fq5_q:"Met hoeveel mensen kan het?",fq5_a:"Tot 8 mensen in één kamer — perfect voor een familieavond of filmavond met vrienden over de hele wereld.",conn_wake:"De kamer wordt wakker… het eerste bezoek van de dag kan tot ~30 seconden duren. Momentje 🛋️"}
+      en:{hw1_t:"Create your room",hw1_d:"One click, no account. You get a private link that's yours.",hw2_t:"Send the link",hw2_d:"WhatsApp it to the people you miss. They tap it and they're in.",hw3_t:"Be together",hw3_d:"Watch in perfect sync, see and hear each other, leave memories on your wall.",faq_title:"Questions, answered",fq1_q:"Is it really free?",fq1_a:"Yes. Creating rooms, watching together, video calling and chat are free. Your shared memories wall stays free for 10 days — you can extend it for a small fee if you want to keep it longer.",fq2_q:"Do I need an app or account?",fq2_a:"No. Everything runs in the browser on any phone, tablet or computer. No downloads, no sign-up — just open the link. You can add it to your home screen if you like.",fq3_q:"What can we watch together?",fq3_a:"YouTube and Vimeo videos, your own video files and photos straight from your phone or computer. Playback stays in sync for everyone: when one pauses, everyone pauses.",fq4_q:"Is it private?",fq4_a:"Your room only exists for people who have the link, and the host can add a password. Video and audio go directly between you, end-to-end encrypted — they never touch our servers.",fq5_q:"How many people can join?",fq5_a:"Up to 8 people in one room — perfect for a family evening or a movie night with friends across the world.",conn_wake:"Waking up the room… the first visit of the day can take up to ~30 seconds. Hang tight 🛋️",guest:"Guest"},
+      nl:{hw1_t:"Maak je kamer",hw1_d:"Eén klik, geen account. Je krijgt een privélink die van jou is.",hw2_t:"Stuur de link",hw2_d:"App 'm naar de mensen die je mist. Zij tikken erop en zijn binnen.",hw3_t:"Wees samen",hw3_d:"Kijk perfect synchroon, zie en hoor elkaar, en laat herinneringen achter op jullie muur.",faq_title:"Vragen, beantwoord",fq1_q:"Is het echt gratis?",fq1_a:"Ja. Kamers maken, samen kijken, videobellen en chatten zijn gratis. Jullie herinneringenmuur blijft 10 dagen gratis staan — verlengen kan voor een klein bedrag.",fq2_q:"Heb ik een app of account nodig?",fq2_a:"Nee. Alles draait in de browser op elke telefoon, tablet of computer. Geen downloads, geen registratie — gewoon de link openen. Toevoegen aan je beginscherm kan ook.",fq3_q:"Wat kunnen we samen kijken?",fq3_a:"YouTube- en Vimeo-video's, je eigen videobestanden en foto's rechtstreeks vanaf je telefoon of computer. Het afspelen blijft voor iedereen synchroon: pauzeert er één, dan pauzeert iedereen.",fq4_q:"Is het privé?",fq4_a:"Jullie kamer bestaat alleen voor wie de link heeft, en de host kan een wachtwoord instellen. Beeld en geluid gaan rechtstreeks tussen jullie, end-to-end versleuteld — ze komen nooit op onze servers.",fq5_q:"Met hoeveel mensen kan het?",fq5_a:"Tot 8 mensen in één kamer — perfect voor een familieavond of filmavond met vrienden over de hele wereld.",conn_wake:"De kamer wordt wakker… het eerste bezoek van de dag kan tot ~30 seconden duren. Momentje 🛋️",guest:"Gast"}
     };
     Object.keys(LANDCOPY).forEach(function(k){ if(I18N[k]) Object.keys(LANDCOPY[k]).forEach(function(j){ I18N[k][j]=LANDCOPY[k][j]; }); });
     var landingMode="home";
@@ -1665,7 +1668,7 @@
         startVAD(); startPeer();
       });
     }
-    function requireName(){ var nm=(ldName&&ldName.value||"").trim(); if(!nm){ toast(tr("need_name")); if(ldName) ldName.focus(); return null; } myName=nm.slice(0,40); try{ localStorage.setItem("wmt_name",myName); }catch(e){} return myName; }
+    function requireName(){ var nm=(ldName&&ldName.value||"").trim(); if(nm){ myName=nm.slice(0,40); try{ localStorage.setItem("wmt_name",myName); }catch(e){} } else { myName=tr("guest")||"Guest"; } return myName; }   // name is genuinely optional — never block the flow
     function goToRoom(code){ roomCode=code; params.set("room",roomCode); history.replaceState(null,"",location.pathname+"?"+params.toString()); if(landing) landing.classList.remove("show"); boot(); }
     function showEl(id,on){ var e=$(id); if(e) e.style.display=on?"":"none"; }
     function setupLanding(mode){
