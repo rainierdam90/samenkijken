@@ -209,7 +209,9 @@
   .landing .l-brand b{font-family:'Bebas Neue',sans-serif; font-weight:400; font-size:40px; letter-spacing:1.5px; background:linear-gradient(180deg,#fff,#d9cdbf); -webkit-background-clip:text; background-clip:text; color:transparent}
   .landing .l-brand b i{font-style:normal; color:var(--amber-2); -webkit-text-fill-color:var(--amber-2)}
   .landing h1{font-family:'Bebas Neue',sans-serif; font-weight:400; letter-spacing:.5px; font-size:clamp(30px,6vw,52px); line-height:1.02; margin:0 0 14px; max-width:760px}
-  .landing p.sub{color:#cabfb4; font-size:clamp(15px,2.4vw,18px); line-height:1.5; margin:0 0 28px; max-width:560px}
+  .landing p.sub{color:#cabfb4; font-size:clamp(15px,2.4vw,18px); line-height:1.5; margin:0 0 18px; max-width:560px}
+  .l-fast{display:flex; flex-wrap:wrap; gap:8px; justify-content:center; margin:0 auto 22px; max-width:620px}
+  .l-fast span{display:inline-flex; align-items:center; gap:7px; min-height:30px; padding:6px 11px; border-radius:999px; border:1px solid rgba(244,177,74,.22); background:rgba(244,177,74,.07); color:#dfd4c9; font-size:12.5px; line-height:1.25}
   .landing .l-actions{display:flex; gap:14px; flex-wrap:wrap; justify-content:center}
   .landing .l-actions .btn{padding:15px 26px; font-size:16px}
   .landing .l-got{margin-top:22px; font-size:13px; color:var(--muted)}
@@ -469,6 +471,7 @@
 
   /* memories wall items (panel) */
   .wall-img{max-width:100%; border-radius:10px; display:block; margin-top:3px; cursor:pointer}
+  .wall-uploading{opacity:.7; pointer-events:none}
   #wallLog .msg .bub{background:var(--panel-2); border:1px solid var(--line)}
   #wallLog .msg.photo .bub{padding:5px; background:transparent; border:none}
   .wall-time{font-size:10px; color:#6f655c; margin:2px 4px 0}
@@ -501,6 +504,11 @@
     <div class="l-brand"><svg class="couchmark" viewBox="0 0 48 48" aria-hidden="true"><rect x="10" y="13" width="28" height="13" rx="5" fill="#ffcf86"/><rect x="6" y="20" width="8" height="13" rx="4" fill="#f4b14a"/><rect x="34" y="20" width="8" height="13" rx="4" fill="#f4b14a"/><rect x="10" y="22" width="28" height="11" rx="4" fill="#f4b14a"/><rect x="11" y="33" width="4" height="5" rx="2" fill="#b9792a"/><rect x="33" y="33" width="4" height="5" rx="2" fill="#b9792a"/></svg><b>Same<i>Couch</i></b></div>
     <h1 id="ld_tagline">Watch any movie together — in sync, face to face.</h1>
     <p class="sub" id="ld_sub">Create a private room, share the link, and press play in perfect sync — while you see and hear each other.</p>
+    <div class="l-fast" aria-label="Quick benefits">
+      <span id="fast_noapp">No app or account</span>
+      <span id="fast_private">Private link room</span>
+      <span id="fast_sync">Synced play, pause and seek</span>
+    </div>
     <div class="l-name"><input id="ld_name" type="text" maxlength="40" placeholder="Your name" /></div>
     <div class="l-actions">
       <button class="btn primary" id="ld_create">Create a room</button>
@@ -1030,6 +1038,11 @@
       nl:{hw1_t:"Maak je kamer",hw1_d:"Eén klik, geen account. Je krijgt een privélink die van jou is.",hw2_t:"Stuur de link",hw2_d:"App 'm naar de mensen die je mist. Zij tikken erop en zijn binnen.",hw3_t:"Wees samen",hw3_d:"Kijk perfect synchroon, zie en hoor elkaar, en laat herinneringen achter op jullie muur.",faq_title:"Vragen, beantwoord",fq1_q:"Is het echt gratis?",fq1_a:"Ja. Kamers maken, samen kijken, videobellen en chatten zijn gratis. Jullie herinneringenmuur blijft 10 dagen gratis staan — verlengen kan voor een klein bedrag.",fq2_q:"Heb ik een app of account nodig?",fq2_a:"Nee. Alles draait in de browser op elke telefoon, tablet of computer. Geen downloads, geen registratie — gewoon de link openen. Toevoegen aan je beginscherm kan ook.",fq3_q:"Wat kunnen we samen kijken?",fq3_a:"YouTube- en Vimeo-video's, je eigen videobestanden en foto's rechtstreeks vanaf je telefoon of computer. Het afspelen blijft voor iedereen synchroon: pauzeert er één, dan pauzeert iedereen.",fq4_q:"Is het privé?",fq4_a:"Jullie kamer bestaat alleen voor wie de link heeft, en de host kan een wachtwoord instellen. Beeld en geluid gaan rechtstreeks tussen jullie, end-to-end versleuteld — ze komen nooit op onze servers.",fq5_q:"Met hoeveel mensen kan het?",fq5_a:"Tot 8 mensen in één kamer — perfect voor een familieavond of filmavond met vrienden over de hele wereld.",conn_wake:"De kamer wordt wakker… het eerste bezoek van de dag kan tot ~30 seconden duren. Momentje 🛋️",guest:"Gast"}
     };
     Object.keys(LANDCOPY).forEach(function(k){ if(I18N[k]) Object.keys(LANDCOPY[k]).forEach(function(j){ I18N[k][j]=LANDCOPY[k][j]; }); });
+    var FASTCOPY = {
+      en:{fast_noapp:"No app or account",fast_private:"Private link room",fast_sync:"Synced play, pause and seek"},
+      nl:{fast_noapp:"Geen app of account",fast_private:"Privékamer via link",fast_sync:"Play, pauze en spoelen synchroon"}
+    };
+    Object.keys(FASTCOPY).forEach(function(k){ if(I18N[k]) Object.keys(FASTCOPY[k]).forEach(function(j){ I18N[k][j]=FASTCOPY[k][j]; }); });
     var landingMode="home";
 
     var lang = (function(){ try{ return localStorage.getItem("wmt_lang")||"en"; }catch(e){ return "en"; } })();
@@ -1045,6 +1058,7 @@
       document.documentElement.lang=lang; document.documentElement.dir=(lang==="ur"||lang==="ar")?"rtl":"ltr";
       if($("langSel")) $("langSel").value=lang; if($("langSelL")) $("langSelL").value=lang;
       setText("ld_tagline",tr("tagline")); setText("ld_sub",tr("sub")); setText("ld_create",tr("create")); setText("ld_joinbtn",tr("join_room")); setText("ld_join",tr("join")); setText("ld_or",tr("or_code")); setPh("ld_code",tr("room_code_ph")); setText("ld_got", landingMode==="join"?tr("joining"):tr("got")); setPh("ld_name",tr("name_ph"));
+      setText("fast_noapp",tr("fast_noapp")); setText("fast_private",tr("fast_private")); setText("fast_sync",tr("fast_sync"));
       setText("loadBtn",tr("load")); setPh("urlInput",tr("url_ph")); setText("shareLbl",tr("share")); setText("browseBtn","\u25B6 "+tr("browse")); if(!copyBusy) setText("copyBtn",tr("copy"));
       setText("ph_kicker",tr("ph_kicker")); setText("ph_title",tr("ph_title")); setText("ph_roomlbl",tr("room_code")); setText("ph_note",tr("ph_note"));
       setText("ph_sharehint",tr("share_hint")); setText("shareWaTxt",tr("wa")); setText("shareMailTxt",tr("email")); if(!shareCopyBusy) setText("shareCopyTxt",tr("copy_s"));
@@ -1790,7 +1804,7 @@
     function calDates(ms){ function f(d){ return d.getUTCFullYear()+pad2(d.getUTCMonth()+1)+pad2(d.getUTCDate())+"T"+pad2(d.getUTCHours())+pad2(d.getUTCMinutes())+"00Z"; } return { start:f(new Date(ms)), end:f(new Date(ms+2*3600*1000)) }; }
     function gcalUrl(info){ var cd=calDates(info.at); return "https://calendar.google.com/calendar/render?action=TEMPLATE&text="+encodeURIComponent(tr("cal_event")+": "+info.title)+"&dates="+cd.start+"/"+cd.end+"&details="+encodeURIComponent(info.url); }
     function downloadIcs(info){ var cd=calDates(info.at);
-      var ics=["BEGIN:VCALENDAR","VERSION:2.0","PRODID:-//SameCouch//EN","BEGIN:VEVENT","UID:"+info.code+"@watchmovietogether","DTSTAMP:"+calDates(Date.now()).start,"DTSTART:"+cd.start,"DTEND:"+cd.end,"SUMMARY:"+tr("cal_event")+": "+info.title,"DESCRIPTION:"+info.url,"URL:"+info.url,"END:VEVENT","END:VCALENDAR"].join("\r\n");
+      var ics=["BEGIN:VCALENDAR","VERSION:2.0","PRODID:-//SameCouch//EN","BEGIN:VEVENT","UID:"+info.code+"@samecouch.com","DTSTAMP:"+calDates(Date.now()).start,"DTSTART:"+cd.start,"DTEND:"+cd.end,"SUMMARY:"+tr("cal_event")+": "+info.title,"DESCRIPTION:"+info.url,"URL:"+info.url,"END:VEVENT","END:VCALENDAR"].join("\r\n");
       var a=document.createElement("a"); a.href="data:text/calendar;charset=utf-8,"+encodeURIComponent(ics); a.download="watch-party.ics"; document.body.appendChild(a); a.click(); setTimeout(function(){ a.remove(); },120);
     }
     var schedModal=$("schedModal"), schWhen=$("schWhen"), schWhat=$("schWhat"), schCreate=$("schCreate"), schStep1=$("schStep1"), schStep2=$("schStep2"), schLink=$("schLink"), schCopy=$("schCopy"), schGoNow=$("schGoNow"), schX=$("schedX"), schGcal=$("schGcal"), schIcs=$("schIcs");
@@ -1904,6 +1918,7 @@
     /* ===================== Feature: persistent memories wall ===================== */
     var hasWall=false, wallPanel=$("wallPanel"), wallLog=$("wallLog"), wallEmpty=$("wallEmpty"), wallText=$("wallText"), wallSend=$("wallSend"), wallClose=$("wallClose"), wallBtn=$("wallBtn"), wallPhotoBtn=$("wallPhotoBtn"), wallFileInput=$("wallFileInput");
     var wallLoaded=false, wallHasItems=false, wallSeen={};
+    var MAX_WALL_STAGE=36;
     function openWall(){ if(!wallPanel) return; if(chat&&!chat.hidden){ chat.hidden=true; } wallPanel.hidden=false; stage.classList.add("chat-open"); if(!wallLoaded) fetchWall(); }
     function closeWall(){ if(wallPanel) wallPanel.hidden=true; stage.classList.remove("chat-open"); }
     function fetchWall(){ wallLoaded=true; fetch(httpBase()+"/wall?room="+encodeURIComponent(roomCode)).then(function(r){ return r.json(); }).then(function(d){ (d.items||[]).forEach(addWallItem); }).catch(function(){}); }
@@ -1913,7 +1928,7 @@
       var row=document.createElement("div"); row.className="msg them"+(it.kind==="photo"?" photo":"");
       var who=document.createElement("div"); who.className="who"; who.textContent=it.author||tr("others"); row.appendChild(who);
       var bub=document.createElement("div"); bub.className="bub";
-      if(it.kind==="photo"){ var img=document.createElement("img"); img.className="wall-img"; img.loading="lazy"; img.alt=""; img.src=it.data; img.addEventListener("click", function(){ try{ window.open(it.data,"_blank"); }catch(e){} }); bub.appendChild(img); }
+      if(it.kind==="photo"){ var img=document.createElement("img"); img.className="wall-img"; img.loading="lazy"; img.decoding="async"; img.alt=""; img.src=it.data; img.addEventListener("click", function(){ try{ window.open(it.data,"_blank"); }catch(e){} }); bub.appendChild(img); }
       else { bub.textContent=it.data||""; }
       row.appendChild(bub);
       if(wallLog){ wallLog.appendChild(row); wallLog.scrollTop=wallLog.scrollHeight; }
@@ -1923,10 +1938,12 @@
     function ensureWallTitle(){ if(wallStageEl && !wallStageEl.querySelector(".wtitle")){ var h=document.createElement("div"); h.className="wtitle"; h.textContent=tr("room_kicker"); wallStageEl.insertBefore(h, wallStageEl.firstChild); } }
     function renderWallCard(it){
       if(!wallStageEl) return; var el;
-      if(it.kind==="photo"){ el=document.createElement("div"); el.className="wcard"; var img=document.createElement("img"); img.loading="lazy"; img.alt=""; img.src=it.data; el.appendChild(img); if(it.author){ var c=document.createElement("div"); c.className="cap"; c.textContent=it.author; el.appendChild(c); } el.addEventListener("click", function(){ try{ window.open(it.data,"_blank"); }catch(e){} }); }
+      if(it.kind==="photo"){ el=document.createElement("div"); el.className="wcard"; var img=document.createElement("img"); img.loading="lazy"; img.decoding="async"; img.alt=""; img.src=it.data; el.appendChild(img); if(it.author){ var c=document.createElement("div"); c.className="cap"; c.textContent=it.author; el.appendChild(c); } el.addEventListener("click", function(){ try{ window.open(it.data,"_blank"); }catch(e){} }); }
       else { el=document.createElement("div"); el.className="wnote"; var tx=document.createElement("div"); tx.textContent=it.data||""; el.appendChild(tx); var w=document.createElement("div"); w.className="who"; w.textContent="— "+(it.author||tr("others")); el.appendChild(w); }
       el.style.setProperty("--r", (Math.random()*6-3).toFixed(1)+"deg");
       wallStageEl.appendChild(el);
+      var cards=wallStageEl.querySelectorAll(".wcard,.wnote");
+      while(cards.length>MAX_WALL_STAGE){ wallStageEl.removeChild(cards[0]); cards=wallStageEl.querySelectorAll(".wcard,.wnote"); }
     }
     function updateRoomView(){
       var idle = (mode==="none" || !mode);
@@ -1935,8 +1952,38 @@
     }
     function postWallNote(){ var t=((wallText&&wallText.value)||"").trim(); if(!t) return; if(!hasWall){ toast(tr("wall_off"),5000); return; } wallText.value="";
       fetch(httpBase()+"/wall",{ method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({ room:roomCode, kind:"note", text:t, author:myName }) }).then(function(r){ return r.json(); }).then(function(d){ if(d&&d.item) addWallItem(d.item); else toast(tr("wall_fail"),5000); }).catch(function(){ toast(tr("wall_fail"),5000); }); }
-    function downscaleImage(file, cb){ var img=new Image(), url=URL.createObjectURL(file); img.onload=function(){ var max=1280, w=img.width, h=img.height; if(w>max||h>max){ if(w>h){ h=Math.round(h*max/w); w=max; } else { w=Math.round(w*max/h); h=max; } } var c=document.createElement("canvas"); c.width=w; c.height=h; try{ c.getContext("2d").drawImage(img,0,0,w,h); }catch(e){} URL.revokeObjectURL(url); var out=null; try{ out=c.toDataURL("image/jpeg",0.82); }catch(e){} cb(out); }; img.onerror=function(){ URL.revokeObjectURL(url); cb(null); }; img.src=url; }
-    function postWallPhoto(file){ if(!file) return; if(!hasWall){ toast(tr("wall_off"),5000); return; } toast(tr("wall_uploading"),3000); downscaleImage(file, function(dataUrl){ if(!dataUrl){ toast(tr("wall_fail"),5000); return; } fetch(httpBase()+"/wall",{ method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({ room:roomCode, kind:"photo", data:dataUrl, mime:"image/jpeg", author:myName }) }).then(function(r){ return r.json(); }).then(function(d){ if(d&&d.item) addWallItem(d.item); else toast(tr("wall_fail"),5000); }).catch(function(){ toast(tr("wall_fail"),5000); }); }); }
+    function blobToDataUrl(blob, cb){ var fr=new FileReader(); fr.onload=function(){ cb(fr.result); }; fr.onerror=function(){ cb(null); }; fr.readAsDataURL(blob); }
+    function canvasToDataUrl(c, cb){
+      if(c.toBlob){
+        c.toBlob(function(blob){ if(blob) blobToDataUrl(blob, cb); else cb(null); }, "image/jpeg", 0.72);
+        return;
+      }
+      var out=null; try{ out=c.toDataURL("image/jpeg",0.72); }catch(e){}
+      cb(out);
+    }
+    function downscaleImage(file, cb){
+      var img=new Image(), url=URL.createObjectURL(file);
+      img.onload=function(){
+        var max=960, w=img.naturalWidth||img.width, h=img.naturalHeight||img.height;
+        if(w>max||h>max){ if(w>h){ h=Math.round(h*max/w); w=max; } else { w=Math.round(w*max/h); h=max; } }
+        var c=document.createElement("canvas"); c.width=w; c.height=h;
+        try{ c.getContext("2d").drawImage(img,0,0,w,h); }catch(e){ URL.revokeObjectURL(url); cb(null); return; }
+        URL.revokeObjectURL(url);
+        canvasToDataUrl(c, cb);
+      };
+      img.onerror=function(){ URL.revokeObjectURL(url); cb(null); };
+      img.src=url;
+    }
+    function postWallPhoto(file){
+      if(!file) return; if(!hasWall){ toast(tr("wall_off"),5000); return; }
+      if(wallPhotoBtn) wallPhotoBtn.classList.add("wall-uploading");
+      toast(tr("wall_uploading"),3000);
+      downscaleImage(file, function(dataUrl){
+        if(wallPhotoBtn) wallPhotoBtn.classList.remove("wall-uploading");
+        if(!dataUrl){ toast(tr("wall_fail"),5000); return; }
+        fetch(httpBase()+"/wall",{ method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({ room:roomCode, kind:"photo", data:dataUrl, mime:"image/jpeg", author:myName }) }).then(function(r){ return r.json(); }).then(function(d){ if(d&&d.item) addWallItem(d.item); else toast(tr("wall_fail"),5000); }).catch(function(){ toast(tr("wall_fail"),5000); });
+      });
+    }
     if(wallBtn) wallBtn.addEventListener("click", function(){ if(wallPanel&&wallPanel.hidden) openWall(); else closeWall(); });
     if(wallClose) wallClose.addEventListener("click", closeWall);
     if(wallSend) wallSend.addEventListener("click", postWallNote);

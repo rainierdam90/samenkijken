@@ -1,0 +1,1041 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<title>Focus Dagplanner</title>
+<meta name="description" content="Een persoonlijke focusplanner voor studie, sollicitaties en ondernemerschap met slimme pauzes." />
+<meta name="theme-color" content="#111318" />
+<style>
+  :root {
+    color-scheme: light;
+    --bg: #f4f0e8;
+    --ink: #1d2327;
+    --muted: #667174;
+    --line: #d8d0c3;
+    --paper: #fffaf0;
+    --panel: #ffffff;
+    --study: #2f6f73;
+    --jobs: #8a5a2b;
+    --venture: #6b5aa6;
+    --break: #277a4f;
+    --accent: #d4472f;
+    --accent-2: #f2b705;
+    --shadow: 0 18px 45px rgba(33, 30, 24, .12);
+  }
+
+  * { box-sizing: border-box; }
+  html { min-height: 100%; -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+  body {
+    min-height: 100vh;
+    margin: 0;
+    color: var(--ink);
+    background:
+      linear-gradient(180deg, rgba(255,255,255,.48), rgba(255,255,255,0) 260px),
+      radial-gradient(circle at 20% 10%, rgba(242,183,5,.16), transparent 280px),
+      var(--bg);
+    font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  }
+
+  button, input, select { font: inherit; }
+  button { cursor: pointer; }
+  :focus-visible { outline: 3px solid rgba(212, 71, 47, .35); outline-offset: 2px; }
+
+  .app {
+    width: min(1180px, calc(100% - 32px));
+    margin: 0 auto;
+    padding: 28px 0 36px;
+  }
+
+  .top {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 24px;
+    align-items: end;
+    padding: 8px 0 24px;
+  }
+
+  .brand {
+    display: flex;
+    gap: 16px;
+    align-items: center;
+    min-width: 0;
+  }
+
+  .mark {
+    width: 58px;
+    height: 58px;
+    border-radius: 16px;
+    background: var(--ink);
+    color: var(--paper);
+    display: grid;
+    place-items: center;
+    box-shadow: var(--shadow);
+    flex: 0 0 auto;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .mark::before {
+    content: "";
+    width: 30px;
+    height: 30px;
+    border: 4px solid currentColor;
+    border-radius: 50%;
+    border-right-color: transparent;
+    transform: rotate(-24deg);
+  }
+
+  .mark::after {
+    content: "";
+    position: absolute;
+    width: 8px;
+    height: 20px;
+    border-radius: 10px;
+    background: var(--accent-2);
+    transform: translate(13px, 15px) rotate(-35deg);
+  }
+
+  h1 {
+    margin: 0;
+    font-size: clamp(2rem, 5vw, 4.8rem);
+    line-height: .96;
+    letter-spacing: 0;
+  }
+
+  .subtitle {
+    max-width: 720px;
+    margin: 12px 0 0;
+    color: var(--muted);
+    font-size: 1.04rem;
+    line-height: 1.55;
+  }
+
+  .date {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    color: var(--muted);
+    white-space: nowrap;
+    padding-bottom: 5px;
+  }
+
+  .date strong { color: var(--ink); }
+
+  .grid {
+    display: grid;
+    grid-template-columns: minmax(330px, .95fr) minmax(0, 1.35fr);
+    gap: 22px;
+    align-items: start;
+  }
+
+  .panel {
+    background: rgba(255, 250, 240, .88);
+    border: 1px solid rgba(67, 58, 45, .14);
+    border-radius: 8px;
+    box-shadow: var(--shadow);
+  }
+
+  .timer {
+    padding: 22px;
+    position: sticky;
+    top: 18px;
+  }
+
+  .phase {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+    color: var(--muted);
+    font-weight: 700;
+  }
+
+  .pill {
+    min-height: 34px;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 7px 11px;
+    border-radius: 999px;
+    border: 1px solid var(--line);
+    background: #fff;
+    color: var(--ink);
+    font-size: .9rem;
+  }
+
+  .swatch {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: var(--study);
+  }
+
+  .clock {
+    margin: 24px 0 14px;
+    display: grid;
+    place-items: center;
+    aspect-ratio: 1;
+    border-radius: 50%;
+    background:
+      conic-gradient(var(--active, var(--study)) calc(var(--progress, 0) * 1%), rgba(29,35,39,.08) 0),
+      radial-gradient(circle, #fffaf0 0 62%, transparent 63%);
+    border: 1px solid rgba(29,35,39,.08);
+  }
+
+  .clock-inner {
+    width: 78%;
+    height: 78%;
+    display: grid;
+    place-items: center;
+    text-align: center;
+    border-radius: 50%;
+    background: #fff;
+    border: 1px solid rgba(29,35,39,.08);
+  }
+
+  .time {
+    font-size: clamp(3rem, 10vw, 5.5rem);
+    line-height: .9;
+    font-weight: 850;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 0;
+  }
+
+  .time-label {
+    margin-top: 10px;
+    color: var(--muted);
+    font-weight: 700;
+  }
+
+  .next {
+    min-height: 54px;
+    color: var(--muted);
+    line-height: 1.45;
+    text-align: center;
+  }
+
+  .controls {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin-top: 18px;
+  }
+
+  .icon-btn, .text-btn {
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    min-height: 46px;
+    background: #fff;
+    color: var(--ink);
+    font-weight: 800;
+    transition: transform .14s ease, border-color .14s ease, background .14s ease;
+  }
+
+  .text-btn.primary {
+    color: #fff;
+    border-color: transparent;
+    background: var(--accent);
+  }
+
+  .icon-btn:hover, .text-btn:hover { transform: translateY(-1px); border-color: rgba(29,35,39,.3); }
+  .icon-btn:active, .text-btn:active { transform: translateY(0); }
+
+  .secondary-actions {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+    margin-top: 10px;
+  }
+
+  .icon-btn {
+    display: grid;
+    place-items: center;
+    font-size: 1.08rem;
+  }
+
+  .icon-btn span { transform: translateY(-1px); }
+
+  .today-progress {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+    margin-top: 18px;
+  }
+
+  .metric {
+    min-width: 0;
+    padding: 12px 10px;
+    border-radius: 8px;
+    background: #fff;
+    border: 1px solid rgba(29,35,39,.08);
+  }
+
+  .metric b {
+    display: block;
+    font-size: 1.2rem;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .metric span {
+    display: block;
+    margin-top: 4px;
+    color: var(--muted);
+    font-size: .82rem;
+    line-height: 1.25;
+  }
+
+  .workspace {
+    display: grid;
+    gap: 18px;
+  }
+
+  .summary {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+  }
+
+  .summary-item {
+    min-height: 114px;
+    padding: 16px;
+    border-radius: 8px;
+    background: var(--panel);
+    border: 1px solid rgba(29,35,39,.1);
+  }
+
+  .summary-item .label {
+    color: var(--muted);
+    font-weight: 800;
+    font-size: .86rem;
+  }
+
+  .summary-item .value {
+    display: block;
+    margin-top: 12px;
+    font-size: 1.75rem;
+    line-height: 1;
+    font-weight: 850;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .summary-item .hint {
+    display: block;
+    margin-top: 8px;
+    color: var(--muted);
+    font-size: .84rem;
+    line-height: 1.35;
+  }
+
+  .planner {
+    padding: 20px;
+  }
+
+  .section-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    margin-bottom: 16px;
+  }
+
+  h2 {
+    margin: 0;
+    font-size: 1.35rem;
+    letter-spacing: 0;
+  }
+
+  .settings {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+
+  .settings label {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--muted);
+    font-size: .9rem;
+    font-weight: 700;
+  }
+
+  select, input[type="time"] {
+    min-height: 38px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: #fff;
+    color: var(--ink);
+    padding: 0 10px;
+  }
+
+  .schedule {
+    display: grid;
+    gap: 8px;
+  }
+
+  .slot {
+    display: grid;
+    grid-template-columns: 86px minmax(0, 1fr) 70px;
+    gap: 14px;
+    align-items: center;
+    min-height: 58px;
+    padding: 10px 12px;
+    border-radius: 8px;
+    background: #fff;
+    border: 1px solid rgba(29,35,39,.08);
+  }
+
+  .slot.active {
+    border-color: color-mix(in srgb, var(--active, var(--study)) 52%, transparent);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--active, var(--study)) 14%, transparent);
+  }
+
+  .slot.done { opacity: .68; }
+  .slot.break { background: #f5fff7; }
+
+  .slot-time {
+    color: var(--muted);
+    font-size: .86rem;
+    font-weight: 750;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .slot-main {
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .slot-dot {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: var(--slot-color);
+    flex: 0 0 auto;
+  }
+
+  .slot-title {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-weight: 800;
+  }
+
+  .slot-duration {
+    text-align: right;
+    color: var(--muted);
+    font-size: .86rem;
+    font-weight: 800;
+  }
+
+  .tasks {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+  }
+
+  .task-block {
+    padding: 16px;
+    border-radius: 8px;
+    background: #fff;
+    border: 1px solid rgba(29,35,39,.1);
+  }
+
+  .task-block h3 {
+    margin: 0 0 12px;
+    font-size: 1rem;
+  }
+
+  textarea {
+    width: 100%;
+    min-height: 112px;
+    resize: vertical;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 10px;
+    color: var(--ink);
+    background: #fffaf0;
+    line-height: 1.45;
+  }
+
+  .insight {
+    padding: 18px 20px;
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    gap: 14px;
+    align-items: start;
+  }
+
+  .insight-icon {
+    width: 38px;
+    height: 38px;
+    border-radius: 8px;
+    display: grid;
+    place-items: center;
+    background: #20272b;
+    color: #fff;
+    font-weight: 900;
+  }
+
+  .insight p {
+    margin: 0;
+    color: var(--muted);
+    line-height: 1.5;
+  }
+
+  .toast {
+    position: fixed;
+    right: 18px;
+    bottom: 18px;
+    max-width: min(380px, calc(100% - 36px));
+    padding: 14px 16px;
+    border-radius: 8px;
+    background: #20272b;
+    color: #fff;
+    box-shadow: var(--shadow);
+    transform: translateY(18px);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity .2s ease, transform .2s ease;
+    line-height: 1.4;
+  }
+
+  .toast.show {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  @media (max-width: 960px) {
+    .top, .grid { grid-template-columns: 1fr; }
+    .timer { position: static; }
+    .summary, .tasks { grid-template-columns: 1fr 1fr; }
+  }
+
+  @media (max-width: 640px) {
+    .app { width: min(100% - 22px, 1180px); padding-top: 16px; }
+    .brand { align-items: flex-start; }
+    .mark { width: 48px; height: 48px; border-radius: 12px; }
+    .date { white-space: normal; }
+    .summary, .tasks, .today-progress { grid-template-columns: 1fr; }
+    .section-head { align-items: flex-start; flex-direction: column; }
+    .slot {
+      grid-template-columns: 72px minmax(0, 1fr);
+      gap: 8px 12px;
+    }
+    .slot-duration {
+      grid-column: 2;
+      text-align: left;
+    }
+    .controls { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+  <main class="app">
+    <header class="top">
+      <div class="brand">
+        <div class="mark" aria-hidden="true"></div>
+        <div>
+          <h1>Focus Dagplanner</h1>
+          <p class="subtitle">Vandaag 6 uur studeren, 1 uur solliciteren en 1 uur bouwen aan je onderneming. De app bewaakt het ritme en stuurt je op tijd naar pauze.</p>
+        </div>
+      </div>
+      <div class="date">
+        <span id="weekday">Vandaag</span>
+        <strong id="dateLabel"></strong>
+      </div>
+    </header>
+
+    <section class="grid" aria-label="Focusplanner">
+      <aside class="panel timer" aria-label="Timer">
+        <div class="phase">
+          <span id="phaseLabel">Klaar om te starten</span>
+          <span class="pill"><span class="swatch" id="phaseSwatch"></span><span id="blockLabel">Studie</span></span>
+        </div>
+
+        <div class="clock" id="clockFace">
+          <div class="clock-inner">
+            <div>
+              <div class="time" id="timeLeft">50:00</div>
+              <div class="time-label" id="timeCaption">Focusblok</div>
+            </div>
+          </div>
+        </div>
+
+        <p class="next" id="nextAdvice">Start met je eerste studieblok. Na 50 minuten krijg je automatisch pauzeadvies.</p>
+
+        <div class="controls">
+          <button class="text-btn primary" id="startPause">Start</button>
+          <button class="text-btn" id="completeBlock">Blok klaar</button>
+        </div>
+        <div class="secondary-actions">
+          <button class="icon-btn" id="previousBlock" title="Vorig blok" aria-label="Vorig blok"><span>&lt;</span></button>
+          <button class="icon-btn" id="resetDay" title="Dag resetten" aria-label="Dag resetten"><span>R</span></button>
+          <button class="icon-btn" id="nextBlock" title="Volgend blok" aria-label="Volgend blok"><span>&gt;</span></button>
+        </div>
+
+        <div class="today-progress" aria-label="Voortgang vandaag">
+          <div class="metric"><b id="studyDone">0:00</b><span>studie gedaan</span></div>
+          <div class="metric"><b id="jobsDone">0:00</b><span>sollicitaties gedaan</span></div>
+          <div class="metric"><b id="ventureDone">0:00</b><span>onderneming gedaan</span></div>
+        </div>
+      </aside>
+
+      <div class="workspace">
+        <div class="summary">
+          <div class="summary-item">
+            <span class="label">Totale focus</span>
+            <span class="value">8:00</span>
+            <span class="hint">verdeeld over 12 focusblokken</span>
+          </div>
+          <div class="summary-item">
+            <span class="label">Pauzeritme</span>
+            <span class="value">50/10</span>
+            <span class="hint">lange pauze na elke derde ronde</span>
+          </div>
+          <div class="summary-item">
+            <span class="label">Eindtijd</span>
+            <span class="value" id="finishTime">--:--</span>
+            <span class="hint">op basis van je starttijd</span>
+          </div>
+          <div class="summary-item">
+            <span class="label">Resterend</span>
+            <span class="value" id="remainingFocus">8:00</span>
+            <span class="hint">alleen actieve focusminuten</span>
+          </div>
+        </div>
+
+        <section class="panel planner" aria-label="Dagplanning">
+          <div class="section-head">
+            <h2>Planning voor vandaag</h2>
+            <div class="settings">
+              <label>Start <input type="time" id="startTime" /></label>
+              <label>Strategie
+                <select id="strategy">
+                  <option value="balanced">Gebalanceerd</option>
+                  <option value="studyFirst">Studie eerst</option>
+                  <option value="adminFirst">Sollicitaties eerst</option>
+                </select>
+              </label>
+            </div>
+          </div>
+          <div class="schedule" id="schedule"></div>
+        </section>
+
+        <section class="tasks" aria-label="Dagintenties">
+          <div class="task-block">
+            <h3>Studie: belangrijkste uitkomst</h3>
+            <textarea id="studyNote" placeholder="Bijv. hoofdstuk 4 afronden en samenvatten"></textarea>
+          </div>
+          <div class="task-block">
+            <h3>Sollicitaties: concrete actie</h3>
+            <textarea id="jobsNote" placeholder="Bijv. twee vacatures vinden, een brief versturen"></textarea>
+          </div>
+          <div class="task-block">
+            <h3>Onderneming: bouwstap</h3>
+            <textarea id="ventureNote" placeholder="Bijv. aanbod uitschrijven of landingspagina verbeteren"></textarea>
+          </div>
+        </section>
+
+        <section class="panel insight" aria-label="Productiviteitsadvies">
+          <div class="insight-icon" aria-hidden="true">i</div>
+          <p id="insightText">Werk in volledige focus: telefoon uit zicht, alleen de tab open die je nodig hebt. Pauzes zijn verplicht: sta op, drink water en kijk niet naar korte content, zodat je aandacht echt herstelt.</p>
+        </section>
+      </div>
+    </section>
+  </main>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script>
+(() => {
+  const FOCUS = 50;
+  const TARGETS = {
+    study: 360,
+    jobs: 60,
+    venture: 60
+  };
+  const SHORT_BREAK = 10;
+  const LONG_BREAK = 20;
+  const STORAGE_KEY = "focus-dagplanner-v1";
+  const COLORS = {
+    study: "#2f6f73",
+    jobs: "#8a5a2b",
+    venture: "#6b5aa6",
+    break: "#277a4f"
+  };
+  const LABELS = {
+    study: "Studie",
+    jobs: "Sollicitaties",
+    venture: "Onderneming",
+    break: "Pauze"
+  };
+
+  const $ = (id) => document.getElementById(id);
+  const els = {
+    dateLabel: $("dateLabel"),
+    weekday: $("weekday"),
+    phaseLabel: $("phaseLabel"),
+    phaseSwatch: $("phaseSwatch"),
+    blockLabel: $("blockLabel"),
+    clockFace: $("clockFace"),
+    timeLeft: $("timeLeft"),
+    timeCaption: $("timeCaption"),
+    nextAdvice: $("nextAdvice"),
+    startPause: $("startPause"),
+    completeBlock: $("completeBlock"),
+    previousBlock: $("previousBlock"),
+    resetDay: $("resetDay"),
+    nextBlock: $("nextBlock"),
+    studyDone: $("studyDone"),
+    jobsDone: $("jobsDone"),
+    ventureDone: $("ventureDone"),
+    remainingFocus: $("remainingFocus"),
+    finishTime: $("finishTime"),
+    schedule: $("schedule"),
+    startTime: $("startTime"),
+    strategy: $("strategy"),
+    insightText: $("insightText"),
+    toast: $("toast"),
+    notes: {
+      study: $("studyNote"),
+      jobs: $("jobsNote"),
+      venture: $("ventureNote")
+    }
+  };
+
+  let state = loadState();
+  let plan = buildPlan(state.strategy, state.startTime);
+  let tickTimer = null;
+
+  function defaultStartTime() {
+    const now = new Date();
+    const rounded = new Date(now.getTime());
+    rounded.setMinutes(Math.ceil(now.getMinutes() / 15) * 15, 0, 0);
+    return toTimeInput(rounded);
+  }
+
+  function freshState() {
+    return {
+      date: todayKey(),
+      startTime: defaultStartTime(),
+      strategy: "balanced",
+      index: 0,
+      running: false,
+      remainingSeconds: FOCUS * 60,
+      completed: {},
+      notes: { study: "", jobs: "", venture: "" }
+    };
+  }
+
+  function loadState() {
+    try {
+      const parsed = JSON.parse(localStorage.getItem(STORAGE_KEY));
+      if (parsed && parsed.date === todayKey()) return { ...freshState(), ...parsed };
+    } catch (err) {}
+    return freshState();
+  }
+
+  function saveState() {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  }
+
+  function todayKey() {
+    const d = new Date();
+    return d.toISOString().slice(0, 10);
+  }
+
+  function toTimeInput(date) {
+    return `${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}`;
+  }
+
+  function parseTime(value) {
+    const [h, m] = value.split(":").map(Number);
+    const d = new Date();
+    d.setHours(h || 0, m || 0, 0, 0);
+    return d;
+  }
+
+  function addMinutes(date, minutes) {
+    return new Date(date.getTime() + minutes * 60000);
+  }
+
+  function formatClock(seconds) {
+    const safe = Math.max(0, Math.round(seconds));
+    const m = Math.floor(safe / 60);
+    const s = safe % 60;
+    return `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
+  }
+
+  function formatHours(minutes) {
+    const h = Math.floor(minutes / 60);
+    const m = minutes % 60;
+    return `${h}:${String(m).padStart(2, "0")}`;
+  }
+
+  function buildFocusOrder(strategy) {
+    if (strategy === "studyFirst") {
+      return ["study", "study", "study", "study", "study", "study", "jobs", "venture", "study", "jobs", "venture", "study"];
+    }
+    if (strategy === "adminFirst") {
+      return ["jobs", "venture", "study", "study", "jobs", "venture", "study", "study", "study", "study", "study", "study"];
+    }
+    return ["study", "study", "jobs", "study", "study", "venture", "study", "study", "jobs", "study", "venture", "study"];
+  }
+
+  function buildPlan(strategy, startTime) {
+    const items = [];
+    const focusOrder = buildFocusOrder(strategy);
+    const allocated = { study: 0, jobs: 0, venture: 0 };
+    let cursor = parseTime(startTime);
+    focusOrder.forEach((type, focusIndex) => {
+      const remainingForType = TARGETS[type] - allocated[type];
+      const focusDuration = Math.min(type === "study" ? FOCUS : 30, remainingForType);
+      allocated[type] += focusDuration;
+      const focusStart = cursor;
+      const focusEnd = addMinutes(cursor, focusDuration);
+      items.push({
+        id: `focus-${focusIndex}`,
+        kind: "focus",
+        type,
+        title: LABELS[type],
+        duration: focusDuration,
+        start: focusStart,
+        end: focusEnd
+      });
+      cursor = focusEnd;
+      if (focusIndex < focusOrder.length - 1) {
+        const breakDuration = (focusIndex + 1) % 3 === 0 ? LONG_BREAK : SHORT_BREAK;
+        const breakStart = cursor;
+        const breakEnd = addMinutes(cursor, breakDuration);
+        items.push({
+          id: `break-${focusIndex}`,
+          kind: "break",
+          type: "break",
+          title: breakDuration === LONG_BREAK ? "Lange pauze" : "Korte pauze",
+          duration: breakDuration,
+          start: breakStart,
+          end: breakEnd
+        });
+        cursor = breakEnd;
+      }
+    });
+    return items;
+  }
+
+  function currentItem() {
+    return plan[Math.min(state.index, plan.length - 1)];
+  }
+
+  function setIndex(nextIndex) {
+    state.index = Math.max(0, Math.min(nextIndex, plan.length - 1));
+    state.running = false;
+    state.remainingSeconds = currentItem().duration * 60;
+    saveState();
+    render();
+  }
+
+  function completeCurrent() {
+    const item = currentItem();
+    state.completed[item.id] = true;
+    if (state.index < plan.length - 1) {
+      state.index += 1;
+      state.remainingSeconds = currentItem().duration * 60;
+      const next = currentItem();
+      notify(next.kind === "break" ? "Pauze nemen" : `${LABELS[next.type]} starten`, adviceFor(next));
+    } else {
+      state.running = false;
+      state.remainingSeconds = 0;
+      notify("Dagplanning afgerond", "Mooi. Noteer kort wat werkte en sluit bewust af.");
+    }
+    saveState();
+    render();
+  }
+
+  function adviceFor(item) {
+    if (item.kind === "break") {
+      return item.duration >= LONG_BREAK
+        ? "Sta op, eet of wandel kort. Vermijd schermscrollen zodat je brein echt herstelt."
+        : "Kijk weg van je scherm, drink water en beweeg even.";
+    }
+    if (item.type === "study") return "Kies een duidelijke leeruitkomst voor dit blok en werk zonder contextwissels.";
+    if (item.type === "jobs") return "Werk aan zichtbare output: vacature kiezen, brief aanscherpen of sollicitatie verzenden.";
+    return "Maak iets concreets kleiner en beter: aanbod, doelgroep, pagina, prototype of outreach.";
+  }
+
+  function requestNotifications() {
+    if (!("Notification" in window)) return;
+    if (Notification.permission === "default") Notification.requestPermission();
+  }
+
+  function notify(title, body) {
+    showToast(`${title}: ${body}`);
+    if ("Notification" in window && Notification.permission === "granted") {
+      new Notification(title, { body });
+    }
+  }
+
+  function showToast(message) {
+    els.toast.textContent = message;
+    els.toast.classList.add("show");
+    window.clearTimeout(showToast.timer);
+    showToast.timer = window.setTimeout(() => els.toast.classList.remove("show"), 4200);
+  }
+
+  function tick() {
+    if (!state.running) return;
+    state.remainingSeconds -= 1;
+    if (state.remainingSeconds <= 0) {
+      state.remainingSeconds = 0;
+      completeCurrent();
+      return;
+    }
+    saveState();
+    renderTimerOnly();
+  }
+
+  function startTicker() {
+    window.clearInterval(tickTimer);
+    tickTimer = window.setInterval(tick, 1000);
+  }
+
+  function completedFocusMinutesByType(type) {
+    return plan
+      .filter(item => item.kind === "focus" && item.type === type && state.completed[item.id])
+      .reduce((sum, item) => sum + item.duration, 0);
+  }
+
+  function remainingFocusMinutes() {
+    return Object.keys(TARGETS).reduce((sum, type) => {
+      return sum + Math.max(0, TARGETS[type] - completedFocusMinutesByType(type));
+    }, 0);
+  }
+
+  function renderTimerOnly() {
+    const item = currentItem();
+    const total = item.duration * 60;
+    const done = total ? ((total - state.remainingSeconds) / total) * 100 : 100;
+    els.timeLeft.textContent = formatClock(state.remainingSeconds);
+    els.clockFace.style.setProperty("--progress", done.toFixed(2));
+  }
+
+  function render() {
+    const now = new Date();
+    els.weekday.textContent = now.toLocaleDateString("nl-NL", { weekday: "long" });
+    els.dateLabel.textContent = now.toLocaleDateString("nl-NL", { day: "numeric", month: "long", year: "numeric" });
+    els.startTime.value = state.startTime;
+    els.strategy.value = state.strategy;
+    Object.entries(els.notes).forEach(([key, el]) => { el.value = state.notes[key] || ""; });
+
+    const item = currentItem();
+    const color = COLORS[item.type];
+    document.documentElement.style.setProperty("--active", color);
+    els.phaseSwatch.style.background = color;
+    els.blockLabel.textContent = item.title;
+    els.phaseLabel.textContent = item.kind === "break" ? "Herstellen" : "Diep werken";
+    els.timeCaption.textContent = item.kind === "break" ? "Pauzeblok" : "Focusblok";
+    els.startPause.textContent = state.running ? "Pauzeer" : "Start";
+    els.nextAdvice.textContent = adviceFor(item);
+    els.insightText.textContent = productivityInsight();
+
+    renderTimerOnly();
+    renderProgress();
+    renderSchedule();
+  }
+
+  function renderProgress() {
+    els.studyDone.textContent = formatHours(completedFocusMinutesByType("study"));
+    els.jobsDone.textContent = formatHours(completedFocusMinutesByType("jobs"));
+    els.ventureDone.textContent = formatHours(completedFocusMinutesByType("venture"));
+    els.remainingFocus.textContent = formatHours(remainingFocusMinutes());
+    const finish = plan[plan.length - 1].end;
+    els.finishTime.textContent = toTimeInput(finish);
+  }
+
+  function renderSchedule() {
+    els.schedule.innerHTML = "";
+    plan.forEach((item, index) => {
+      const row = document.createElement("div");
+      row.className = `slot ${item.kind === "break" ? "break" : ""} ${index === state.index ? "active" : ""} ${state.completed[item.id] ? "done" : ""}`;
+      row.style.setProperty("--slot-color", COLORS[item.type]);
+      row.style.setProperty("--active", COLORS[item.type]);
+      row.innerHTML = `
+        <div class="slot-time">${toTimeInput(item.start)}-${toTimeInput(item.end)}</div>
+        <div class="slot-main"><span class="slot-dot"></span><span class="slot-title">${item.title}</span></div>
+        <div class="slot-duration">${item.duration} min</div>
+      `;
+      row.addEventListener("click", () => setIndex(index));
+      els.schedule.appendChild(row);
+    });
+  }
+
+  function productivityInsight() {
+    const item = currentItem();
+    if (item.kind === "break") return "Pauze is onderdeel van het werk. Je maximaliseert productiviteit door herstel serieus te nemen, niet door elk leeg moment vol te stoppen.";
+    if (item.type === "study") return "Voor studie werkt actief ophalen beter dan herlezen: sluit je bron af en schrijf uit je hoofd wat je net hebt geleerd.";
+    if (item.type === "jobs") return "Maak sollicitatiewerk meetbaar. Een verzonden reactie telt zwaarder dan eindeloos vacatures vergelijken.";
+    return "Voor je onderneming telt momentum. Rond in dit blok een kleine, zichtbare stap af die morgen makkelijker maakt.";
+  }
+
+  els.startPause.addEventListener("click", () => {
+    state.running = !state.running;
+    requestNotifications();
+    if (state.running) startTicker();
+    saveState();
+    render();
+  });
+
+  els.completeBlock.addEventListener("click", completeCurrent);
+  els.previousBlock.addEventListener("click", () => setIndex(state.index - 1));
+  els.nextBlock.addEventListener("click", () => setIndex(state.index + 1));
+  els.resetDay.addEventListener("click", () => {
+    const keep = { startTime: state.startTime, strategy: state.strategy, notes: state.notes };
+    state = { ...freshState(), ...keep };
+    plan = buildPlan(state.strategy, state.startTime);
+    saveState();
+    render();
+    showToast("Vandaag is gereset.");
+  });
+
+  els.startTime.addEventListener("change", () => {
+    state.startTime = els.startTime.value || defaultStartTime();
+    plan = buildPlan(state.strategy, state.startTime);
+    state.index = 0;
+    state.running = false;
+    state.completed = {};
+    state.remainingSeconds = currentItem().duration * 60;
+    saveState();
+    render();
+  });
+
+  els.strategy.addEventListener("change", () => {
+    state.strategy = els.strategy.value;
+    plan = buildPlan(state.strategy, state.startTime);
+    state.index = 0;
+    state.running = false;
+    state.completed = {};
+    state.remainingSeconds = currentItem().duration * 60;
+    saveState();
+    render();
+  });
+
+  Object.entries(els.notes).forEach(([key, el]) => {
+    el.addEventListener("input", () => {
+      state.notes[key] = el.value;
+      saveState();
+    });
+  });
+
+  if (!state.remainingSeconds || state.remainingSeconds > currentItem().duration * 60) {
+    state.remainingSeconds = currentItem().duration * 60;
+  }
+  render();
+  startTicker();
+})();
+</script>
+</body>
+</html>

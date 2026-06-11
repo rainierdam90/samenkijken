@@ -1,8 +1,8 @@
 {
-  "name": "watchmovietogether",
+  "name": "samecouch",
   "version": "1.0.0",
   "private": true,
-  "description": "WatchMovieTogether — own signaling (PeerJS), realtime control/chat, admin monitoring and short-lived TURN credentials.",
+  "description": "SameCouch private living room app with PeerJS signaling, realtime control/chat, admin monitoring and short-lived TURN credentials.",
   "main": "server/server.js",
   "type": "commonjs",
   "scripts": {
