@@ -49,6 +49,9 @@
   @keyframes drop{from{transform:translateY(-100%);opacity:0}to{transform:none;opacity:1}}
   .brand{display:flex; align-items:center; gap:10px; user-select:none}
   .bulb{width:11px; height:11px; border-radius:50%; background:radial-gradient(circle at 35% 30%, var(--amber-2), var(--amber)); box-shadow:0 0 0 3px rgba(244,177,74,.12), 0 0 16px 2px rgba(244,177,74,.5); animation:flick 4s ease-in-out infinite}
+  .couchmark{width:26px; height:26px; flex:0 0 auto; filter:drop-shadow(0 0 7px rgba(244,177,74,.45))}
+  .landing .l-brand .couchmark{width:34px; height:34px}
+  @media (prefers-reduced-motion: reduce){ *,*::before,*::after{animation-duration:.01ms!important; animation-iteration-count:1!important; transition-duration:.01ms!important} }
   @keyframes flick{0%,100%{opacity:1}48%{opacity:1}50%{opacity:.55}52%{opacity:1}}
   .brand b{font-family:'Bebas Neue', sans-serif; font-weight:400; font-size:23px; letter-spacing:1.2px; line-height:1; white-space:nowrap; background:linear-gradient(180deg,#fff,#d9cdbf); -webkit-background-clip:text; background-clip:text; color:transparent}
   .brand b i{font-style:normal; color:var(--amber-2); -webkit-text-fill-color:var(--amber-2)}
@@ -495,7 +498,7 @@
 
   <div class="landing" id="landing">
     <div class="lang-top"><select class="lang" id="langSelL"></select></div>
-    <div class="l-brand"><span class="bulb"></span><b>Same<i>Couch</i></b></div>
+    <div class="l-brand"><svg class="couchmark" viewBox="0 0 48 48" aria-hidden="true"><rect x="10" y="13" width="28" height="13" rx="5" fill="#ffcf86"/><rect x="6" y="20" width="8" height="13" rx="4" fill="#f4b14a"/><rect x="34" y="20" width="8" height="13" rx="4" fill="#f4b14a"/><rect x="10" y="22" width="28" height="11" rx="4" fill="#f4b14a"/><rect x="11" y="33" width="4" height="5" rx="2" fill="#b9792a"/><rect x="33" y="33" width="4" height="5" rx="2" fill="#b9792a"/></svg><b>Same<i>Couch</i></b></div>
     <h1 id="ld_tagline">Watch any movie together — in sync, face to face.</h1>
     <p class="sub" id="ld_sub">Create a private room, share the link, and press play in perfect sync — while you see and hear each other.</p>
     <div class="l-name"><input id="ld_name" type="text" maxlength="40" placeholder="Your name" /></div>
@@ -540,7 +543,7 @@
   </div>
 
   <header class="topbar">
-    <div class="brand"><span class="bulb"></span><b>Same<i>Couch</i></b></div>
+    <div class="brand"><svg class="couchmark" viewBox="0 0 48 48" aria-hidden="true"><rect x="10" y="13" width="28" height="13" rx="5" fill="#ffcf86"/><rect x="6" y="20" width="8" height="13" rx="4" fill="#f4b14a"/><rect x="34" y="20" width="8" height="13" rx="4" fill="#f4b14a"/><rect x="10" y="22" width="28" height="11" rx="4" fill="#f4b14a"/><rect x="11" y="33" width="4" height="5" rx="2" fill="#b9792a"/><rect x="33" y="33" width="4" height="5" rx="2" fill="#b9792a"/></svg><b>Same<i>Couch</i></b></div>
     <div class="status"><span class="dot waiting" id="statusDot"></span><span id="statusText">Waiting for the other person…</span></div>
     <button class="btn ghost bar-toggle" id="barToggle" aria-label="Menu" aria-expanded="false"><svg id="barToggleIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg></button>
     <div class="grow">
