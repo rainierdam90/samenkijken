@@ -76,6 +76,42 @@ if (!HAS_TURN) console.warn("[WARN] No usable TURN (need TURN_URLS plus either T
 
 const app = express();
 app.disable("x-powered-by");
+
+/* ---- security headers (applied to every response) ----
+   The front-end is a single inline-script/style page that embeds YouTube/Vimeo,
+   loads PeerJS + qrcode from cdnjs and fonts from Google, talks to this backend
+   over https+wss, and lets the host paste any https link to co-watch. The CSP
+   below is the tightest policy that keeps all of that working. Keep it in sync
+   with vercel.json (the production front-end is served from there). */
+const CSP = [
+  "default-src 'self'",
+  "base-uri 'self'",
+  "object-src 'none'",
+  "frame-ancestors 'self'",
+  "form-action 'self'",
+  "script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://www.youtube.com https://s.ytimg.com https://player.vimeo.com",
+  "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+  "font-src 'self' https://fonts.gstatic.com data:",
+  "img-src 'self' data: blob: https:",
+  "media-src 'self' blob: data: mediastream:",
+  "connect-src 'self' https://watchmovietogether-j59u.onrender.com wss://watchmovietogether-j59u.onrender.com",
+  "frame-src 'self' https:",
+  "worker-src 'self' blob:",
+  "manifest-src 'self'"
+].join("; ");
+app.use((req, res, next) => {
+  res.setHeader("X-Content-Type-Options", "nosniff");
+  res.setHeader("X-Frame-Options", "SAMEORIGIN");
+  res.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
+  res.setHeader("Permissions-Policy", "camera=(self), microphone=(self), geolocation=(), browsing-topics=()");
+  if ((req.headers["x-forwarded-proto"] || req.protocol) === "https")
+    res.setHeader("Strict-Transport-Security", "max-age=31536000; includeSubDomains");
+  // Full CSP only for top-level documents — API responses are JSON and don't need it.
+  if (req.method === "GET" && (req.headers.accept || "").indexOf("text/html") !== -1)
+    res.setHeader("Content-Security-Policy", CSP);
+  next();
+});
+
 const jsonSmall = express.json({ limit: "16kb" });   // most POSTs are tiny
 const jsonWall = express.json({ limit: "3mb" });     // wall photos (downscaled client-side) need headroom
 app.use((req, res, next) => (req.path === "/wall" ? jsonWall : jsonSmall)(req, res, next));
@@ -267,7 +303,7 @@ app.get("/healthz", (req, res) => res.type("text").send("ok"));
 /* ---- your own PeerJS signaling server (media transport only) ----
    Both WebSocket servers run in noServer mode; we route upgrades ourselves
    (below) so PeerJS and the control plane don't fight over the same server. */
-const peerWss = new WebSocketServer({ noServer: true });
+const peerWss = new WebSocketServer({ noServer: true, maxPayload: 256 * 1024 });   // SDP/ICE signaling only; cap oversized frames
 const peerServer = ExpressPeerServer(server, { path: "/", allow_discovery: false, createWebSocketServer: () => peerWss });
 app.use("/peerjs", peerServer);
 
@@ -279,7 +315,7 @@ app.use(express.static(PUBLIC, { extensions: ["html"], setHeaders: r => r.setHea
 /* ============================================================================
  * Realtime control plane (/rt)
  * ==========================================================================*/
-const wss = new WebSocketServer({ noServer: true });
+const wss = new WebSocketServer({ noServer: true, maxPayload: 256 * 1024 });   // control-plane JSON is tiny; cap oversized frames
 const admins = new Set();
 
 /* rooms: Map<roomCode, { members: Map<ws,{peerId,name}>, chat: [], lastActivity }> */
@@ -290,6 +326,23 @@ function getRoom(code) {
   return r;
 }
 function hashPass(p) { return crypto.createHash("sha256").update("wmt:" + String(p || "")).digest("hex"); }
+// constant-time string compare (hash first so unequal lengths neither throw nor leak length via timing)
+function safeEqual(a, b) {
+  const ha = crypto.createHash("sha256").update(String(a == null ? "" : a)).digest();
+  const hb = crypto.createHash("sha256").update(String(b == null ? "" : b)).digest();
+  return crypto.timingSafeEqual(ha, hb);
+}
+// clamp gallery metadata coming from a presenter before it's relayed/stored (defense against oversized/garbage fields)
+function cleanGalleryItems(arr) {
+  if (!Array.isArray(arr)) return [];
+  return arr.slice(0, 300).map(it => ({
+    fileId: String((it && it.fileId) || "").slice(0, 64),
+    name: String((it && it.name) || "").slice(0, 120),
+    type: (it && it.type === "image") ? "image" : "video",
+    size: Math.max(0, Math.min(Number((it && it.size)) || 0, 50 * 1024 * 1024 * 1024)),
+    mime: String((it && it.mime) || "").slice(0, 60)
+  })).filter(it => it.fileId);
+}
 
 /* ---- lightweight, privacy-friendly growth metrics (aggregate counts only — no personal data) ---- */
 const metrics = { startedAt: Date.now(), roomsCreated: 0, joins: 0, firstPlays: 0, shares: 0, sessionsEnded: 0, sessionMsTotal: 0 };
@@ -360,8 +413,9 @@ wss.on("connection", (ws) => {
 
     /* ---------- admin ---------- */
     if (m.type === "admin") {
-      if (ADMIN_PASSWORD && m.password === ADMIN_PASSWORD) {
-        ws._isAdmin = true; admins.add(ws);
+      if ((ws._adminTries = (ws._adminTries || 0) + 1) > 10) return;   // throttle brute-force guesses on this connection
+      if (ADMIN_PASSWORD && safeEqual(m.password, ADMIN_PASSWORD)) {   // constant-time compare
+        ws._isAdmin = true; ws._adminTries = 0; admins.add(ws);
         sendJSON(ws, { type: "admin_ok" });
         sendJSON(ws, { type: "stats", ...stats() });
       } else sendJSON(ws, { type: "admin_denied" });
@@ -422,6 +476,21 @@ wss.on("connection", (ws) => {
       return;
     }
 
+    if (m.type === "room-rename") {                 // only the host may rename; the room + wall + everyone move with it
+      if (r.host !== ws._peerId) { sendJSON(ws, { type: "rename-result", ok: false, reason: "denied" }); return; }
+      const newCode = String(m.code || "").toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9\-_]/g, "").replace(/^-+|-+$/g, "").slice(0, 40);
+      if (newCode.length < 2) { sendJSON(ws, { type: "rename-result", ok: false, reason: "bad" }); return; }
+      if (newCode === ws._room) { sendJSON(ws, { type: "rename-result", ok: true, code: newCode }); return; }
+      if (rooms.has(newCode)) { sendJSON(ws, { type: "rename-result", ok: false, reason: "taken" }); return; }
+      const okDb = await store.renameRoom(ws._room, newCode);
+      if (!okDb) { sendJSON(ws, { type: "rename-result", ok: false, reason: "taken" }); return; }
+      rooms.delete(ws._room); rooms.set(newCode, r);
+      r.members.forEach((v, w) => { w._room = newCode; });
+      broadcastRoom(r, { type: "renamed", code: newCode });   // everyone (incl. host) updates their URL + room name
+      pushStats();
+      return;
+    }
+
     if (m.type === "set-pass") {                    // only the host may lock/unlock the room
       if (r.host !== ws._peerId) { sendJSON(ws, { type: "pass-set", hasPass: !!r.pass, denied: true }); return; }
       const p = String(m.password || "");
@@ -467,19 +536,24 @@ wss.on("connection", (ws) => {
       return;
     }
     if (m.type === MSG.VIDEO) {
-      broadcastRoom(r, { type: "video", from: ws._peerId, mode: m.mode, url: m.url, id: m.id }, ws);
+      const mode = String(m.mode || "").slice(0, 16);
+      const url = String(m.url || "").slice(0, 2000);
+      const id = String(m.id || "").slice(0, 64);
+      broadcastRoom(r, { type: "video", from: ws._peerId, mode, url, id }, ws);
       return;
     }
 
     /* ---- shared gallery (photos/videos): only control state is relayed; the bytes go peer-to-peer ---- */
     if (m.type === "gallery") {
-      r.gallery = { presenter: ws._peerId, items: Array.isArray(m.items) ? m.items.slice(0, 300) : [], current: m.current || null };
+      const items = cleanGalleryItems(m.items);
+      r.gallery = { presenter: ws._peerId, items, current: String(m.current || "").slice(0, 64) || null };
       broadcastRoom(r, { type: "gallery", presenter: ws._peerId, items: r.gallery.items, current: r.gallery.current }, ws);
       return;
     }
     if (m.type === "gallery-show") {
-      if (r.gallery) r.gallery.current = m.fileId;
-      broadcastRoom(r, { type: "gallery-show", fileId: m.fileId }, ws);
+      const fileId = String(m.fileId || "").slice(0, 64);
+      if (r.gallery) r.gallery.current = fileId;
+      broadcastRoom(r, { type: "gallery-show", fileId }, ws);
       return;
     }
     if (m.type === "gallery-clear") {

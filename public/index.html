@@ -136,6 +136,15 @@
   .pvol svg{width:15px;height:15px;color:var(--amber-2);flex:0 0 auto}
   .cam-tools{position:absolute; top:6px; right:6px; z-index:6; display:flex; gap:5px; opacity:0; pointer-events:none; transition:opacity .15s}
   .cams:hover .cam.self .cam-tools, .cam.self.tools-open .cam-tools{opacity:1; pointer-events:auto}
+  /* idle multi-peer: one webcam tile per person (up to 8); collapses to the single rotating tile once content is shared */
+  .cams.grid{display:grid; grid-auto-flow:row; gap:8px; max-height:calc(100dvh - 150px)}
+  .cams.grid .cam{width:100%}
+  .cams.grid .cam.self .cam-tools{display:none}
+  .cams.grid[data-count="1"], .cams.grid[data-count="2"]{grid-template-columns:var(--camw)}
+  .cams.grid[data-count="3"]{grid-template-columns:172px}
+  .cams.grid[data-count="4"]{grid-template-columns:repeat(2,152px)}
+  .cams.grid[data-count="5"], .cams.grid[data-count="6"]{grid-template-columns:repeat(2,134px)}
+  .cams.grid[data-count="7"], .cams.grid[data-count="8"]{grid-template-columns:repeat(2,116px)}
   .ctool{width:24px; height:24px; border-radius:7px; border:1px solid var(--line); background:rgba(8,7,10,.7); color:#fff; font-size:15px; line-height:1; cursor:pointer; display:grid; place-items:center}
   .ctool:hover{background:rgba(40,32,48,.9)}
 
@@ -288,7 +297,7 @@
   .roomcount{font-size:12px; color:var(--muted); white-space:nowrap}
 
   /* shared gallery */
-  #galleryImg{position:absolute; inset:0; width:100%; height:100%; object-fit:contain; background:#000; display:none; z-index:2}
+  #galleryImg{position:absolute; inset:0; width:100%; height:100%; object-fit:contain; background:#000; display:none; z-index:4}
   .sharebar{position:absolute; left:50%; transform:translateX(-50%); bottom:84px; z-index:40; display:none; align-items:center; gap:8px; max-width:94vw; padding:8px 10px; border-radius:14px; background:rgba(20,16,24,.92); border:1px solid var(--line); backdrop-filter:blur(10px); box-shadow:var(--shadow)}
   .sharebar.show{display:flex}
   .gstrip{display:flex; gap:6px; overflow-x:auto; max-width:58vw; padding:2px}
@@ -320,6 +329,11 @@
     .cam{width:88px}
     .stage.file-mode .cams{bottom:calc(100px + env(safe-area-inset-bottom))}   /* lift above the lifted controls + native video bar */
     .stage.chat-open .cams{right:8px; left:auto; top:12px; bottom:auto}        /* chat sheet covers the bottom → move faces up */
+    .cams.grid{max-height:calc(100dvh - 120px); gap:6px}
+    .cams.grid[data-count="1"], .cams.grid[data-count="2"]{grid-template-columns:120px}
+    .cams.grid[data-count="3"]{grid-template-columns:104px}
+    .cams.grid[data-count="4"], .cams.grid[data-count="5"], .cams.grid[data-count="6"]{grid-template-columns:repeat(2,94px)}
+    .cams.grid[data-count="7"], .cams.grid[data-count="8"]{grid-template-columns:repeat(2,82px)}
     .volpop{width:200px; bottom:52px}
     /* chat as a bottom-sheet on phones */
     .chat{left:0; right:0; top:auto; bottom:0; width:100%; max-width:100%; height:74vh; border-left:none; border-top:1px solid var(--line); border-radius:20px 20px 0 0; box-shadow:0 -22px 50px rgba(0,0,0,.55); animation:slideup .25s ease}
@@ -597,7 +611,7 @@
         <p class="ph-note" id="ph_note">Paste a video file or YouTube link above, or use “▶ YouTube” to search together. Tip: use headphones to avoid echo.</p>
         <button class="btn primary" id="pickOpenBtn" style="margin-top:16px">🎬 <span id="pickOpenTxt">Choose something to watch</span></button>
         <button class="btn" id="notifyMeBtn" style="display:none;margin-top:10px">🔔 <span id="notifyMeTxt">Tell me when someone's here</span></button>
-        <button class="btn" id="roomLockBtn" style="display:none;margin-top:10px">🔒 <span id="roomLockTxt">Set a room password</span></button>
+        <button class="btn" id="roomLockBtn" style="display:none;margin-top:10px">⚙️ <span id="roomLockTxt">Room settings</span></button>
       </div>
     </div>
 
@@ -606,7 +620,7 @@
       <div class="wall-actions" id="wallActions">
         <button class="btn primary" id="wallWatchBtn">🎬 <span id="wallWatchTxt">Choose something to watch</span></button>
         <button class="btn" id="wallInviteBtn">📤 <span id="wallInviteTxt">Invite</span></button>
-        <button class="btn" id="wallLockBtn" style="display:none">🔒 <span id="wallLockTxt">Room password</span></button>
+        <button class="btn" id="wallLockBtn" style="display:none">⚙️ <span id="wallLockTxt">Room settings</span></button>
       </div>
     </div>
     <div class="wall-add-hint" id="wallAddHint">Tap 📌 to add a memory</div>
@@ -815,12 +829,21 @@
     <div class="c-grid" id="compGrid"></div>
   </div>
 
-  <!-- Room password (host sets it; guests enter it) -->
+  <!-- Room settings (host: rename + password) / password prompt (guest) -->
   <div class="modal" id="passModal">
     <div class="modal-card">
       <button class="modal-x" id="passX" aria-label="Close">×</button>
-      <h3 id="passTitle">Room password</h3>
+      <h3 id="passTitle">Room settings</h3>
       <p class="m-sub" id="passSub">Only people with the password can join.</p>
+
+      <div id="passNameField" style="display:none">
+        <div style="font-size:12px;letter-spacing:1px;text-transform:uppercase;color:var(--muted);margin:4px 0 7px" id="passNameLbl">Room name</div>
+        <div class="pick-row"><input id="passNameInput" type="text" maxlength="40" autocomplete="off" placeholder="our-living-room" /><button class="btn primary" id="passNameSave">Save</button></div>
+        <div id="passNameMsg" style="font-size:13px;min-height:18px;margin:6px 0 2px;color:var(--muted)"></div>
+        <hr style="border:none;border-top:1px solid var(--line);margin:16px 0 14px" />
+        <div style="font-size:12px;letter-spacing:1px;text-transform:uppercase;color:var(--muted);margin:0 0 7px" id="passPassLbl">Password</div>
+      </div>
+
       <div class="m-field"><input id="passInput" type="password" autocomplete="off" placeholder="••••••" /></div>
       <div id="passErr" style="color:var(--bad);font-size:13px;min-height:18px;margin:-6px 0 10px"></div>
       <div class="modal-row">
@@ -1004,8 +1027,8 @@
     };
     Object.keys(NOTIFYCOPY).forEach(function(k){ if(I18N[k]) Object.keys(NOTIFYCOPY[k]).forEach(function(j){ I18N[k][j]=NOTIFYCOPY[k][j]; }); });
     var PASSCOPY = {
-      en:{save:"Save",pass_set_btn:"Set a room password",pass_change:"Change room password",pass_set_title:"Set a room password",pass_set_sub:"Only people with the password can join your room.",pass_need_title:"Password required",pass_need_sub:"This room is protected. Enter the password to join.",pass_wrong:"Wrong password — try again.",pass_on:"Room locked 🔒 — only people with the password can join.",pass_off:"Password removed — the room is open.",pass_denied:"Only the host can change the password.",pass_locked:"locked the room 🔒",pass_unlocked:"removed the password"},
-      nl:{save:"Opslaan",pass_set_btn:"Wachtwoord instellen",pass_change:"Wachtwoord wijzigen",pass_set_title:"Stel een kamerwachtwoord in",pass_set_sub:"Alleen mensen met het wachtwoord kunnen je kamer binnen.",pass_need_title:"Wachtwoord vereist",pass_need_sub:"Deze kamer is beveiligd. Vul het wachtwoord in om mee te doen.",pass_wrong:"Onjuist wachtwoord — probeer opnieuw.",pass_on:"Kamer vergrendeld 🔒 — alleen met wachtwoord toegang.",pass_off:"Wachtwoord verwijderd — de kamer is open.",pass_denied:"Alleen de host kan het wachtwoord wijzigen.",pass_locked:"heeft de kamer vergrendeld 🔒",pass_unlocked:"heeft het wachtwoord verwijderd"},
+      en:{save:"Save",pass_set_btn:"Set a room password",pass_change:"Change room password",pass_set_title:"Set a room password",pass_set_sub:"Only people with the password can join your room.",pass_need_title:"Password required",pass_need_sub:"This room is protected. Enter the password to join.",pass_wrong:"Wrong password — try again.",pass_on:"Room locked 🔒 — only people with the password can join.",pass_off:"Password removed — the room is open.",pass_denied:"Only the host can change the password.",pass_locked:"locked the room 🔒",pass_unlocked:"removed the password",settings_title:"Room settings",settings_sub:"Change your room name or set a password.",room_name_lbl:"Room name",settings_pass_lbl:"Password",rename_bad:"Pick a name with at least 2 letters.",rename_taken:"That name is taken — try another.",rename_saving:"Saving…",rename_ok:"",rename_done:"Room name updated ✓",room_settings_btn:"Room settings"},
+      nl:{save:"Opslaan",pass_set_btn:"Wachtwoord instellen",pass_change:"Wachtwoord wijzigen",pass_set_title:"Stel een kamerwachtwoord in",pass_set_sub:"Alleen mensen met het wachtwoord kunnen je kamer binnen.",pass_need_title:"Wachtwoord vereist",pass_need_sub:"Deze kamer is beveiligd. Vul het wachtwoord in om mee te doen.",pass_wrong:"Onjuist wachtwoord — probeer opnieuw.",pass_on:"Kamer vergrendeld 🔒 — alleen met wachtwoord toegang.",pass_off:"Wachtwoord verwijderd — de kamer is open.",pass_denied:"Alleen de host kan het wachtwoord wijzigen.",pass_locked:"heeft de kamer vergrendeld 🔒",pass_unlocked:"heeft het wachtwoord verwijderd",settings_title:"Kamerinstellingen",settings_sub:"Wijzig je kamernaam of stel een wachtwoord in.",room_name_lbl:"Kamernaam",settings_pass_lbl:"Wachtwoord",rename_bad:"Kies een naam van minstens 2 letters.",rename_taken:"Die naam is al bezet — kies een andere.",rename_saving:"Opslaan…",rename_ok:"",rename_done:"Kamernaam gewijzigd ✓",room_settings_btn:"Kamerinstellingen"},
       de:{save:"Speichern",pass_set_btn:"Raumpasswort festlegen",pass_change:"Passwort ändern",pass_set_title:"Raumpasswort festlegen",pass_set_sub:"Nur Personen mit dem Passwort können beitreten.",pass_need_title:"Passwort erforderlich",pass_need_sub:"Dieser Raum ist geschützt. Gib das Passwort ein.",pass_wrong:"Falsches Passwort — versuch es erneut.",pass_on:"Raum gesperrt 🔒",pass_off:"Passwort entfernt — der Raum ist offen.",pass_denied:"Nur der Host kann das Passwort ändern.",pass_locked:"hat den Raum gesperrt 🔒",pass_unlocked:"hat das Passwort entfernt"},
       fr:{save:"Enregistrer",pass_set_btn:"Définir un mot de passe",pass_change:"Changer le mot de passe",pass_set_title:"Définir un mot de passe",pass_set_sub:"Seules les personnes avec le mot de passe peuvent rejoindre.",pass_need_title:"Mot de passe requis",pass_need_sub:"Ce salon est protégé. Entre le mot de passe.",pass_wrong:"Mot de passe incorrect — réessaie.",pass_on:"Salon verrouillé 🔒",pass_off:"Mot de passe retiré — le salon est ouvert.",pass_denied:"Seul l'hôte peut changer le mot de passe.",pass_locked:"a verrouillé le salon 🔒",pass_unlocked:"a retiré le mot de passe"},
       es:{save:"Guardar",pass_set_btn:"Poner contraseña",pass_change:"Cambiar contraseña",pass_set_title:"Poner contraseña a la sala",pass_set_sub:"Solo quien tenga la contraseña puede entrar.",pass_need_title:"Contraseña requerida",pass_need_sub:"Esta sala está protegida. Introduce la contraseña.",pass_wrong:"Contraseña incorrecta — inténtalo de nuevo.",pass_on:"Sala bloqueada 🔒",pass_off:"Contraseña eliminada — la sala está abierta.",pass_denied:"Solo el anfitrión puede cambiar la contraseña.",pass_locked:"bloqueó la sala 🔒",pass_unlocked:"quitó la contraseña"},
@@ -1191,7 +1214,8 @@
       try{ p.audioEl.srcObject=stream; }catch(e){}
       try{ p.audioEl.volume=peerVolume; }catch(e){}
       var play=p.audioEl.play&&p.audioEl.play(); if(play&&play.catch) play.catch(function(){ armAudioUnlock(); });
-      if(!displayed || !peers[displayed] || !peers[displayed].stream) setDisplayed(pid);
+      if(contentActive()){ if(!displayed || !peers[displayed] || !peers[displayed].stream) setDisplayed(pid); }
+      renderCams();
       dbg();
     }
     function removePeer(pid){
@@ -1201,7 +1225,7 @@
       delete peers[pid];
       delete talkingSet[pid];
       if(displayed===pid){ displayed=null; var next=connectedPeerIds()[0]; if(next) setDisplayed(next); else clearDisplayed(); }
-      recomputeAuthority(); updatePresenceStatus(); dbg();
+      recomputeAuthority(); updatePresenceStatus(); renderCams(); dbg();
     }
     function connectedPeerIds(){ return Object.keys(peers).filter(function(id){ return peers[id]&&peers[id].stream; }).sort(); }
 
@@ -1228,18 +1252,20 @@
           joined=true; if(m.you&&m.you.name) myName=m.you.name;
           hideConnecting(); isHost=!!m.host; roomHasPass=!!m.hasPass; if(passModalEl) passModalEl.classList.remove("show"); updateHostControls(); if(hasWall) fetchWall(); roomExpiresAt=m.expiresAt||0; maybeShowExpiryBanner();
           (m.peers||[]).forEach(function(pp){ if(pp.peerId===myPeerId) return; peers[pp.peerId]=peers[pp.peerId]||{}; peers[pp.peerId].name=pp.name||"Guest"; if(shouldInitiate(myPeerId,pp.peerId)) callPeer(pp.peerId); });
-          recomputeAuthority(); updatePresenceStatus();
+          recomputeAuthority(); updatePresenceStatus(); renderCams();
           if(isAuthority&&currentMedia){ rtSend({ type:"video", mode:currentMedia.mode, url:currentMedia.url, id:currentMedia.id }); }
           break;
         case "need-pass": hideConnecting(); openPassEnter(!!m.wrong); break;
         case "pass-set": if(m.denied){ toast(tr("pass_denied"),5000); } else { roomHasPass=!!m.hasPass; updateHostControls(); toast(m.hasPass?tr("pass_on"):tr("pass_off"),5000); } break;
         case "room-locked": roomHasPass=!!m.hasPass; toast((m.by||tr("others"))+" "+(m.hasPass?tr("pass_locked"):tr("pass_unlocked")),5000); break;
+        case "rename-result": if(!m.ok){ setText("passNameMsg", m.reason==="taken"?tr("rename_taken"):tr("rename_bad")); } break;
+        case "renamed": applyRename(m.code); setText("passNameMsg",tr("rename_ok")); if(passModalEl) passModalEl.classList.remove("show"); toast(tr("rename_done"),4000); break;
         case "wall-add": if(m.item){ addWallItem(m.item); if(wallPanel&&wallPanel.hidden) toast(tr("wall_new"),4000); } break;
         case "kicked": closing=true; hideConnecting(); showKickedScreen(); break;
         case "peer-joined":
           peers[m.peerId]=peers[m.peerId]||{}; peers[m.peerId].name=m.name||"Guest";
           if(shouldInitiate(myPeerId,m.peerId)) callPeer(m.peerId);
-          recomputeAuthority(); updatePresenceStatus();
+          recomputeAuthority(); updatePresenceStatus(); renderCams();
           if(isAuthority&&currentMedia){ rtSend({ type:"video", mode:currentMedia.mode, url:currentMedia.url, id:currentMedia.id }); if(mode==="file"||mode==="youtube") rtSend({ type:"sync", kind:isPausedMedia()?"pause":"play", time:getTime() }); }
           break;
         case "peer-left": if(peers[m.peerId]) { if(peers[m.peerId].name) toast(peers[m.peerId].name+" left."); } removePeer(m.peerId); break;
@@ -1263,6 +1289,7 @@
     function clearDisplayed(){ displayed=null; try{ peerVideo.srcObject=null; }catch(e){} setCamStatus("waiting"); if(peerWho) peerWho.classList.remove("show"); if(peerCam) peerCam.classList.remove("talking"); }
     function scheduleRotation(){ clearTimeout(rotTimer); rotTimer=setTimeout(rotateNext, ROTATE_MS); }
     function rotateNext(){
+      if(!contentActive()) return;                                          // grid mode shows everyone — no rotation
       if(Object.keys(talkingSet).length>0){ scheduleRotation(); return; }   // never rotate away from an active speaker
       var ids=connectedPeerIds(); if(ids.length<=1){ scheduleRotation(); return; }
       var i=ids.indexOf(displayed); var next=ids[(i<0?0:(i+1)%ids.length)];
@@ -1270,10 +1297,57 @@
     }
     function setPeerTalking(pid,on){
       if(!pid) return;
-      if(on){ talkingSet[pid]=true; if(peers[pid]&&peers[pid].stream) setDisplayed(pid); }   // switch immediately to whoever speaks
-      else { delete talkingSet[pid]; }
-      updateGlow();
+      if(on) talkingSet[pid]=true; else delete talkingSet[pid];
+      if(contentActive()){
+        if(on && peers[pid] && peers[pid].stream) setDisplayed(pid);        // compact: spotlight whoever speaks
+        updateGlow();
+      } else if(peers[pid] && peers[pid].tileEl){
+        peers[pid].tileEl.classList.toggle("talking", on);                  // grid: glow that person's tile
+      }
     }
+
+    /* ===================== Webcam layout: idle grid (one tile per person) vs compact rotating tile ===================== */
+    function contentActive(){ return !!(mode && mode!=="none"); }           // a video / shared photo / video fills the stage
+    function buildGridTile(pid){
+      var p=peers[pid]; if(!p) return null;
+      if(!p.tileEl){
+        var tile=document.createElement("div"); tile.className="cam peer gridtile"; tile.setAttribute("data-pid",pid);
+        var v=document.createElement("video"); v.autoplay=true; v.playsInline=true; v.muted=true; tile.appendChild(v);
+        var lab=document.createElement("span"); lab.className="camlabel"; tile.appendChild(lab);
+        var st=document.createElement("div"); st.className="cam-state"; var sp=document.createElement("span"); st.appendChild(sp); tile.appendChild(st);
+        var act=document.createElement("div"); act.className="peer-actions";
+        var bblk=document.createElement("button"); bblk.className="pa-btn"; bblk.title="Block"; bblk.textContent="🔇"; bblk.addEventListener("click", function(e){ e.stopPropagation(); blockPeerId(pid); });
+        var bk=document.createElement("button"); bk.className="pa-btn pa-kick"; bk.title="Remove (host)"; bk.textContent="✕"; bk.addEventListener("click", function(e){ e.stopPropagation(); kickPeerId(pid); });
+        act.appendChild(bblk); act.appendChild(bk); tile.appendChild(act);
+        p.tileEl=tile; p.tileVideo=v; p.tileLabel=lab; p.tileState=sp;
+      }
+      p.tileLabel.textContent=p.name||"Guest";
+      if(p.stream){ if(p.tileVideo.srcObject!==p.stream){ try{ p.tileVideo.srcObject=p.stream; }catch(e){} var pl=p.tileVideo.play&&p.tileVideo.play(); if(pl&&pl.catch) pl.catch(function(){}); } if(p.tileState.parentNode) p.tileState.parentNode.style.display="none"; }
+      else if(p.tileState.parentNode){ p.tileState.parentNode.style.display="flex"; p.tileState.textContent="…"; }
+      p.tileEl.classList.toggle("talking", !!talkingSet[pid]);
+      var kb=p.tileEl.querySelector(".pa-kick"); if(kb) kb.style.display=isHost?"":"none";
+      return p.tileEl;
+    }
+    function renderCams(){
+      if(shareMode || !cams || !selfCam) return;
+      var ids=Object.keys(peers);
+      var grid = !contentActive() && ids.length>=1;     // idle with company → a tile per person; otherwise the single rotating tile
+      if(grid){
+        if(peerCam) peerCam.style.display="none";
+        ids.forEach(function(pid){ var t=buildGridTile(pid); if(t && t.parentNode!==cams) cams.insertBefore(t, selfCam); });
+        var stale=cams.querySelectorAll(".gridtile");
+        for(var i=0;i<stale.length;i++){ if(!peers[stale[i].getAttribute("data-pid")]) stale[i].parentNode.removeChild(stale[i]); }
+        cams.classList.add("grid"); cams.setAttribute("data-count", String(Math.min(ids.length+1,8)));
+      } else {
+        cams.classList.remove("grid"); cams.removeAttribute("data-count");
+        var g=cams.querySelectorAll(".gridtile"); for(var j=0;j<g.length;j++) g[j].parentNode.removeChild(g[j]);
+        ids.forEach(function(pid){ var pp=peers[pid]; if(pp){ pp.tileEl=null; pp.tileVideo=null; pp.tileLabel=null; pp.tileState=null; } });
+        if(peerCam) peerCam.style.display="";
+        if(!displayed || !peers[displayed] || !peers[displayed].stream){ var n=connectedPeerIds()[0]; if(n) setDisplayed(n); else clearDisplayed(); }
+      }
+    }
+    function kickPeerId(pid){ if(!isHost||!pid) return; var nm=(peers[pid]&&peers[pid].name)||tr("others"); if(rtReady) rtSend({ type:"kick", peerId:pid }); toast(tr("mod_removed").replace("{n}",nm),4000); }
+    function blockPeerId(pid){ if(!pid) return; var nm=(peers[pid]&&peers[pid].name)||tr("others"); blockedSet[pid]=1; var p=peers[pid]; if(p&&p.audioEl){ try{ p.audioEl.muted=true; }catch(e){} } removePeer(pid); toast(tr("mod_blocked").replace("{n}",nm),4000); }
 
     /* ===================== Media: file / youtube / embed ===================== */
     var mode="none", currentMedia=null, pending=null, closing=false, movieErrored=false;
@@ -1283,14 +1357,19 @@
     function updateStageChrome(){ if(stage) stage.classList.toggle("file-mode", !!(movie && movie.style.display==="block")); }   // lift our controls above the native video bar
     function clearPlayers(){ try{ movie.pause(); }catch(e){} try{ movie.removeAttribute("src"); movie.load(); }catch(e){} movie.style.display="none"; if(galleryImg) galleryImg.style.display="none"; if(ytPlayer){ try{ ytPlayer.destroy(); }catch(e){} ytPlayer=null; } if(vimPlayer){ try{ vimPlayer.destroy(); }catch(e){} vimPlayer=null; vimReady=false; } ytwrap.style.display="none"; ytwrap.innerHTML=""; try{ frame.src="about:blank"; }catch(e){} framewrap.style.display="none"; playgate.hidden=true; pending=null; movieErrored=false; updateStageChrome(); }
     function setEmbedUI(on){ cdwidget.hidden=!on; if(!on){ clearInterval(cdTimer); cdNum.textContent="\u25B6"; cdNum.classList.remove("go"); cdBtn.disabled=false; cdBusy=false; } }
+    /* only ever hand the player/iframe a safe scheme — a malicious peer could push a "video" with a javascript:/data: url */
+    function safeUrl(u){ u=String(u||""); return (/^https?:\/\//i.test(u)||/^blob:/i.test(u))?u:""; }
+    /* strip anything that could break out of an attribute when we build a "new room" link via innerHTML */
+    function safePath(){ return String(location.pathname||"/").replace(/[^a-zA-Z0-9/_.\-]/g,"")||"/"; }
     function applyMedia(m,url,id){
+      url=safeUrl(url); id=String(id||"").replace(/[^a-zA-Z0-9_-]/g,"").slice(0,40);
       if(gallery){ if(amPresenter()) stopSharing(); else { gallery=null; closeGalleryUI(); } }
       clearPlayers(); ducked=false; mode=m; currentMedia={ mode:m, url:url, id:id }; placeholder.style.display="none";
-      if(m==="file"){ setEmbedUI(false); movie.style.display="block"; movie.src=url; movie.load(); }
+      if(m==="file"){ setEmbedUI(false); movie.style.display="block"; if(url){ movie.src=url; movie.load(); } }
       else if(m==="youtube"){ setEmbedUI(false); ytwrap.style.display="block"; loadYouTube(id); }
       else if(m==="vimeo"){ setEmbedUI(false); ytwrap.style.display="block"; loadVimeo(url); }
-      else { setEmbedUI(true); framewrap.style.display="flex"; try{ frame.src=url; }catch(e){} openTab.href=url; }
-      updateStageChrome(); if(typeof updateRoomView==="function") updateRoomView();
+      else { setEmbedUI(true); framewrap.style.display="flex"; try{ frame.src=url||"about:blank"; }catch(e){} openTab.href=url||"#"; }
+      updateStageChrome(); if(typeof updateRoomView==="function") updateRoomView(); renderCams();
     }
     function loadUrl(url){ url=(url||"").trim(); if(!url){ toast("Paste a link first."); return false; } if(!/^https?:\/\//i.test(url)){ toast("The link must start with http:// or https://"); return false; } var det=detectMedia(url); applyMedia(det.mode,det.url,det.id); rtSend({ type:"video", mode:det.mode, url:det.url, id:det.id }); if(det.mode==="embed") toast("Loaded — use the countdown on the left to start together.",6000); return true; }
     loadBtn.addEventListener("click", function(){ loadUrl(urlInput.value); });
@@ -1602,8 +1681,8 @@
     function swRegisterFile(it){ try{ if(navigator.serviceWorker && navigator.serviceWorker.controller) navigator.serviceWorker.controller.postMessage({type:"register",fileId:it.fileId,size:it.size,mime:it.mime||""}); }catch(e){} }
 
     function amPresenter(){ return !!(gallery && gallery.presenter===myPeerId); }
-    function showImage(url){ clearPlayers(); mode="gallery-image"; currentMedia=null; placeholder.style.display="none"; if(galleryImg){ galleryImg.src=url; galleryImg.style.display="block"; } updateStageChrome(); }
-    function showVideoSrc(url){ clearPlayers(); mode="file"; currentMedia={mode:"file",url:url}; placeholder.style.display="none"; movie.style.display="block"; try{ movie.src=url; movie.load(); }catch(e){} updateStageChrome(); }
+    function showImage(url){ clearPlayers(); mode="gallery-image"; currentMedia=null; placeholder.style.display="none"; if(galleryImg){ galleryImg.src=url; galleryImg.style.display="block"; } updateStageChrome(); if(typeof updateRoomView==="function") updateRoomView(); renderCams(); }
+    function showVideoSrc(url){ clearPlayers(); mode="file"; currentMedia={mode:"file",url:url}; placeholder.style.display="none"; movie.style.display="block"; try{ movie.src=url; movie.load(); }catch(e){} updateStageChrome(); if(typeof updateRoomView==="function") updateRoomView(); renderCams(); }
     function showGalleryItem(fileId){
       if(!gallery) return; var it=null, i;
       for(i=0;i<gallery.items.length;i++){ if(gallery.items[i].fileId===fileId){ it=gallery.items[i]; break; } }
@@ -1644,8 +1723,8 @@
       Object.keys(localURLs).forEach(function(id){ try{ URL.revokeObjectURL(localURLs[id]); }catch(e){} });
       localURLs={}; myFiles={}; gallery=null; closeGalleryUI();
       if(galleryImg){ galleryImg.style.display="none"; try{ galleryImg.removeAttribute("src"); }catch(e){} }
-      if(mode==="gallery-image"){ clearPlayers(); placeholder.style.display=""; mode="none"; }
-      if(typeof updateRoomView==="function") updateRoomView();
+      if(mode==="gallery-image"||mode==="file"){ clearPlayers(); placeholder.style.display=""; mode="none"; }
+      if(typeof updateRoomView==="function") updateRoomView(); renderCams();
     }
     function galleryRT(m){
       if(m.type==="gallery"){
@@ -1658,7 +1737,7 @@
         return true;
       }
       if(m.type==="gallery-show"){ if(!gallery) return true; showGalleryItem(m.fileId); return true; }
-      if(m.type==="gallery-clear"){ if(!amPresenter()){ gallery=null; closeGalleryUI(); if(galleryImg){ galleryImg.style.display="none"; try{ galleryImg.removeAttribute("src"); }catch(e){} } if(mode==="gallery-image"){ clearPlayers(); placeholder.style.display=""; mode="none"; } } return true; }
+      if(m.type==="gallery-clear"){ if(!amPresenter()){ gallery=null; closeGalleryUI(); if(galleryImg){ galleryImg.style.display="none"; try{ galleryImg.removeAttribute("src"); }catch(e){} } if(mode==="gallery-image"||mode==="file"){ clearPlayers(); placeholder.style.display=""; mode="none"; } if(typeof updateRoomView==="function") updateRoomView(); renderCams(); } return true; }
       return false;
     }
     if(shareMediaBtn) shareMediaBtn.addEventListener("click", function(){
@@ -1674,7 +1753,7 @@
       hideConnecting();
       try{ if(peer) peer.destroy(); }catch(e){} try{ if(rt) rt.close(); }catch(e){}
       clearPlayers(); placeholder.style.display="";
-      placeholder.innerHTML='<div class="ph-card"><p class="kicker">Sorry…</p><h2>'+tr("full_title")+'</h2><p style="color:#d7cdc3;line-height:1.5;margin:0 0 22px">'+tr("full_body")+'</p><a class="btn primary" style="text-decoration:none;display:inline-block" href="'+location.pathname+'">'+tr("new_room")+'</a></div>';
+      placeholder.innerHTML='<div class="ph-card"><p class="kicker">Sorry…</p><h2>'+tr("full_title")+'</h2><p style="color:#d7cdc3;line-height:1.5;margin:0 0 22px">'+tr("full_body")+'</p><a class="btn primary" style="text-decoration:none;display:inline-block" href="'+safePath()+'">'+tr("new_room")+'</a></div>';
     }
 
     /* ===================== Boot / landing ===================== */
@@ -1935,15 +2014,41 @@
 
     /* ===================== Feature: room password (host-controlled) ===================== */
     var roomPass="", isHost=false, roomHasPass=false, passMode="enter", passModalEl=$("passModal");
-    function updateHostControls(){ var b=$("roomLockBtn"); if(b){ b.style.display=(isHost&&!shareMode)?"":"none"; var t=$("roomLockTxt"); if(t) t.textContent=roomHasPass?tr("pass_change"):tr("pass_set_btn"); } var wb=$("wallLockBtn"); if(wb){ wb.style.display=(isHost&&!shareMode)?"":"none"; var wt=$("wallLockTxt"); if(wt) wt.textContent=roomHasPass?tr("pass_change"):tr("pass_set_btn"); } var pk=$("peerKick"); if(pk) pk.style.display=(isHost&&!shareMode)?"":"none"; }
-    function openPassEnter(wrong){ passMode="enter"; setText("passTitle",tr("pass_need_title")); setText("passSub",tr("pass_need_sub")); var pi=$("passInput"); if(pi) pi.value=""; setText("passErr", wrong?tr("pass_wrong"):""); if($("passRemove")) $("passRemove").style.display="none"; if($("passSubmit")) $("passSubmit").textContent=tr("join"); if(passModalEl) passModalEl.classList.add("show"); setTimeout(function(){ if($("passInput")) $("passInput").focus(); },60); }
-    function openPassSet(){ passMode="set"; setText("passTitle",tr("pass_set_title")); setText("passSub",tr("pass_set_sub")); var pi=$("passInput"); if(pi) pi.value=""; setText("passErr",""); if($("passRemove")) $("passRemove").style.display=roomHasPass?"":"none"; if($("passSubmit")) $("passSubmit").textContent=tr("save"); if(passModalEl) passModalEl.classList.add("show"); setTimeout(function(){ if($("passInput")) $("passInput").focus(); },60); }
+    function updateHostControls(){ var b=$("roomLockBtn"); if(b){ b.style.display=(isHost&&!shareMode)?"":"none"; var t=$("roomLockTxt"); if(t) t.textContent=tr("room_settings_btn"); } var wb=$("wallLockBtn"); if(wb){ wb.style.display=(isHost&&!shareMode)?"":"none"; var wt=$("wallLockTxt"); if(wt) wt.textContent=tr("room_settings_btn"); } var pk=$("peerKick"); if(pk) pk.style.display=(isHost&&!shareMode)?"":"none"; }
+    function showNameField(on){ if($("passNameField")) $("passNameField").style.display=on?"":"none"; }
+    function openPassEnter(wrong){ passMode="enter"; showNameField(false); setText("passTitle",tr("pass_need_title")); setText("passSub",tr("pass_need_sub")); var pi=$("passInput"); if(pi) pi.value=""; setText("passErr", wrong?tr("pass_wrong"):""); if($("passRemove")) $("passRemove").style.display="none"; if($("passSubmit")) $("passSubmit").textContent=tr("join"); if(passModalEl) passModalEl.classList.add("show"); setTimeout(function(){ if($("passInput")) $("passInput").focus(); },60); }
+    function openRoomSettings(){ passMode="set"; showNameField(true);
+      setText("passTitle",tr("settings_title")); setText("passSub",tr("settings_sub"));
+      setText("passNameLbl",tr("room_name_lbl")); setText("passPassLbl",tr("settings_pass_lbl")); setText("passNameSave",tr("save")); setText("passNameMsg","");
+      var ni=$("passNameInput"); if(ni) ni.value=roomCode||"";
+      var pi=$("passInput"); if(pi) pi.value=""; setText("passErr","");
+      if($("passRemove")) $("passRemove").style.display=roomHasPass?"":"none";
+      if($("passSubmit")) $("passSubmit").textContent=roomHasPass?tr("pass_change"):tr("pass_set_btn");
+      if(passModalEl) passModalEl.classList.add("show");
+    }
+    function submitRename(){
+      var v=($("passNameInput")&&$("passNameInput").value)||"";
+      var slug=v.trim().toLowerCase().replace(/\s+/g,"-").replace(/[^a-z0-9\-_]/g,"").replace(/^-+|-+$/g,"").slice(0,40);
+      if(slug.length<2){ setText("passNameMsg",tr("rename_bad")); return; }
+      if(slug===roomCode){ setText("passNameMsg",""); return; }
+      setText("passNameMsg",tr("rename_saving")); rtSend({ type:"room-rename", code:slug });
+    }
     function passSubmit(){ var v=($("passInput")&&$("passInput").value)||""; if(passMode==="enter"){ if(!v){ setText("passErr",tr("pass_wrong")); return; } roomPass=v; rtSend({ type:"join", room:roomCode, name:myName, peerId:myPeerId, pass:roomPass }); } else { rtSend({ type:"set-pass", password:v }); if(passModalEl) passModalEl.classList.remove("show"); } }
-    if($("roomLockBtn")) $("roomLockBtn").addEventListener("click", openPassSet);
+    if($("roomLockBtn")) $("roomLockBtn").addEventListener("click", openRoomSettings);
+    if($("passNameSave")) $("passNameSave").addEventListener("click", submitRename);
+    if($("passNameInput")) $("passNameInput").addEventListener("keydown", function(e){ if(e.key==="Enter"){ e.preventDefault(); submitRename(); } });
     if($("passSubmit")) $("passSubmit").addEventListener("click", passSubmit);
     if($("passRemove")) $("passRemove").addEventListener("click", function(){ roomPass=""; rtSend({ type:"set-pass", password:"" }); if(passModalEl) passModalEl.classList.remove("show"); });
     if($("passX")) $("passX").addEventListener("click", function(){ if(passModalEl) passModalEl.classList.remove("show"); });
     if($("passInput")) $("passInput").addEventListener("keydown", function(e){ if(e.key==="Enter") passSubmit(); });
+    /* apply a rename pushed by the server: move everyone to the new room name */
+    function applyRename(code){
+      if(!code||code===roomCode) return;
+      var old=roomCode; roomCode=code;
+      try{ params.set("room",code); history.replaceState(null,"",location.pathname+"?"+params.toString()); }catch(e){}
+      shareUrl=location.href; if(linkText) linkText.textContent=shareUrl; if(roomShow) roomShow.textContent=code; updateShareLinks();
+      try{ removeMyRoom(old); }catch(e){} try{ saveMyRoom(code); }catch(e){}
+    }
 
     /* ===================== Feature: persistent memories wall ===================== */
     var hasWall=false, wallPanel=$("wallPanel"), wallLog=$("wallLog"), wallEmpty=$("wallEmpty"), wallText=$("wallText"), wallSend=$("wallSend"), wallClose=$("wallClose"), wallBtn=$("wallBtn"), wallPhotoBtn=$("wallPhotoBtn"), wallFileInput=$("wallFileInput");
@@ -1980,7 +2085,7 @@
       if(navigator.share){ navigator.share({ title:"SameCouch", text:tr("wa_msg"), url:shareUrl }).catch(function(){}); }
       else copyText(shareUrl);
     });
-    if($("wallLockBtn")) $("wallLockBtn").addEventListener("click", function(){ openPassSet(); });
+    if($("wallLockBtn")) $("wallLockBtn").addEventListener("click", function(){ openRoomSettings(); });
     function renderWallCard(it){
       if(!wallStageEl) return; var el;
       if(it.kind==="photo"){ el=document.createElement("div"); el.className="wcard"; var img=document.createElement("img"); img.loading="lazy"; img.decoding="async"; img.alt=""; img.src=it.data; el.appendChild(img); if(it.author){ var c=document.createElement("div"); c.className="cap"; c.textContent=it.author; el.appendChild(c); } el.addEventListener("click", function(){ openLightbox(it.data); }); }
@@ -2060,7 +2165,7 @@
     function blockPeer(){ if(!displayed){ toast(tr("mod_nobody"),3500); return; } var pid=displayed, nm=(peers[pid]&&peers[pid].name)||tr("others"); blockedSet[pid]=1; var p=peers[pid]; if(p&&p.audioEl){ try{ p.audioEl.muted=true; }catch(e){} } removePeer(pid); toast(tr("mod_blocked").replace("{n}",nm),4000); }
     if($("peerKick")) $("peerKick").addEventListener("click", function(e){ e.stopPropagation(); kickPeer(); });
     if($("peerBlock")) $("peerBlock").addEventListener("click", function(e){ e.stopPropagation(); blockPeer(); });
-    function showKickedScreen(){ try{ if(peer) peer.destroy(); }catch(e){} try{ if(rt) rt.close(); }catch(e){} clearPlayers(); if(wallStageEl) wallStageEl.classList.remove("show"); placeholder.style.display=""; placeholder.innerHTML='<div class="ph-card"><p class="kicker">—</p><h2>'+tr("mod_kicked_title")+'</h2><p style="color:#d7cdc3;line-height:1.5;margin:0 0 22px">'+tr("mod_kicked_body")+'</p><a class="btn primary" style="text-decoration:none;display:inline-block" href="'+location.pathname+'">'+tr("new_room")+'</a></div>'; }
+    function showKickedScreen(){ try{ if(peer) peer.destroy(); }catch(e){} try{ if(rt) rt.close(); }catch(e){} clearPlayers(); if(wallStageEl) wallStageEl.classList.remove("show"); placeholder.style.display=""; placeholder.innerHTML='<div class="ph-card"><p class="kicker">—</p><h2>'+tr("mod_kicked_title")+'</h2><p style="color:#d7cdc3;line-height:1.5;margin:0 0 22px">'+tr("mod_kicked_body")+'</p><a class="btn primary" style="text-decoration:none;display:inline-block" href="'+safePath()+'">'+tr("new_room")+'</a></div>'; }
 
     /* translations for all new UI (called from applyLang) */
     function applyLang4(){

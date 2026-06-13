@@ -40,6 +40,13 @@ function makePg() {
     async ensureRoom(code, host) { try { await pool.query("INSERT INTO rooms (code, host, createdat, expiresat) VALUES ($1,$2,$3,$4) ON CONFLICT (code) DO UPDATE SET host = COALESCE(rooms.host, EXCLUDED.host), expiresat = COALESCE(rooms.expiresat, EXCLUDED.expiresat)", [code, host || null, Date.now(), Date.now() + FREE_MS]); } catch (e) {} },
     async setPass(code, passHash) { try { await pool.query("INSERT INTO rooms (code, passhash, createdat, expiresat) VALUES ($1,$2,$3,$4) ON CONFLICT (code) DO UPDATE SET passhash = EXCLUDED.passhash", [code, passHash || null, Date.now(), Date.now() + FREE_MS]); } catch (e) {} },
     async extendRoom(code, addMs) { try { await pool.query("UPDATE rooms SET expiresat = GREATEST(COALESCE(expiresat, $2), $2) + $3 WHERE code=$1", [code, Date.now(), addMs]); } catch (e) {} },
+    async renameRoom(oldCode, newCode) { try {
+        const exists = await pool.query("SELECT 1 FROM rooms WHERE code=$1", [newCode]);
+        if (exists.rows.length) return false;
+        await pool.query("UPDATE rooms SET code=$2 WHERE code=$1", [oldCode, newCode]);
+        await pool.query("UPDATE wall SET room=$2 WHERE room=$1", [oldCode, newCode]);
+        return true;
+      } catch (e) { return false; } },
     async addWall(it) { try {
         await pool.query("INSERT INTO wall (id, room, kind, author, mime, data, ts) VALUES ($1,$2,$3,$4,$5,$6,$7)", [it.id, it.room, it.kind, it.author || null, it.mime || null, it.data || null, it.ts]);
         await pool.query("DELETE FROM wall WHERE id IN (SELECT id FROM wall WHERE room=$1 ORDER BY ts DESC OFFSET $2)", [it.room, WALL_KEEP]);
@@ -70,6 +77,12 @@ function makeSqlite() {
     async ensureRoom(code, host) { try { db.prepare("INSERT INTO rooms (code, host, createdAt, expiresAt) VALUES (?, ?, ?, ?) ON CONFLICT(code) DO UPDATE SET host = COALESCE(rooms.host, excluded.host), expiresAt = COALESCE(rooms.expiresAt, excluded.expiresAt)").run(code, host || null, Date.now(), Date.now() + FREE_MS); } catch (e) {} },
     async setPass(code, passHash) { try { db.prepare("INSERT INTO rooms (code, passHash, createdAt, expiresAt) VALUES (?, ?, ?, ?) ON CONFLICT(code) DO UPDATE SET passHash = excluded.passHash").run(code, passHash || null, Date.now(), Date.now() + FREE_MS); } catch (e) {} },
     async extendRoom(code, addMs) { try { var r = db.prepare("SELECT expiresAt FROM rooms WHERE code=?").get(code); var base = Math.max((r && r.expiresAt) || 0, Date.now()); db.prepare("UPDATE rooms SET expiresAt=? WHERE code=?").run(base + addMs, code); } catch (e) {} },
+    async renameRoom(oldCode, newCode) { try {
+        if (db.prepare("SELECT 1 FROM rooms WHERE code=?").get(newCode)) return false;
+        db.prepare("UPDATE rooms SET code=? WHERE code=?").run(newCode, oldCode);
+        db.prepare("UPDATE wall SET room=? WHERE room=?").run(newCode, oldCode);
+        return true;
+      } catch (e) { return false; } },
     async addWall(it) { try {
         db.prepare("INSERT INTO wall (id, room, kind, author, mime, data, ts) VALUES (?, ?, ?, ?, ?, ?, ?)").run(it.id, it.room, it.kind, it.author || null, it.mime || null, it.data || null, it.ts);
         db.prepare("DELETE FROM wall WHERE id IN (SELECT id FROM wall WHERE room=? ORDER BY ts DESC LIMIT -1 OFFSET ?)").run(it.room, WALL_KEEP);
@@ -94,6 +107,7 @@ module.exports = {
   ensureRoom: (c, h) => impl ? impl.ensureRoom(c, h) : noop(),
   setPass: (c, p) => impl ? impl.setPass(c, p) : noop(),
   extendRoom: (c, ms) => impl && impl.extendRoom ? impl.extendRoom(c, ms) : noop(),
+  renameRoom: (a, b) => impl && impl.renameRoom ? impl.renameRoom(a, b) : Promise.resolve(true),
   addWall: (it) => impl ? impl.addWall(it) : noop(),
   getWall: (c, l) => impl ? impl.getWall(c, l) : Promise.resolve([]),
   pruneExpired: () => impl && impl.pruneExpired ? impl.pruneExpired() : noop()
