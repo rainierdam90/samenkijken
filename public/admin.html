@@ -47,6 +47,16 @@
   .dot{ width:9px; height:9px; border-radius:50%; background:var(--muted) } .dot.ok{ background:var(--good) } .dot.bad{ background:var(--bad) }
   .topbar{ display:flex; justify-content:space-between; align-items:center; margin-bottom:18px; flex-wrap:wrap; gap:10px }
   .note{ font-size:12px; color:var(--muted); margin-top:18px; line-height:1.5; border-top:1px solid var(--line); padding-top:14px }
+  .seclabel{ font-size:14px; margin:0 0 12px; color:var(--muted); font-weight:600; display:flex; align-items:center; gap:10px }
+  .seclabel .sub{ font-weight:400; font-size:12px }
+  .seclabel .ref{ margin-left:auto; cursor:pointer; font-size:12px; font-weight:600; color:var(--amber); background:none; border:1px solid var(--line); border-radius:999px; padding:4px 12px }
+  .vlist{ background:var(--panel); border:1px solid var(--line); border-radius:16px; overflow:hidden; margin-bottom:22px; max-height:420px; overflow-y:auto }
+  .vrow{ display:grid; grid-template-columns:150px 1fr 52px; align-items:center; gap:12px; padding:8px 16px; border-bottom:1px solid rgba(255,255,255,.05) }
+  .vrow:last-child{ border-bottom:none }
+  .vrow .vd{ font-size:12.5px; color:var(--muted) } .vrow .vd b{ color:var(--amber) }
+  .vrow .vbarwrap{ background:var(--panel-2); border-radius:999px; height:10px; overflow:hidden }
+  .vrow .vbar{ height:100%; background:linear-gradient(90deg,var(--amber),var(--amber-2)); border-radius:999px; min-width:3px }
+  .vrow .vn{ text-align:right; font-weight:700; font-size:14px }
 </style>
 </head>
 <body>
@@ -81,6 +91,13 @@
       <div class="card"><div class="n" id="mAvg">0</div><div class="l">Avg. session (min)</div></div>
       <div class="card"><div class="n" id="mShares">0</div><div class="l">Link shares</div></div>
     </div>
+    <div class="seclabel">Unique visitors <span class="sub">per day · counted by IP</span><button class="ref" id="vRefresh">Refresh</button></div>
+    <div class="cards">
+      <div class="card live"><div class="n" id="vToday">0</div><div class="l">Unique visitors today</div></div>
+      <div class="card"><div class="n" id="vYesterday">0</div><div class="l">Yesterday</div></div>
+      <div class="card"><div class="n" id="v7">0</div><div class="l">Last 7 days (sum of daily uniques)</div></div>
+    </div>
+    <div class="vlist" id="visitorsList"><div class="empty">No visitor data yet.</div></div>
     <div class="grid2">
       <div class="pane">
         <h2>Rooms <span class="sub" id="roomsSub">live</span></h2>
@@ -124,9 +141,33 @@
     if(m.type==="admin_ok"){ authed=true; setConn("ok"); showDash(); if(watching){ ws.send(JSON.stringify({ type:"admin_watch", room:watching })); } return; }
     if(m.type==="admin_denied"){ authed=false; $("loginErr").textContent="Wrong password."; try{ sessionStorage.removeItem("wmt_admin_pw"); }catch(e){} try{ ws.close(); }catch(e){} return; }
     if(m.type==="stats"){ renderStats(m); return; }
+    if(m.type==="visitors"){ renderVisitors(m); return; }
     if(m.type==="chatlog"){ if(m.room===watching) renderChatlog(m.messages||[]); return; }
     if(m.type==="chat"){ if(m.room===watching) appendChat(m); return; }
   }
+
+  function dayOffset(today, n){ try{ var d=new Date(today+"T00:00:00Z"); d.setUTCDate(d.getUTCDate()-n); return d.toISOString().slice(0,10); }catch(e){ return ""; } }
+  function fmtDay(s){ try{ var d=new Date(s+"T00:00:00Z"); return d.toLocaleDateString(undefined,{weekday:"short",month:"short",day:"numeric"}); }catch(e){ return s; } }
+  function renderVisitors(v){
+    var days=v.days||[], today=v.today||"";
+    var map={}; days.forEach(function(d){ map[d.day]=d.count; });
+    $("vToday").textContent=map[today]||0;
+    $("vYesterday").textContent=map[dayOffset(today,1)]||0;
+    var sum7=0; for(var i=0;i<7;i++){ sum7+=map[dayOffset(today,i)]||0; }
+    $("v7").textContent=sum7;
+    var box=$("visitorsList");
+    if(!days.length){ box.innerHTML='<div class="empty">No visitor data yet.</div>'; return; }
+    var max=days.reduce(function(a,d){ return Math.max(a,d.count); },1);
+    box.innerHTML="";
+    days.forEach(function(d){
+      var row=document.createElement("div"); row.className="vrow";
+      var lab=document.createElement("div"); lab.className="vd"; lab.innerHTML=escapeHtml(fmtDay(d.day))+(d.day===today?' · <b>today</b>':"");
+      var bw=document.createElement("div"); bw.className="vbarwrap"; var bar=document.createElement("div"); bar.className="vbar"; bar.style.width=Math.round(d.count/max*100)+"%"; bw.appendChild(bar);
+      var n=document.createElement("div"); n.className="vn"; n.textContent=d.count;
+      row.appendChild(lab); row.appendChild(bw); row.appendChild(n); box.appendChild(row);
+    });
+  }
+  function requestVisitors(){ if(ws&&ws.readyState===1&&authed) ws.send(JSON.stringify({ type:"admin_visitors" })); }
 
   function renderStats(s){
     $("cActive").textContent=s.activeConversations||0;
@@ -183,6 +224,8 @@
   function doLogin(){ pw=($("pw").value||"").trim(); if(!pw){ $("loginErr").textContent="Enter the password."; return; } try{ sessionStorage.setItem("wmt_admin_pw",pw); }catch(e){} $("loginErr").textContent=""; connect(); }
   $("loginBtn").addEventListener("click", doLogin);
   $("pw").addEventListener("keydown", function(e){ if(e.key==="Enter") doLogin(); });
+  $("vRefresh").addEventListener("click", requestVisitors);
+  setInterval(requestVisitors, 60000);   // keep the daily-visitors view fresh
   $("signout").addEventListener("click", function(){ authed=false; try{ sessionStorage.removeItem("wmt_admin_pw"); }catch(e){} try{ ws.close(); }catch(e){} location.reload(); });
 
   if(pw){ connect(); } // auto sign-in if password remembered this session

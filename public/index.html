@@ -1455,7 +1455,11 @@
     setInterval(function(){ if(isAuthority&&rtReady&&isSyncable()&&mediaReady()) rtSend({ type:"sync", kind:"heartbeat", time:getTime(), playing:!isPausedMedia() }); },4000);
     var lastPoll={ t:0, time:0, playing:false };
     setInterval(function(){ applyPending(); updateDuck(); if(mode==="youtube"&&mediaReady()&&!applyingRemote){ var nowS=getTime(), playing=!isPausedMedia(), nowMs=Date.now(); if(lastPoll.t){ var dt=(nowMs-lastPoll.t)/1000; var exp=lastPoll.time+(lastPoll.playing?dt:0); if(Math.abs(nowS-exp)>1.2) broadcast("seek"); } lastPoll={ t:nowMs, time:nowS, playing:playing }; } else { lastPoll={ t:Date.now(), time:getTime(), playing:!isPausedMedia() }; } },400);
-    function safePlay(){ if(shareMode||movieErrored){ playgate.hidden=true; return; } var p=movie.play(); if(p&&typeof p.then==="function"){ p.then(function(){ playgate.hidden=true; }).catch(function(){ playgate.hidden=false; }); } }
+    function safePlay(){
+      if(shareMode||movieErrored){ playgate.hidden=true; return; }
+      if(amPresenter()){ playgate.hidden=true; var pp=movie.play&&movie.play(); if(pp&&pp.catch) pp.catch(function(){}); return; }   // the person sharing owns the file + has native controls — never gate them
+      var p=movie.play(); if(p&&typeof p.then==="function"){ p.then(function(){ playgate.hidden=true; }).catch(function(){ playgate.hidden=false; }); }
+    }
     function dismissPlaygate(){ playgate.hidden=true; var p=movie.play&&movie.play(); if(p&&p.catch) p.catch(function(){}); }   // always dismiss on tap; try to play
     playgateBtn.addEventListener("click", function(e){ e.stopPropagation(); dismissPlaygate(); });
     playgate.addEventListener("click", function(e){ if(e.target===playgate) dismissPlaygate(); });   // tap the backdrop to close too
@@ -1681,8 +1685,8 @@
     function swRegisterFile(it){ try{ if(navigator.serviceWorker && navigator.serviceWorker.controller) navigator.serviceWorker.controller.postMessage({type:"register",fileId:it.fileId,size:it.size,mime:it.mime||""}); }catch(e){} }
 
     function amPresenter(){ return !!(gallery && gallery.presenter===myPeerId); }
-    function showImage(url){ clearPlayers(); mode="gallery-image"; currentMedia=null; placeholder.style.display="none"; if(galleryImg){ galleryImg.src=url; galleryImg.style.display="block"; } updateStageChrome(); if(typeof updateRoomView==="function") updateRoomView(); renderCams(); }
-    function showVideoSrc(url){ clearPlayers(); mode="file"; currentMedia={mode:"file",url:url}; placeholder.style.display="none"; movie.style.display="block"; try{ movie.src=url; movie.load(); }catch(e){} updateStageChrome(); if(typeof updateRoomView==="function") updateRoomView(); renderCams(); }
+    function showImage(url){ clearPlayers(); setEmbedUI(false); mode="gallery-image"; currentMedia=null; placeholder.style.display="none"; if(galleryImg){ galleryImg.src=url; galleryImg.style.display="block"; } updateStageChrome(); if(typeof updateRoomView==="function") updateRoomView(); renderCams(); }
+    function showVideoSrc(url){ clearPlayers(); setEmbedUI(false); mode="file"; currentMedia={mode:"file",url:url}; placeholder.style.display="none"; movie.style.display="block"; try{ movie.src=url; movie.load(); }catch(e){} updateStageChrome(); if(typeof updateRoomView==="function") updateRoomView(); renderCams(); }
     function showGalleryItem(fileId){
       if(!gallery) return; var it=null, i;
       for(i=0;i<gallery.items.length;i++){ if(gallery.items[i].fileId===fileId){ it=gallery.items[i]; break; } }

@@ -109,6 +109,7 @@ app.use((req, res, next) => {
   // Full CSP only for top-level documents — API responses are JSON and don't need it.
   if (req.method === "GET" && (req.headers.accept || "").indexOf("text/html") !== -1)
     res.setHeader("Content-Security-Policy", CSP);
+  if (req.method !== "OPTIONS" && req.path !== "/healthz") recordVisit(clientIp(req));   // count unique visitors per day
   next();
 });
 
@@ -150,6 +151,31 @@ const httpLimiter = makeLimiter(RL_HTTP_MAX, RL_HTTP_WINDOW);
 const connLimiter = makeLimiter(RL_CONN_MAX, RL_CONN_WINDOW);
 const ipConns = new Map();   // ip -> live /rt socket count (concurrency cap)
 function tooMany(res) { res.setHeader("Retry-After", "60"); res.status(429).json({ error: "rate_limited" }); }
+
+/* ---- daily unique visitors (counted per IP; we only ever store a salted hash, never the raw IP) ---- */
+const VISIT_SALT = process.env.VISIT_SALT || ADMIN_PASSWORD || "samecouch-visit";
+const dailyVisitors = new Map();   // "YYYY-MM-DD" -> Set(ipHash)   (in-memory mirror; DB is the durable source)
+let visitDay = "";
+function todayStr() { return new Date().toISOString().slice(0, 10); }
+function hashIp(ip, day) { return crypto.createHmac("sha256", VISIT_SALT).update(ip + "|" + day).digest("hex").slice(0, 32); }
+function recordVisit(ip) {
+  if (!ip || ip === "?") return;
+  const day = todayStr();
+  if (day !== visitDay) {                       // new day → keep the in-memory map bounded and prune very old rows
+    visitDay = day;
+    if (dailyVisitors.size > 40) { const keep = new Set([...dailyVisitors.keys()].sort().slice(-35)); dailyVisitors.forEach((v, k) => { if (!keep.has(k)) dailyVisitors.delete(k); }); }
+    store.pruneVisits(new Date(Date.now() - 120 * 86400000).toISOString().slice(0, 10));
+  }
+  const h = hashIp(ip, day);
+  let set = dailyVisitors.get(day); if (!set) { set = new Set(); dailyVisitors.set(day, set); }
+  if (!set.has(h)) { set.add(h); store.recordVisit(day, h); }   // first time we've seen this IP today → persist once
+}
+async function visitorsReport(limit) {
+  if (store.enabled()) { const rows = await store.visitorDays(limit || 30); if (rows && rows.length) return rows; }
+  const arr = []; dailyVisitors.forEach((set, day) => arr.push({ day, count: set.size }));
+  arr.sort((a, b) => (a.day < b.day ? 1 : -1));
+  return arr.slice(0, limit || 30);
+}
 
 /* ---- short-lived TURN credentials (coturn "use-auth-secret" REST scheme) ---- */
 function makeTurnCredentials() {
@@ -418,7 +444,12 @@ wss.on("connection", (ws) => {
         ws._isAdmin = true; ws._adminTries = 0; admins.add(ws);
         sendJSON(ws, { type: "admin_ok" });
         sendJSON(ws, { type: "stats", ...stats() });
+        sendJSON(ws, { type: "visitors", today: todayStr(), days: await visitorsReport(30) });
       } else sendJSON(ws, { type: "admin_denied" });
+      return;
+    }
+    if (ws._isAdmin && m.type === "admin_visitors") {
+      sendJSON(ws, { type: "visitors", today: todayStr(), days: await visitorsReport(30) });
       return;
     }
     if (ws._isAdmin && m.type === "admin_watch") {
@@ -576,6 +607,7 @@ server.on("upgrade", (req, socket, head) => {
   try { pathname = new URL(req.url, "http://x").pathname; } catch (e) {}
   if (pathname === "/rt") {
     const ip = clientIp(req);
+    recordVisit(ip);   // WebSocket upgrades skip Express middleware — count the visitor here too
     if (!connLimiter(ip) || (ipConns.get(ip) || 0) >= RL_CONN_CONCURRENT) {
       try { socket.write("HTTP/1.1 429 Too Many Requests\r\n\r\n"); socket.destroy(); } catch (e) {}
       return;

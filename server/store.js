@@ -29,6 +29,8 @@ function makePg() {
         CREATE TABLE IF NOT EXISTS rooms (code TEXT PRIMARY KEY, passhash TEXT, host TEXT, createdat BIGINT, expiresat BIGINT);
         CREATE TABLE IF NOT EXISTS wall (id TEXT PRIMARY KEY, room TEXT, kind TEXT, author TEXT, mime TEXT, data TEXT, ts BIGINT);
         CREATE INDEX IF NOT EXISTS idx_wall_room ON wall (room, ts);
+        CREATE TABLE IF NOT EXISTS visits (day TEXT, iphash TEXT, PRIMARY KEY (day, iphash));
+        CREATE INDEX IF NOT EXISTS idx_visits_day ON visits (day);
       `);
       try { await pool.query("ALTER TABLE rooms ADD COLUMN IF NOT EXISTS expiresat BIGINT"); } catch (e) {}
       ready = true;
@@ -52,6 +54,9 @@ function makePg() {
         await pool.query("DELETE FROM wall WHERE id IN (SELECT id FROM wall WHERE room=$1 ORDER BY ts DESC OFFSET $2)", [it.room, WALL_KEEP]);
       } catch (e) {} },
     async getWall(code, limit) { try { const r = await pool.query("SELECT id, kind, author, mime, data, ts FROM wall WHERE room=$1 ORDER BY ts ASC LIMIT $2", [code, limit || WALL_KEEP]); return r.rows; } catch (e) { return []; } },
+    async recordVisit(day, ipHash) { try { await pool.query("INSERT INTO visits (day, iphash) VALUES ($1,$2) ON CONFLICT DO NOTHING", [day, ipHash]); } catch (e) {} },
+    async visitorDays(limit) { try { const r = await pool.query("SELECT day, COUNT(*)::int AS n FROM visits GROUP BY day ORDER BY day DESC LIMIT $1", [limit || 30]); return r.rows.map(x => ({ day: x.day, count: Number(x.n) })); } catch (e) { return []; } },
+    async pruneVisits(beforeDay) { try { await pool.query("DELETE FROM visits WHERE day < $1", [beforeDay]); } catch (e) {} },
     async pruneExpired() { try { const now = Date.now(); await pool.query("DELETE FROM wall WHERE room IN (SELECT code FROM rooms WHERE expiresat IS NOT NULL AND expiresat < $1)", [now]); await pool.query("DELETE FROM rooms WHERE expiresat IS NOT NULL AND expiresat < $1", [now]); } catch (e) {} }
   };
 }
@@ -68,6 +73,8 @@ function makeSqlite() {
     CREATE TABLE IF NOT EXISTS rooms (code TEXT PRIMARY KEY, passHash TEXT, host TEXT, createdAt INTEGER, expiresAt INTEGER);
     CREATE TABLE IF NOT EXISTS wall (id TEXT PRIMARY KEY, room TEXT, kind TEXT, author TEXT, mime TEXT, data TEXT, ts INTEGER);
     CREATE INDEX IF NOT EXISTS idx_wall_room ON wall (room, ts);
+    CREATE TABLE IF NOT EXISTS visits (day TEXT, ipHash TEXT, PRIMARY KEY (day, ipHash));
+    CREATE INDEX IF NOT EXISTS idx_visits_day ON visits (day);
   `);
   try { db.exec("ALTER TABLE rooms ADD COLUMN expiresAt INTEGER"); } catch (e) {}   // migrate older DBs (no-op if exists)
   ready = true;
@@ -88,6 +95,9 @@ function makeSqlite() {
         db.prepare("DELETE FROM wall WHERE id IN (SELECT id FROM wall WHERE room=? ORDER BY ts DESC LIMIT -1 OFFSET ?)").run(it.room, WALL_KEEP);
       } catch (e) {} },
     async getWall(code, limit) { try { return db.prepare("SELECT id, kind, author, mime, data, ts FROM wall WHERE room=? ORDER BY ts ASC LIMIT ?").all(code, limit || WALL_KEEP); } catch (e) { return []; } },
+    async recordVisit(day, ipHash) { try { db.prepare("INSERT OR IGNORE INTO visits (day, ipHash) VALUES (?, ?)").run(day, ipHash); } catch (e) {} },
+    async visitorDays(limit) { try { return db.prepare("SELECT day, COUNT(*) AS count FROM visits GROUP BY day ORDER BY day DESC LIMIT ?").all(limit || 30); } catch (e) { return []; } },
+    async pruneVisits(beforeDay) { try { db.prepare("DELETE FROM visits WHERE day < ?").run(beforeDay); } catch (e) {} },
     async pruneExpired() { try { var now = Date.now(); db.prepare("DELETE FROM wall WHERE room IN (SELECT code FROM rooms WHERE expiresAt IS NOT NULL AND expiresAt < ?)").run(now); db.prepare("DELETE FROM rooms WHERE expiresAt IS NOT NULL AND expiresAt < ?").run(now); } catch (e) {} }
   };
 }
@@ -110,5 +120,8 @@ module.exports = {
   renameRoom: (a, b) => impl && impl.renameRoom ? impl.renameRoom(a, b) : Promise.resolve(true),
   addWall: (it) => impl ? impl.addWall(it) : noop(),
   getWall: (c, l) => impl ? impl.getWall(c, l) : Promise.resolve([]),
+  recordVisit: (d, h) => impl && impl.recordVisit ? impl.recordVisit(d, h) : noop(),
+  visitorDays: (n) => impl && impl.visitorDays ? impl.visitorDays(n) : Promise.resolve([]),
+  pruneVisits: (d) => impl && impl.pruneVisits ? impl.pruneVisits(d) : noop(),
   pruneExpired: () => impl && impl.pruneExpired ? impl.pruneExpired() : noop()
 };
