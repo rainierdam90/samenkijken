@@ -566,6 +566,11 @@ wss.on("connection", (ws) => {
       broadcastRoom(r, { type: "talking", from: ws._peerId, on: !!m.on }, ws);
       return;
     }
+    if (m.type === "reneg") {   // a peer asks the caller to re-establish a dropped media connection (clients filter on target)
+      const target = String(m.target || "").slice(0, 64);
+      if (target) broadcastRoom(r, { type: "reneg", from: ws._peerId, target }, ws);
+      return;
+    }
     if (m.type === MSG.VIDEO) {
       const mode = String(m.mode || "").slice(0, 16);
       const url = String(m.url || "").slice(0, 2000);
