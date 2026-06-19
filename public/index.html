@@ -1247,6 +1247,27 @@
       p.call=null;
       try{ var c=peer.call(pid, localStream||new MediaStream()); if(c) wireCall(c); }catch(e){}
     }
+    /* ---- mesh watchdog: makes sure EVERY person in the room actually reaches us. A connection that never
+            completes (missed call, glare, a pair that needs TURN) never fires "failed", so the reactive
+            reconnect above won't catch it — this nudges any peer we still have no video from. ---- */
+    function meshTick(){
+      if(shareMode||!peer||!rtReady) return;
+      var now=Date.now();
+      Object.keys(peers).forEach(function(pid){
+        if(pid===myPeerId) return;
+        var p=peers[pid]; if(!p||p.stream) return;                  // already seeing their video → nothing to do
+        if(!p.since) p.since=now;
+        if(now-p.since<7000) return;                                // give the normal handshake time first
+        var pc=p.call&&p.call.peerConnection, st=pc&&pc.iceConnectionState;
+        if(st==="checking"||st==="connected"||st==="completed") return;   // a live handshake is in progress — leave it
+        var rs=reconnectState[pid]||(reconnectState[pid]={});
+        if(rs.lastMesh && now-rs.lastMesh<9000) return;             // throttle nudges
+        rs.lastMesh=now;
+        if(shouldInitiate(myPeerId,pid)){ refreshIce().then(function(){ reconnectAsInitiator(pid); }); }
+        else rtSend({ type:"reneg", target:pid });                  // ask the caller to (re)establish to us
+      });
+    }
+    setInterval(meshTick, 3000);
     function addPeerStream(pid, stream){
       if(blockedSet&&blockedSet[pid]){ return; }   // locally blocked → ignore their stream
       var p=peers[pid]; if(!p){ p=peers[pid]={ name:"Guest" }; }
