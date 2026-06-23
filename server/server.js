@@ -40,7 +40,16 @@ const CHAT_KEEP = parseInt(process.env.CHAT_KEEP || "300", 10);
 const YT_API_KEY = process.env.YT_API_KEY || "";   // YouTube Data API v3 key — stays server-side, never sent to the browser
 const TURN_USERNAME = process.env.TURN_USERNAME || "";     // static TURN username (managed providers, e.g. Metered/Twilio)
 const TURN_CREDENTIAL = process.env.TURN_CREDENTIAL || ""; // static TURN credential/password
-const HAS_TURN = !!(TURN_URLS.length && (TURN_SECRET || (TURN_USERNAME && TURN_CREDENTIAL)));
+// Optional SECOND TURN provider (reserve, on a DIFFERENT IP/host). A single TURN server can't relay between two of
+// its own relay addresses, so two relay-only peers (e.g. both behind a VPN / symmetric NAT) fail. A reserve relay on
+// a different IP gives ICE a working relay↔relay pair. Same config shapes as the primary (static creds or HMAC secret).
+const TURN2_SECRET = process.env.TURN2_SECRET || "";
+const TURN2_URLS = (process.env.TURN2_URLS || "").split(",").map(s => s.trim()).filter(u => /^(turns?|stun):/i.test(u));
+const TURN2_USERNAME = process.env.TURN2_USERNAME || "";
+const TURN2_CREDENTIAL = process.env.TURN2_CREDENTIAL || "";
+const TURN2_TTL = parseInt(process.env.TURN2_TTL || "3600", 10);
+const HAS_TURN = !!((TURN_URLS.length && (TURN_SECRET || (TURN_USERNAME && TURN_CREDENTIAL))) ||
+                    (TURN2_URLS.length && (TURN2_SECRET || (TURN2_USERNAME && TURN2_CREDENTIAL))));
 
 /* ---- rate limiting (lightweight, in-memory; tune via env, all per-IP unless noted) ----
    Defaults are deliberately generous so shared/CGNAT mobile IPs (common in expat
@@ -178,21 +187,26 @@ async function visitorsReport(limit) {
 }
 
 /* ---- short-lived TURN credentials (coturn "use-auth-secret" REST scheme) ---- */
-function makeTurnCredentials() {
-  const stun = [{ urls: "stun:stun.l.google.com:19302" }, { urls: "stun:stun1.l.google.com:19302" }];
-  if (!TURN_URLS.length) return stun;
-  // Managed providers (Metered/Twilio/etc.) usually give a fixed username + credential.
-  if (TURN_USERNAME && TURN_CREDENTIAL) {
-    return stun.concat([{ urls: TURN_URLS, username: TURN_USERNAME, credential: TURN_CREDENTIAL }]);
-  }
-  // Your own coturn with "use-auth-secret": mint a short-lived HMAC credential.
-  if (TURN_SECRET) {
-    const expiry = Math.floor(Date.now() / 1000) + TURN_TTL;
+// Build one TURN ICE entry: static username+credential (managed providers), or a short-lived HMAC
+// credential for your own coturn ("use-auth-secret"). Returns null when this provider isn't configured.
+function turnEntry(urls, secret, ttl, user, cred) {
+  if (!urls.length) return null;
+  if (user && cred) return { urls, username: user, credential: cred };
+  if (secret) {
+    const expiry = Math.floor(Date.now() / 1000) + ttl;
     const username = expiry + ":" + crypto.randomBytes(6).toString("hex");
-    const credential = crypto.createHmac("sha1", TURN_SECRET).update(username).digest("base64");
-    return stun.concat([{ urls: TURN_URLS, username, credential }]);
+    const credential = crypto.createHmac("sha1", secret).update(username).digest("base64");
+    return { urls, username, credential };
   }
-  return stun;
+  return null;
+}
+function makeTurnCredentials() {
+  const servers = [{ urls: "stun:stun.l.google.com:19302" }, { urls: "stun:stun1.l.google.com:19302" }];
+  const primary = turnEntry(TURN_URLS, TURN_SECRET, TURN_TTL, TURN_USERNAME, TURN_CREDENTIAL);
+  if (primary) servers.push(primary);
+  const reserve = turnEntry(TURN2_URLS, TURN2_SECRET, TURN2_TTL, TURN2_USERNAME, TURN2_CREDENTIAL);   // 2nd relay on a different IP
+  if (reserve) servers.push(reserve);
+  return servers;
 }
 
 app.get("/turn-credentials", (req, res) => {

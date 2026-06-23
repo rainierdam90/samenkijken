@@ -191,6 +191,8 @@ enabled.
 | `TURN_SECRET` | shared secret with coturn | *(none — STUN only)* |
 | `TURN_URLS` | comma-separated TURN URLs | *(none)* |
 | `TURN_TTL` | credential lifetime (seconds) | `3600` |
+| `TURN_USERNAME` / `TURN_CREDENTIAL` | static creds for a managed TURN (instead of `TURN_SECRET`) | *(none)* |
+| `TURN2_URLS` + (`TURN2_USERNAME`/`TURN2_CREDENTIAL` or `TURN2_SECRET`) | reserve TURN on a **different IP** so two relay-only peers (both on VPN/symmetric NAT) can still connect | *(none — reserve disabled)* |
 | `MAX_ROOM` | max people per room | `8` |
 | `CHAT_KEEP` | chat messages kept in memory per room | `300` |
 
