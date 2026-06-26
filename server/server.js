@@ -585,6 +585,10 @@ wss.on("connection", (ws) => {
       if (target) broadcastRoom(r, { type: "reneg", from: ws._peerId, target }, ws);
       return;
     }
+    if (m.type === "screen-start" || m.type === "screen-stop") {   // browse-together: notify the room (the screen itself flows P2P)
+      broadcastRoom(r, { type: m.type, from: ws._peerId }, ws);
+      return;
+    }
     if (m.type === MSG.VIDEO) {
       const mode = String(m.mode || "").slice(0, 16);
       const url = String(m.url || "").slice(0, 2000);
