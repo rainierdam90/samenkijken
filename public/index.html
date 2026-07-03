@@ -300,6 +300,43 @@
   #galleryImg{position:absolute; inset:0; width:100%; height:100%; object-fit:contain; background:#000; display:none; z-index:4}
   #screenVideo{position:absolute; inset:0; width:100%; height:100%; object-fit:contain; background:#000; display:none; z-index:4}
   .btn.on{background:rgba(244,177,74,.18); border-color:rgba(244,177,74,.6); color:var(--amber-2)}
+
+  /* ---- game night: draw & guess ---- */
+  .gamewrap{position:absolute; inset:0; z-index:52; display:none; flex-direction:column; background:rgba(8,7,10,.97); backdrop-filter:blur(6px)}
+  .gamewrap.show{display:flex}
+  .stage.game-on .cams{z-index:53}   /* keep the faces visible over the game board */
+  .g-head{display:flex; align-items:center; gap:11px; padding:9px 14px; border-bottom:1px solid var(--line); flex-wrap:wrap}
+  .g-status{color:var(--muted); font-size:13px}
+  .g-word{font-size:18px; letter-spacing:4px; font-weight:700; color:var(--amber-2); font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
+  .g-timer{font-size:15px; font-weight:700; min-width:40px; text-align:center; padding:3px 9px; border-radius:8px; background:var(--panel-2); border:1px solid var(--line)}
+  .g-scores{margin-left:auto; display:flex; gap:9px; flex-wrap:wrap; font-size:12.5px; color:var(--muted)}
+  .g-scores b{color:var(--txt)}
+  .g-canvas-wrap{flex:1; min-height:0; display:flex; align-items:center; justify-content:center; padding:10px; position:relative}
+  #gameCanvas{background:#fdfaf4; border-radius:12px; box-shadow:var(--shadow); max-width:100%; max-height:100%; touch-action:none}
+  .gamewrap.drawer #gameCanvas{cursor:crosshair}
+  .g-tools{display:none; align-items:center; gap:7px; padding:8px 14px; border-top:1px solid var(--line); flex-wrap:wrap}
+  .gamewrap.drawer .g-tools{display:flex}
+  .g-color{width:26px; height:26px; border-radius:50%; border:2px solid transparent; cursor:pointer; padding:0}
+  .g-color.cur{border-color:#fff; box-shadow:0 0 0 2px var(--amber)}
+  .g-guess{display:flex; gap:8px; padding:8px 14px; border-top:1px solid var(--line)}
+  .gamewrap.drawer .g-guess{display:none}
+  .g-guess input{flex:1; min-width:0; background:var(--bg); border:1px solid var(--line); color:var(--txt); border-radius:11px; padding:10px 13px; font-size:15px; font-family:inherit}
+  .g-pick{position:absolute; inset:0; z-index:3; display:none; flex-direction:column; align-items:center; justify-content:center; gap:16px; padding:20px; text-align:center; background:rgba(8,7,10,.92)}
+  .g-pick.show{display:flex}
+  .g-pick .btn{font-size:17px; padding:13px 26px}
+
+  /* ---- room ambiance themes: accent colors + background mood (host picks in room settings) ---- */
+  body.theme-party{--amber:#ff6fae; --amber-2:#ffc2dd;
+    background:radial-gradient(1200px 700px at 50% -120px, rgba(255,111,174,.13), transparent 60%),radial-gradient(900px 600px at 90% 110%, rgba(140,90,220,.12), transparent 60%), #0b0a0c}
+  body.theme-cinema{--amber:#8f7bff; --amber-2:#c9bfff;
+    background:radial-gradient(1200px 700px at 50% -120px, rgba(102,80,220,.15), transparent 60%),radial-gradient(900px 600px at 90% 110%, rgba(30,24,70,.25), transparent 60%), #070609}
+  body.theme-summer{--amber:#38c6a2; --amber-2:#9df0d9;
+    background:radial-gradient(1200px 700px at 50% -120px, rgba(56,198,162,.13), transparent 60%),radial-gradient(900px 600px at 90% 110%, rgba(240,170,80,.10), transparent 60%), #0a0c0b}
+  body.theme-winter{--amber:#7cc7ff; --amber-2:#d2ecff;
+    background:radial-gradient(1200px 700px at 50% -120px, rgba(124,199,255,.12), transparent 60%),radial-gradient(900px 600px at 90% 110%, rgba(90,120,200,.10), transparent 60%), #090a0d}
+  .theme-row{display:flex; gap:9px; margin:2px 0 6px; flex-wrap:wrap}
+  .theme-sw{width:36px; height:36px; border-radius:50%; cursor:pointer; border:2px solid transparent; padding:0; font-size:16px; display:grid; place-items:center}
+  .theme-sw.cur{border-color:#fff; box-shadow:0 0 0 2px var(--amber)}
   .sharebar{position:absolute; left:50%; transform:translateX(-50%); bottom:84px; z-index:40; display:none; align-items:center; gap:8px; max-width:94vw; padding:8px 10px; border-radius:14px; background:rgba(20,16,24,.92); border:1px solid var(--line); backdrop-filter:blur(10px); box-shadow:var(--shadow)}
   .sharebar.show{display:flex}
   .gstrip{display:flex; gap:6px; overflow-x:auto; max-width:58vw; padding:2px}
@@ -659,6 +696,7 @@
         <div class="emojibar" id="emojibar"></div>
       </div>
       <button class="fbtn" id="clipBtn" title="Capture a clip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/><circle cx="8.5" cy="12" r="2.6" fill="currentColor" stroke="none"/></svg></button>
+      <button class="fbtn" id="gameBtn" title="Game night" style="font-size:19px;line-height:1">🎲</button>
       <button class="fbtn" id="wallBtn" title="Memories wall" style="display:none"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.8"/><path d="M21 15l-5-5L5 21"/></svg></button>
       <button class="fbtn" id="chatBtn" title="Show/hide chat"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg></button>
       <button class="fbtn" id="fsBtn" title="Fullscreen"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M21 8V5a2 2 0 0 0-2-2h-3"/><path d="M3 16v3a2 2 0 0 0 2 2h3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/></svg></button>
@@ -669,6 +707,23 @@
       <div class="gnav" id="gnav" style="display:none"><button class="gbtn" id="gPrev" title="Previous">&#8249;</button><button class="gbtn" id="gNext" title="Next">&#8250;</button></div>
       <div class="gstrip" id="gstrip"></div>
       <button class="btn" id="gStop" style="display:none">Stop</button>
+    </div>
+
+    <div class="gamewrap" id="gamewrap">
+      <div class="g-head">
+        <span style="font-size:18px" aria-hidden="true">🎲</span>
+        <span class="g-status" id="gStatus"></span>
+        <span class="g-word" id="gWordEl"></span>
+        <span class="g-timer" id="gTimerEl">–</span>
+        <div class="g-scores" id="gScores"></div>
+        <button class="btn" id="gQuit">Stop</button>
+      </div>
+      <div class="g-canvas-wrap">
+        <canvas id="gameCanvas" width="880" height="550"></canvas>
+        <div class="g-pick" id="gPick"><div id="gPickTitle" style="font-size:16px;color:var(--muted)">Choose a word to draw</div><div style="display:flex;gap:12px;flex-wrap:wrap;justify-content:center" id="gPickBtns"></div></div>
+      </div>
+      <div class="g-tools" id="gTools"></div>
+      <div class="g-guess"><input id="gGuessInput" maxlength="60" autocomplete="off" placeholder="Type your guess…" /><button class="btn primary" id="gGuessBtn">Guess</button></div>
     </div>
 
     <div class="reactions-layer" id="reactionsLayer" aria-hidden="true"></div>
@@ -844,7 +899,9 @@
         <div style="font-size:12px;letter-spacing:1px;text-transform:uppercase;color:var(--muted);margin:4px 0 7px" id="passNameLbl">Room name</div>
         <div class="pick-row"><input id="passNameInput" type="text" maxlength="40" autocomplete="off" placeholder="our-living-room" /><button class="btn primary" id="passNameSave">Save</button></div>
         <div id="passNameMsg" style="font-size:13px;min-height:18px;margin:6px 0 2px;color:var(--muted)"></div>
-        <hr style="border:none;border-top:1px solid var(--line);margin:16px 0 14px" />
+        <div style="font-size:12px;letter-spacing:1px;text-transform:uppercase;color:var(--muted);margin:2px 0 7px" id="themeLbl">Ambiance</div>
+        <div class="theme-row" id="themeRow"></div>
+        <hr style="border:none;border-top:1px solid var(--line);margin:12px 0 14px" />
         <div style="font-size:12px;letter-spacing:1px;text-transform:uppercase;color:var(--muted);margin:0 0 7px" id="passPassLbl">Password</div>
       </div>
 
@@ -1031,8 +1088,8 @@
     };
     Object.keys(NOTIFYCOPY).forEach(function(k){ if(I18N[k]) Object.keys(NOTIFYCOPY[k]).forEach(function(j){ I18N[k][j]=NOTIFYCOPY[k][j]; }); });
     var PASSCOPY = {
-      en:{save:"Save",pass_set_btn:"Set a room password",pass_change:"Change room password",pass_set_title:"Set a room password",pass_set_sub:"Only people with the password can join your room.",pass_need_title:"Password required",pass_need_sub:"This room is protected. Enter the password to join.",pass_wrong:"Wrong password — try again.",pass_on:"Room locked 🔒 — only people with the password can join.",pass_off:"Password removed — the room is open.",pass_denied:"Only the host can change the password.",pass_locked:"locked the room 🔒",pass_unlocked:"removed the password",settings_title:"Room settings",settings_sub:"Change your room name or set a password.",room_name_lbl:"Room name",settings_pass_lbl:"Password",rename_bad:"Pick a name with at least 2 letters.",rename_taken:"That name is taken — try another.",rename_saving:"Saving…",rename_ok:"",rename_done:"Room name updated ✓",room_settings_btn:"Room settings",screen_btn:"Browse together",screen_stop:"Stop sharing",screen_on:"You're sharing your screen — the others can watch along.",screen_off:"You stopped sharing your screen.",screen_started:"is sharing their screen 🖥️",screen_unsupported:"Screen sharing isn't supported on this device. On a phone, use 📷 Share instead."},
-      nl:{save:"Opslaan",pass_set_btn:"Wachtwoord instellen",pass_change:"Wachtwoord wijzigen",pass_set_title:"Stel een kamerwachtwoord in",pass_set_sub:"Alleen mensen met het wachtwoord kunnen je kamer binnen.",pass_need_title:"Wachtwoord vereist",pass_need_sub:"Deze kamer is beveiligd. Vul het wachtwoord in om mee te doen.",pass_wrong:"Onjuist wachtwoord — probeer opnieuw.",pass_on:"Kamer vergrendeld 🔒 — alleen met wachtwoord toegang.",pass_off:"Wachtwoord verwijderd — de kamer is open.",pass_denied:"Alleen de host kan het wachtwoord wijzigen.",pass_locked:"heeft de kamer vergrendeld 🔒",pass_unlocked:"heeft het wachtwoord verwijderd",settings_title:"Kamerinstellingen",settings_sub:"Wijzig je kamernaam of stel een wachtwoord in.",room_name_lbl:"Kamernaam",settings_pass_lbl:"Wachtwoord",rename_bad:"Kies een naam van minstens 2 letters.",rename_taken:"Die naam is al bezet — kies een andere.",rename_saving:"Opslaan…",rename_ok:"",rename_done:"Kamernaam gewijzigd ✓",room_settings_btn:"Kamerinstellingen",screen_btn:"Samen browsen",screen_stop:"Stop delen",screen_on:"Je deelt je scherm — de anderen kijken mee.",screen_off:"Je bent gestopt met scherm delen.",screen_started:"deelt zijn scherm 🖥️",screen_unsupported:"Scherm delen wordt niet ondersteund op dit apparaat. Gebruik op een telefoon 📷 Delen."},
+      en:{save:"Save",pass_set_btn:"Set a room password",pass_change:"Change room password",pass_set_title:"Set a room password",pass_set_sub:"Only people with the password can join your room.",pass_need_title:"Password required",pass_need_sub:"This room is protected. Enter the password to join.",pass_wrong:"Wrong password — try again.",pass_on:"Room locked 🔒 — only people with the password can join.",pass_off:"Password removed — the room is open.",pass_denied:"Only the host can change the password.",pass_locked:"locked the room 🔒",pass_unlocked:"removed the password",settings_title:"Room settings",settings_sub:"Change your room name or set a password.",room_name_lbl:"Room name",settings_pass_lbl:"Password",rename_bad:"Pick a name with at least 2 letters.",rename_taken:"That name is taken — try another.",rename_saving:"Saving…",rename_ok:"",rename_done:"Room name updated ✓",room_settings_btn:"Room settings",screen_btn:"Browse together",screen_stop:"Stop sharing",screen_on:"You're sharing your screen — the others can watch along.",screen_off:"You stopped sharing your screen.",screen_started:"is sharing their screen 🖥️",screen_unsupported:"Screen sharing isn't supported on this device. On a phone, use 📷 Share instead.",g_btn:"Game night — draw & guess",g_pick:"Choose a word to draw",g_you_draw:"Draw:",g_other_draws:"{n} is drawing — guess the word!",g_choosing:"{n} is choosing a word…",g_guess_ph:"Type your guess…",g_guess:"Guess",g_correct:"{n} guessed it: {w}! 🎉",g_timeup:"Time's up! The word was: {w}",g_stop:"Stop game",g_clear:"Clear",g_wait_peer:"Wait until someone joins you, then start the game.",g_started:"{n} started a drawing game — guess along! 🎲",g_ended:"Game over — final scores in chat 🎲",theme_lbl:"Ambiance",theme_set:"set the mood to",theme_classic:"Cozy",theme_party:"Party",theme_cinema:"Cinema",theme_summer:"Summer",theme_winter:"Winter"},
+      nl:{save:"Opslaan",pass_set_btn:"Wachtwoord instellen",pass_change:"Wachtwoord wijzigen",pass_set_title:"Stel een kamerwachtwoord in",pass_set_sub:"Alleen mensen met het wachtwoord kunnen je kamer binnen.",pass_need_title:"Wachtwoord vereist",pass_need_sub:"Deze kamer is beveiligd. Vul het wachtwoord in om mee te doen.",pass_wrong:"Onjuist wachtwoord — probeer opnieuw.",pass_on:"Kamer vergrendeld 🔒 — alleen met wachtwoord toegang.",pass_off:"Wachtwoord verwijderd — de kamer is open.",pass_denied:"Alleen de host kan het wachtwoord wijzigen.",pass_locked:"heeft de kamer vergrendeld 🔒",pass_unlocked:"heeft het wachtwoord verwijderd",settings_title:"Kamerinstellingen",settings_sub:"Wijzig je kamernaam of stel een wachtwoord in.",room_name_lbl:"Kamernaam",settings_pass_lbl:"Wachtwoord",rename_bad:"Kies een naam van minstens 2 letters.",rename_taken:"Die naam is al bezet — kies een andere.",rename_saving:"Opslaan…",rename_ok:"",rename_done:"Kamernaam gewijzigd ✓",room_settings_btn:"Kamerinstellingen",screen_btn:"Samen browsen",screen_stop:"Stop delen",screen_on:"Je deelt je scherm — de anderen kijken mee.",screen_off:"Je bent gestopt met scherm delen.",screen_started:"deelt zijn scherm 🖥️",screen_unsupported:"Scherm delen wordt niet ondersteund op dit apparaat. Gebruik op een telefoon 📷 Delen.",g_btn:"Spelletjesavond — tekenen & raden",g_pick:"Kies een woord om te tekenen",g_you_draw:"Teken:",g_other_draws:"{n} tekent — raad het woord!",g_choosing:"{n} kiest een woord…",g_guess_ph:"Typ je gok…",g_guess:"Raad",g_correct:"{n} heeft het geraden: {w}! 🎉",g_timeup:"Tijd is om! Het woord was: {w}",g_stop:"Stop spel",g_clear:"Wissen",g_wait_peer:"Wacht tot er iemand bij je is, start dan het spel.",g_started:"{n} is een tekenspel begonnen — raad mee! 🎲",g_ended:"Spel afgelopen — eindstand in de chat 🎲",theme_lbl:"Sfeer",theme_set:"zette de sfeer op",theme_classic:"Knus",theme_party:"Feest",theme_cinema:"Bioscoop",theme_summer:"Zomer",theme_winter:"Winter"},
       de:{save:"Speichern",pass_set_btn:"Raumpasswort festlegen",pass_change:"Passwort ändern",pass_set_title:"Raumpasswort festlegen",pass_set_sub:"Nur Personen mit dem Passwort können beitreten.",pass_need_title:"Passwort erforderlich",pass_need_sub:"Dieser Raum ist geschützt. Gib das Passwort ein.",pass_wrong:"Falsches Passwort — versuch es erneut.",pass_on:"Raum gesperrt 🔒",pass_off:"Passwort entfernt — der Raum ist offen.",pass_denied:"Nur der Host kann das Passwort ändern.",pass_locked:"hat den Raum gesperrt 🔒",pass_unlocked:"hat das Passwort entfernt"},
       fr:{save:"Enregistrer",pass_set_btn:"Définir un mot de passe",pass_change:"Changer le mot de passe",pass_set_title:"Définir un mot de passe",pass_set_sub:"Seules les personnes avec le mot de passe peuvent rejoindre.",pass_need_title:"Mot de passe requis",pass_need_sub:"Ce salon est protégé. Entre le mot de passe.",pass_wrong:"Mot de passe incorrect — réessaie.",pass_on:"Salon verrouillé 🔒",pass_off:"Mot de passe retiré — le salon est ouvert.",pass_denied:"Seul l'hôte peut changer le mot de passe.",pass_locked:"a verrouillé le salon 🔒",pass_unlocked:"a retiré le mot de passe"},
       es:{save:"Guardar",pass_set_btn:"Poner contraseña",pass_change:"Cambiar contraseña",pass_set_title:"Poner contraseña a la sala",pass_set_sub:"Solo quien tenga la contraseña puede entrar.",pass_need_title:"Contraseña requerida",pass_need_sub:"Esta sala está protegida. Introduce la contraseña.",pass_wrong:"Contraseña incorrecta — inténtalo de nuevo.",pass_on:"Sala bloqueada 🔒",pass_off:"Contraseña eliminada — la sala está abierta.",pass_denied:"Solo el anfitrión puede cambiar la contraseña.",pass_locked:"bloqueó la sala 🔒",pass_unlocked:"quitó la contraseña"},
@@ -1113,6 +1170,7 @@
       setTitle("micBtn",tr("t_mic")); setTitle("camBtn",tr("t_cam")); setTitle("volBtn",tr("vol")); setTitle("chatBtn",tr("t_chat")); setTitle("fsBtn",tr("t_fs")); setTitle("dbgBtn",tr("t_diag")); setTitle("browseBtn",tr("t_browse"));
       setText("shareMediaBtn","\uD83D\uDCF7 "+tr("share_media")); setTitle("shareMediaBtn",tr("share_media")); setText("gStop",tr("stop_share"));
       if(typeof updateScreenBtn==="function") updateScreenBtn();
+      if(typeof applyLangGame==="function") applyLangGame();
       setText("ytbTitle",tr("yt_title")); setPh("ytQuery",tr("yt_ph")); setText("ytSearchBtn",tr("yt_search")); setText("ytOpen",tr("open_yt")); if($("ytbMsg")&&!ytbSearched) $("ytbMsg").textContent=tr("yt_hint");
       if(typeof applyLang4==="function") applyLang4();
       updateShareLinks();
@@ -1408,6 +1466,7 @@
         case "roster":
           joined=true; if(m.you&&m.you.name) myName=m.you.name;
           hideConnecting(); isHost=!!m.host; roomHasPass=!!m.hasPass; if(passModalEl) passModalEl.classList.remove("show"); updateHostControls(); if(hasWall) fetchWall(); roomExpiresAt=m.expiresAt||0; maybeShowExpiryBanner();
+          if(typeof applyTheme==="function" && (m.theme||curTheme!=="classic")) applyTheme(m.theme||"classic");
           (m.peers||[]).forEach(function(pp){ if(pp.peerId===myPeerId) return; peers[pp.peerId]=peers[pp.peerId]||{}; peers[pp.peerId].name=pp.name||"Guest"; if(shouldInitiate(myPeerId,pp.peerId)) callPeer(pp.peerId); });
           recomputeAuthority(); updatePresenceStatus(); renderCams();
           if(isAuthority&&currentMedia){ rtSend({ type:"video", mode:currentMedia.mode, url:currentMedia.url, id:currentMedia.id }); }
@@ -1426,8 +1485,10 @@
           recomputeAuthority(); updatePresenceStatus(); renderCams();
           if(isAuthority&&currentMedia){ rtSend({ type:"video", mode:currentMedia.mode, url:currentMedia.url, id:currentMedia.id }); if(mode==="file"||mode==="youtube") rtSend({ type:"sync", kind:isPausedMedia()?"pause":"play", time:getTime() }); }
           break;
-        case "peer-left": if(peers[m.peerId]) { if(peers[m.peerId].name) toast(peers[m.peerId].name+" left."); } removePeer(m.peerId); break;
-        case "chat": if(typeof m.text==="string") receiveChat(m.from||tr("others"), m.text); break;
+        case "peer-left": if(peers[m.peerId]) { if(peers[m.peerId].name) toast(peers[m.peerId].name+" left."); } removePeer(m.peerId); if(typeof gameOnPeerLeft==="function") gameOnPeerLeft(m.peerId); break;
+        case "chat": if(typeof m.text==="string"){ receiveChat(m.from||tr("others"), m.text); if(typeof gameChatCheck==="function") gameChatCheck(m.peerId, m.from, m.text); } break;
+        case "theme": if(typeof applyTheme==="function"){ applyTheme(m.theme); toast((m.by||tr("others"))+" "+tr("theme_set")+" "+tr("theme_"+(THEMES[m.theme]?m.theme:"classic"))+" "+(THEMES[m.theme]?THEMES[m.theme].e:""),4500); } break;
+        case "game": if(typeof gameRT==="function") gameRT(m); break;
         case "sync": if(m.kind==="countdown"){ runCountdown(m.time||3); } else { applyRemote(m); } break;
         case "talking": setPeerTalking(m.from, !!m.on); break;
         case "reaction": if(typeof m.emoji==="string") spawnReaction(m.emoji, m.name||""); break;
@@ -1817,6 +1878,7 @@
     function dsend(pid,obj){ var c=ensureData(pid); if(!c) return; if(c.open){ try{ c.send(obj); }catch(e){} } else { c.on("open", function(){ try{ c.send(obj); }catch(e){} }); } }
     function onData(pid,d){
       if(!d||typeof d!=="object") return;
+      if(d.t==="draw"||d.t==="draw-clear"){ if(typeof gameData==="function") gameData(pid,d); return; }
       if(d.t==="range-req"){
         var f=myFiles[d.fileId];
         if(!f){ dsend(pid,{t:"range-data",reqId:d.reqId,err:true}); return; }
@@ -1967,6 +2029,217 @@
       return false;
     }
     if(screenBtn){ if(!screenSupported()) screenBtn.style.display="none"; screenBtn.addEventListener("click", function(){ if(screenStream) stopScreenShare(); else startScreenShare(); }); }
+
+    /* ===================== Room ambiance themes (host picks, whole room follows) ===================== */
+    var THEMES={ classic:{e:"🛋️",sw:"#f4b14a"}, party:{e:"🎉",sw:"#ff6fae",amb:["🎈","🎊","✨"]}, cinema:{e:"🎬",sw:"#8f7bff"}, summer:{e:"🌴",sw:"#38c6a2",amb:["🌞","🌊"]}, winter:{e:"❄️",sw:"#7cc7ff",amb:["❄️","✨"]} };
+    var curTheme="classic", ambTimer=null;
+    function applyTheme(id){
+      if(!THEMES[id]) id="classic";
+      curTheme=id;
+      Object.keys(THEMES).forEach(function(k){ document.body.classList.remove("theme-"+k); });
+      if(id!=="classic") document.body.classList.add("theme-"+id);
+      clearInterval(ambTimer); ambTimer=null;
+      var amb=THEMES[id].amb, reduce=window.matchMedia&&window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      if(amb&&!reduce) ambTimer=setInterval(function(){ if(!document.hidden) spawnReaction(amb[Math.floor(Math.random()*amb.length)],""); },2800);
+      renderThemeRow();
+    }
+    function renderThemeRow(){
+      var row=$("themeRow"); if(!row) return; row.innerHTML="";
+      Object.keys(THEMES).forEach(function(id){
+        var b=document.createElement("button"); b.type="button"; b.className="theme-sw"+(curTheme===id?" cur":"");
+        b.style.background=THEMES[id].sw; b.textContent=THEMES[id].e; b.title=tr("theme_"+id);
+        b.addEventListener("click", function(){ applyTheme(id); rtSend({ type:"set-theme", theme:id }); });
+        row.appendChild(b);
+      });
+    }
+
+    /* ===================== Game night: draw & guess (control via /rt, strokes P2P) ===================== */
+    var GAME_WORDS={
+      en:["house","cat","sun","pizza","bicycle","tree","phone","fish","car","banana","glasses","hat","dog","flower","star","bridge","train","shoe","apple","clock","rain","beach","camel","mosque","tent","kite","camera","guitar","rocket","snowman","butterfly","elephant","ice cream","football","crown","candle","ladder","umbrella","whale","robot","cactus","airplane","boat","moon","cheese","spider","doctor","teacher","dance","sleep","swim","selfie","tea","coffee","suitcase","passport","palm tree","mountain","couch","rainbow"],
+      nl:["huis","kat","zon","pizza","fiets","boom","telefoon","vis","auto","banaan","bril","hoed","hond","bloem","ster","brug","trein","schoen","appel","klok","regen","strand","kameel","moskee","tent","vlieger","camera","gitaar","raket","sneeuwpop","vlinder","olifant","ijsje","voetbal","kroon","kaars","ladder","paraplu","walvis","robot","cactus","vliegtuig","boot","maan","kaas","spin","dokter","juf","dansen","slapen","zwemmen","selfie","thee","koffie","koffer","paspoort","palmboom","berg","bank","regenboog"]
+    };
+    var game=null;   // { active, drawer, word, wordRaw, len, endsAt, scores:{pid:n}, round }
+    var gamewrapEl=$("gamewrap"), gCanvas=$("gameCanvas"), gCtx=gCanvas?gCanvas.getContext("2d"):null;
+    var gColor="#1c1c28", gSize=5, gDrawing=false, gLast=null, gBuf=[], gFlushTimer=null, gTickIv=null;
+    var GAME_ROUND_MS=75000;
+    function gameSend(data){ rtSend({ type:"game", data:data }); }
+    function roomIds(){ var ids=Object.keys(peers).slice(); ids.push(myPeerId); return ids.filter(function(v,i,a){ return v&&a.indexOf(v)===i; }).sort(); }
+    function gName(pid){ return pid===myPeerId?(myName||tr("you")):((peers[pid]&&peers[pid].name)||tr("others")); }
+    function normWord(s){ return String(s||"").toLowerCase().trim().replace(/\s+/g," ").normalize("NFD").replace(/[̀-ͯ]/g,""); }
+    function amDrawer(){ return !!(game&&game.active&&game.drawer===myPeerId); }
+    function openGameUI(){ if(gamewrapEl){ gamewrapEl.classList.add("show"); } if(stage) stage.classList.add("game-on"); buildGameTools(); }
+    function closeGameUI(){ if(gamewrapEl) gamewrapEl.classList.remove("show"); if(stage) stage.classList.remove("game-on"); clearInterval(gTickIv); gTickIv=null; }
+    function clearGCanvas(){ if(gCtx) gCtx.clearRect(0,0,gCanvas.width,gCanvas.height); }
+    function buildGameTools(){
+      var t=$("gTools"); if(!t||t.childNodes.length) return;
+      ["#1c1c28","#e8736b","#3d7bd9","#3aa860","#f4b14a","#8f5fd8","#fdfaf4"].forEach(function(c,i){
+        var b=document.createElement("button"); b.type="button"; b.className="g-color"+(i===0?" cur":""); b.style.background=c; if(c==="#fdfaf4"){ b.textContent="🧽"; b.style.fontSize="13px"; }
+        b.addEventListener("click", function(){ gColor=c; gSize=(c==="#fdfaf4")?22:5; t.querySelectorAll(".g-color").forEach(function(x){ x.classList.remove("cur"); }); b.classList.add("cur"); });
+        t.appendChild(b);
+      });
+      var clr=document.createElement("button"); clr.className="btn"; clr.id="gClearBtn"; clr.textContent=tr("g_clear");
+      clr.addEventListener("click", function(){ if(!amDrawer()) return; clearGCanvas(); Object.keys(peers).forEach(function(pid){ dsend(pid,{t:"draw-clear"}); }); });
+      t.appendChild(clr);
+    }
+    function drawSegLocal(seg){
+      if(!gCtx||!seg||!seg.p||seg.p.length<2) return;
+      gCtx.strokeStyle=seg.c; gCtx.lineWidth=seg.w; gCtx.lineCap="round"; gCtx.lineJoin="round";
+      gCtx.beginPath(); gCtx.moveTo(seg.p[0][0]*gCanvas.width, seg.p[0][1]*gCanvas.height);
+      for(var i=1;i<seg.p.length;i++) gCtx.lineTo(seg.p[i][0]*gCanvas.width, seg.p[i][1]*gCanvas.height);
+      gCtx.stroke();
+    }
+    function gFlush(){
+      if(gBuf.length<2){ return; }
+      var seg={ c:gColor, w:gSize, p:gBuf };
+      Object.keys(peers).forEach(function(pid){ dsend(pid,{t:"draw",s:seg}); });
+      gBuf=[gBuf[gBuf.length-1]];   // keep the last point so lines stay connected across batches
+    }
+    function gPoint(e){ var r=gCanvas.getBoundingClientRect(); return [Math.round((e.clientX-r.left)/r.width*1000)/1000, Math.round((e.clientY-r.top)/r.height*1000)/1000]; }
+    if(gCanvas){
+      gCanvas.addEventListener("pointerdown", function(e){ if(!amDrawer()) return; e.preventDefault(); try{ gCanvas.setPointerCapture(e.pointerId); }catch(_){} gDrawing=true; gLast=gPoint(e); gBuf=[gLast]; });
+      gCanvas.addEventListener("pointermove", function(e){ if(!gDrawing||!amDrawer()) return; e.preventDefault(); var pt=gPoint(e); drawSegLocal({c:gColor,w:gSize,p:[gLast,pt]}); gLast=pt; gBuf.push(pt); if(gBuf.length>=14) gFlush(); });
+      function gUp(e){ if(!gDrawing) return; gDrawing=false; gFlush(); gBuf=[]; }
+      gCanvas.addEventListener("pointerup", gUp); gCanvas.addEventListener("pointercancel", gUp);
+      gFlushTimer=setInterval(function(){ if(gDrawing) gFlush(); },80);
+    }
+    function gameData(pid,d){   // strokes arriving over the P2P data channel
+      if(!game||!game.active||pid!==game.drawer) return;
+      if(d.t==="draw") drawSegLocal(d.s);
+      else if(d.t==="draw-clear") clearGCanvas();
+    }
+    function renderGScores(){
+      var el=$("gScores"); if(!el||!game) return; el.innerHTML="";
+      Object.keys(game.scores).sort(function(a,b){ return game.scores[b]-game.scores[a]; }).forEach(function(pid){
+        var s=document.createElement("span"); var b=document.createElement("b"); b.textContent=gName(pid); s.appendChild(b); s.appendChild(document.createTextNode(" "+game.scores[pid])); el.appendChild(s);
+      });
+    }
+    function gStatus(txt){ setText("gStatus",txt); }
+    function gShowWord(){
+      var el=$("gWordEl"); if(!el||!game) return;
+      if(amDrawer()&&game.wordRaw) el.textContent=game.wordRaw;
+      else if(game.len){ var m=[]; for(var i=0;i<game.len;i++) m.push("▁"); el.textContent=m.join(" "); }
+      else el.textContent="";
+    }
+    function gStartTick(){
+      clearInterval(gTickIv);
+      gTickIv=setInterval(function(){
+        if(!game||!game.endsAt){ setText("gTimerEl","–"); return; }
+        var left=Math.max(0,Math.ceil((game.endsAt-Date.now())/1000));
+        setText("gTimerEl",String(left));
+        if(left<=0 && amDrawer() && game.wordRaw){ var w=game.wordRaw; game.word=null; gameSend({a:"timeout",w:w}); gTimeout(w); }
+      },400);
+    }
+    function showWordPick(){
+      var list=GAME_WORDS[lang]||GAME_WORDS.en, opts=[], used={};
+      while(opts.length<3){ var w=list[Math.floor(Math.random()*list.length)]; if(!used[w]){ used[w]=1; opts.push(w); } }
+      var box=$("gPickBtns"); if(box){ box.innerHTML=""; opts.forEach(function(w){
+        var b=document.createElement("button"); b.className="btn primary"; b.textContent=w;
+        b.addEventListener("click", function(){
+          game.wordRaw=w; game.word=normWord(w); game.len=w.length; game.endsAt=Date.now()+GAME_ROUND_MS;
+          if($("gPick")) $("gPick").classList.remove("show");
+          gameSend({a:"round", len:w.length, endsAt:game.endsAt});
+          beginRoundUI();
+        });
+        box.appendChild(b);
+      }); }
+      setText("gPickTitle",tr("g_pick"));
+      if($("gPick")) $("gPick").classList.add("show");
+    }
+    function beginRoundUI(){
+      clearGCanvas();
+      if(gamewrapEl) gamewrapEl.classList.toggle("drawer", amDrawer());
+      gStatus(amDrawer()?tr("g_you_draw"):tr("g_other_draws").replace("{n}",gName(game.drawer)));
+      gShowWord(); renderGScores(); gStartTick();
+    }
+    function advanceTurn(){
+      if(!game||!game.active) return;
+      var ids=roomIds(); if(ids.length<2){ endGame(false); return; }
+      var i=ids.indexOf(game.drawer); game.drawer=ids[(i<0?0:(i+1))%ids.length]; game.round++;
+      game.word=null; game.wordRaw=null; game.len=0; game.endsAt=0;
+      clearGCanvas(); gShowWord();
+      if(gamewrapEl) gamewrapEl.classList.toggle("drawer", amDrawer());
+      if(amDrawer()) showWordPick();
+      else gStatus(tr("g_choosing").replace("{n}",gName(game.drawer)));
+    }
+    function gCorrect(winnerPid, winnerName, word){
+      if(!game) return;
+      game.scores[winnerPid]=(game.scores[winnerPid]||0)+3;
+      game.scores[game.drawer]=(game.scores[game.drawer]||0)+1;
+      toast(tr("g_correct").replace("{n}",winnerName||gName(winnerPid)).replace("{w}",word),5000);
+      if($("gWordEl")) $("gWordEl").textContent=word;
+      game.word=null; game.endsAt=0; renderGScores();
+      setTimeout(function(){ advanceTurn(); },2800);
+    }
+    function gTimeout(word){
+      if(!game) return;
+      if(word) toast(tr("g_timeup").replace("{w}",word),5000);
+      if($("gWordEl")&&word) $("gWordEl").textContent=word;
+      game.word=null; game.endsAt=0;
+      setTimeout(function(){ advanceTurn(); },2200);
+    }
+    function endGame(broadcast){
+      if(!game) return;
+      if(broadcast) gameSend({a:"end"});
+      var line=Object.keys(game.scores).sort(function(a,b){ return game.scores[b]-game.scores[a]; }).map(function(pid){ return gName(pid)+": "+game.scores[pid]; }).join(" · ");
+      if(line) appendChat("🎲", line, false);
+      toast(tr("g_ended"),4500);
+      game=null; closeGameUI();
+    }
+    function startGame(){
+      if(shareMode) return;
+      if(!Object.keys(peers).length){ toast(tr("g_wait_peer"),5000); return; }
+      game={ active:true, drawer:myPeerId, scores:{}, round:1, word:null, wordRaw:null, len:0, endsAt:0 };
+      gameSend({a:"start"});
+      openGameUI(); clearGCanvas(); renderGScores();
+      if(gamewrapEl) gamewrapEl.classList.add("drawer");
+      showWordPick();
+    }
+    function gameRT(m){   // control messages relayed by the server
+      var d=m.data||{};
+      if(d.a==="start"){
+        game={ active:true, drawer:m.from, scores:{}, round:1, word:null, wordRaw:null, len:0, endsAt:0 };
+        openGameUI(); clearGCanvas(); renderGScores();
+        if(gamewrapEl) gamewrapEl.classList.remove("drawer");
+        gStatus(tr("g_choosing").replace("{n}",gName(m.from)));
+        toast(tr("g_started").replace("{n}",gName(m.from)),5000);
+        return;
+      }
+      if(!game||!game.active) { if(d.a==="round"){ game={ active:true, drawer:m.from, scores:{}, round:1 }; openGameUI(); } else return; }   // late joiner catches up at the next round
+      if(d.a==="round"){ game.drawer=m.from; game.len=d.len||0; game.endsAt=d.endsAt||0; game.word=null; game.wordRaw=null; beginRoundUI(); return; }
+      if(d.a==="correct"){ gCorrect(d.winner, d.wn, d.w||""); return; }
+      if(d.a==="timeout"){ gTimeout(d.w||""); return; }
+      if(d.a==="end"){ endGame(false); return; }
+    }
+    function gameChatCheck(fromPid, fromName, text){   // drawer's client is the referee
+      if(!game||!game.active||!amDrawer()||!game.word) return;
+      if(fromPid&&normWord(text)===game.word){
+        var w=game.wordRaw; game.word=null;
+        gameSend({a:"correct", winner:fromPid, wn:fromName, w:w});
+        gCorrect(fromPid, fromName, w);
+      }
+    }
+    function gameOnPeerLeft(pid){
+      if(!game||!game.active) return;
+      delete game.scores[pid]; renderGScores();
+      if(!Object.keys(peers).length){ endGame(false); return; }   // everyone left → fold the table
+      if(game.drawer===pid && roomIds()[0]===myPeerId){ gameSend({a:"timeout",w:""}); gTimeout(""); }   // drawer left → lowest id skips the round for everyone
+    }
+    function sendGuess(){
+      var inp=$("gGuessInput"); var txt=(inp&&inp.value||"").trim(); if(!txt) return;
+      if(inp) inp.value="";
+      appendChat(myName||tr("you"),txt,true);
+      rtSend({ type:"chat", text:txt });
+    }
+    if($("gameBtn")) $("gameBtn").addEventListener("click", function(){ if(game&&game.active){ openGameUI(); } else startGame(); });
+    if($("gQuit")) $("gQuit").addEventListener("click", function(){ endGame(true); });
+    if($("gGuessBtn")) $("gGuessBtn").addEventListener("click", sendGuess);
+    if($("gGuessInput")) $("gGuessInput").addEventListener("keydown", function(e){ if(e.key==="Enter"){ e.preventDefault(); sendGuess(); } });
+    function applyLangGame(){
+      setTitle("gameBtn",tr("g_btn"));
+      setText("gQuit",tr("g_stop")); setText("gGuessBtn",tr("g_guess")); setPh("gGuessInput",tr("g_guess_ph"));
+      setText("gPickTitle",tr("g_pick")); var cb=$("gClearBtn"); if(cb) cb.textContent=tr("g_clear");
+      setText("themeLbl",tr("theme_lbl")); renderThemeRow();
+    }
 
     function showRoomFull(){
       hideConnecting();

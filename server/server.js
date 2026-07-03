@@ -479,7 +479,7 @@ wss.on("connection", (ws) => {
       const code = String(m.room || "").slice(0, 80);
       if (!code) return;
       const r = getRoom(code);
-      if (!r._loadP) { r._loadP = store.getRoom(code).then(row => { if (row) { if (row.passHash) r.pass = row.passHash; if (row.host) r.host = row.host; if (row.expiresAt) r._expiresAt = row.expiresAt; } }).catch(() => {}); }
+      if (!r._loadP) { r._loadP = store.getRoom(code).then(row => { if (row) { if (row.passHash) r.pass = row.passHash; if (row.host) r.host = row.host; if (row.expiresAt) r._expiresAt = row.expiresAt; if (row.theme) r.theme = row.theme; } }).catch(() => {}); }
       await r._loadP;   // restore a persisted lock/host (awaited so the password check sees it; concurrent joins share one load)
       if (r._bans && r._bans.has(String(m.peerId || ""))) { sendJSON(ws, { type: "kicked" }); return; }   // removed by host
       if (r.members.size >= MAX_ROOM && !r.members.has(ws)) { sendJSON(ws, { type: "full" }); return; }
@@ -504,7 +504,7 @@ wss.on("connection", (ws) => {
       r.lastActivity = Date.now();
       if (!ws._joinedAt) { ws._joinedAt = Date.now(); metrics.joins++; }   // count this session join once
       // tell the joiner who is already here; tell others someone joined
-      sendJSON(ws, { type: "roster", you: { peerId: ws._peerId, name: ws._name }, peers: rosterArr(r), host: r.host === ws._peerId, hasPass: !!r.pass, expiresAt: r._expiresAt || 0 });
+      sendJSON(ws, { type: "roster", you: { peerId: ws._peerId, name: ws._name }, peers: rosterArr(r), host: r.host === ws._peerId, hasPass: !!r.pass, expiresAt: r._expiresAt || 0, theme: r.theme || "" });
       broadcastRoom(r, { type: "peer-joined", peerId: ws._peerId, name: ws._name }, ws);
       if (r.gallery && r.gallery.items.length) sendJSON(ws, { type: "gallery", presenter: r.gallery.presenter, items: r.gallery.items, current: r.gallery.current });
       pushStats();
@@ -593,6 +593,22 @@ wss.on("connection", (ws) => {
     }
     if (m.type === "screen-start" || m.type === "screen-stop") {   // browse-together: notify the room (the screen itself flows P2P)
       broadcastRoom(r, { type: m.type, from: ws._peerId }, ws);
+      return;
+    }
+    if (m.type === "set-theme") {                   // room ambiance — host picks, everyone follows
+      if (r.host !== ws._peerId) return;
+      const THEME_IDS = ["classic", "party", "cinema", "summer", "winter"];
+      const theme = THEME_IDS.includes(m.theme) ? m.theme : "classic";
+      r.theme = theme;
+      store.setTheme(ws._room, theme === "classic" ? null : theme);   // survive restarts
+      broadcastRoom(r, { type: "theme", theme, by: ws._name }, ws);
+      return;
+    }
+    if (m.type === "game") {                        // game-night control messages (start/round/correct/end) — drawing strokes flow P2P
+      if (!m.data || typeof m.data !== "object") return;
+      let s; try { s = JSON.stringify(m.data); } catch (e) { return; }
+      if (s.length > 2000) return;                  // control only; anything bigger doesn't belong here
+      broadcastRoom(r, { type: "game", from: ws._peerId, data: m.data }, ws);
       return;
     }
     if (m.type === MSG.VIDEO) {
