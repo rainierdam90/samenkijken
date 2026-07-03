@@ -1184,18 +1184,26 @@
       }).catch(function(){ /* keep STUN-only fallback */ });
     }
 
-    function startPeer(){
+    function startPeer(keepId){
       if(typeof Peer==="undefined"){ toast("Could not load the connection library. Check your internet or an ad blocker and refresh.",9000); return; }
-      myPeerId="p"+rand5()+rand5();
+      myPeerId=keepId||("p"+rand5()+rand5());
       peer=new Peer(myPeerId, { host:peerCfg.host, port:peerCfg.port, path:peerCfg.path, secure:peerCfg.secure, debug:1, config:{ iceServers:ICE_SERVERS } });
-      peer.on("open", function(){ dbg(); connectRT(); });
+      peer.on("open", function(){
+        dbg();
+        if(rt&&rt.readyState===1&&joined){ rtSend({ type:"join", room:roomCode, name:myName, peerId:myPeerId, pass:roomPass }); }   // rebuilt signaling mid-session → re-announce (roster answer re-calls everyone)
+        else connectRT();
+      });
       peer.on("call", function(call){
         if(call.metadata && call.metadata.kind==="screen"){ try{ call.answer(); }catch(e){} wireScreenIn(call); return; }   // one-way: we just watch their screen
         try{ call.answer(localStream||new MediaStream()); }catch(e){} wireCall(call);
       });
       peer.on("connection", function(conn){ wireData(conn); });
       peer.on("disconnected", function(){ try{ peer.reconnect(); }catch(e){} });
-      peer.on("error", function(err){ var t=err&&err.type; if(t==="peer-unavailable"){ /* peer left mid-call */ } else if(t==="unavailable-id"){ myPeerId="p"+rand5()+rand5(); } else { console.warn("peer error",t); if(t==="network"||t==="server-error") toast("The connection server is hiccuping. Give it a moment.",7000); } });
+      peer.on("error", function(err){ var t=err&&err.type;
+        if(t==="peer-unavailable"){ /* peer left mid-call */ }
+        else if(t==="unavailable-id"){ myPeerId="p"+rand5()+rand5(); setTimeout(function(){ restartPeer(true); },400); }   // our old session still holds the id → rebuild under a fresh one
+        else { console.warn("peer error",t); if(t==="network"||t==="server-error") toast("The connection server is hiccuping. Give it a moment.",7000); }
+      });
     }
 
     function shouldInitiate(a,b){ return (""+a) < (""+b); }   // smaller id calls → no double connections
@@ -1210,24 +1218,30 @@
       if(peers[pid].call && peers[pid].call!==call){ try{ peers[pid].call.close(); }catch(e){} }   // replace a stale call cleanly
       peers[pid].call=call;
       clearReconnect(pid);
+      var rs=reconnectState[pid]||(reconnectState[pid]={}); rs.lastBytes=0; rs.lastProgress=Date.now(); peers[pid].mediaStale=false;   // fresh call → fresh stall bookkeeping
       call.on("stream", function(s){ addPeerStream(pid, s); });
-      call.on("close", function(){ /* roster (peer-left) is authoritative; do soft cleanup */ });
+      call.on("close", function(){ if(peers[pid]&&peers[pid].call===call) scheduleReconnect(pid, 2500); });   // torn down mid-call (not replaced by us) → try to re-establish
       call.on("error", function(){});
       try{ var pc=call.peerConnection; if(pc){ pc.addEventListener("icecandidate", function(e){ if(e&&e.candidate){ var t=e.candidate.type||((""+e.candidate.candidate).match(/ typ (\w+)/)||[])[1]; if(t==="relay"){ diag.relay=true; dbg(); } } }); monitorPc(pc, pid); } }catch(_){}
     }
 
     /* ---- self-healing media: if a peer connection drops (TURN allocation expiry, NAT timeout, network blip),
             re-establish it automatically with fresh credentials instead of waiting for a manual page refresh ---- */
-    var reconnectState={};   // pid -> { timer, lastCall }
-    function refreshIce(){ return loadTurn().then(function(){ var cfg={ iceServers:ICE_SERVERS }; try{ if(peer&&peer._options) peer._options.config=Object.assign({}, peer._options.config, cfg); }catch(e){} try{ if(peer&&peer.options) peer.options.config=Object.assign({}, peer.options.config, cfg); }catch(e){} }); }
+    var reconnectState={};   // pid -> { timer, lastCall, lastMesh, lastBytes, lastProgress, checkingSince }
+    var lastIceFetch=0;
+    function refreshIce(){
+      if(Date.now()-lastIceFetch<30000) return Promise.resolve();   // fresh enough — don't hammer /turn-credentials
+      lastIceFetch=Date.now();
+      return loadTurn().then(function(){ var cfg={ iceServers:ICE_SERVERS }; try{ if(peer&&peer._options) peer._options.config=Object.assign({}, peer._options.config, cfg); }catch(e){} try{ if(peer&&peer.options) peer.options.config=Object.assign({}, peer.options.config, cfg); }catch(e){} });
+    }
     function monitorPc(pc, pid){
       function check(){ var st=pc.iceConnectionState;
-        if(st==="failed") scheduleReconnect(pid, 1200);
+        if(st==="failed"||st==="closed") scheduleReconnect(pid, 1200);
         else if(st==="disconnected") scheduleReconnect(pid, 5000);   // often self-heals — give it a moment first
         else if(st==="connected"||st==="completed") clearReconnect(pid);
       }
       pc.addEventListener("iceconnectionstatechange", check);
-      pc.addEventListener("connectionstatechange", function(){ if(pc.connectionState==="failed") scheduleReconnect(pid, 1000); });
+      pc.addEventListener("connectionstatechange", function(){ if(pc.connectionState==="failed"||pc.connectionState==="closed") scheduleReconnect(pid, 1000); });
     }
     function scheduleReconnect(pid, delay){
       if(!pid||pid===myPeerId||shareMode||!peers[pid]) return;
@@ -1247,6 +1261,7 @@
     }
     function reconnectAsInitiator(pid){
       if(!pid||pid===myPeerId||shareMode||!peer) return;
+      if(peer.destroyed||peer.disconnected){ ensurePeerAlive(); return; }   // calling over a dead signaling client goes nowhere — heal that first
       var p=peers[pid]; if(!p) return;
       var rs=reconnectState[pid]||(reconnectState[pid]={}); var now=Date.now();
       if(rs.lastCall && now-rs.lastCall<6000) return;               // cooldown against reconnect storms
@@ -1255,30 +1270,96 @@
       p.call=null;
       try{ var c=peer.call(pid, localStream||new MediaStream()); if(c) wireCall(c); }catch(e){}
     }
-    /* ---- mesh watchdog: makes sure EVERY person in the room actually reaches us. A connection that never
-            completes (missed call, glare, a pair that needs TURN) never fires "failed", so the reactive
-            reconnect above won't catch it — this nudges any peer we still have no video from. ---- */
+    /* ---- mesh watchdog: makes sure EVERY person in the room reaches us — and STAYS reachable.
+            Covers what the reactive events above can miss: handshakes that never complete, connections
+            that died while the control socket was down (the lost "reneg"), media that silently freezes
+            although ICE still claims "connected", and a stale stream object masking a dead connection. ---- */
+    function pcStateOf(p){ var pc=p&&p.call&&p.call.peerConnection; return pc?(pc.iceConnectionState||"new"):"none"; }
+    function sampleInbound(pid, p){          // is media actually flowing? bytes must keep growing
+      var pc=p.call&&p.call.peerConnection; if(!pc||!p.stream) return;
+      var st=pc.iceConnectionState; if(st!=="connected"&&st!=="completed") return;
+      try{ pc.getStats().then(function(stats){
+        var bytes=0; stats.forEach(function(s){ if(s.type==="inbound-rtp") bytes+=(s.bytesReceived||0); });
+        var rs=reconnectState[pid]||(reconnectState[pid]={});
+        if(!rs.lastProgress) rs.lastProgress=Date.now();
+        if(bytes>(rs.lastBytes||0)){ rs.lastBytes=bytes; rs.lastProgress=Date.now(); p.mediaStale=false; }
+        else if(Date.now()-rs.lastProgress>8000){ p.mediaStale=true; }   // frozen for 8s+ while "connected" → treat as dead
+      }).catch(function(){}); }catch(e){}
+    }
+    function peerHealthy(p){ if(!p||!p.stream||p.mediaStale) return false; var st=pcStateOf(p); return st==="connected"||st==="completed"; }
     function meshTick(){
-      if(shareMode||!peer||!rtReady) return;
+      if(shareMode||!rtReady) return;
+      if(!ensurePeerAlive()) return;         // the signaling client itself is down → fix that first
       var now=Date.now();
       Object.keys(peers).forEach(function(pid){
         if(pid===myPeerId) return;
-        var p=peers[pid]; if(!p||p.stream) return;                  // already seeing their video → nothing to do
+        var p=peers[pid]; if(!p) return;
+        sampleInbound(pid, p);
+        if(peerHealthy(p)){ p.since=0; var h=reconnectState[pid]; if(h) h.checkingSince=0; return; }
         if(!p.since) p.since=now;
-        if(now-p.since<7000) return;                                // give the normal handshake time first
-        var pc=p.call&&p.call.peerConnection, st=pc&&pc.iceConnectionState;
-        if(st==="checking"||st==="connected"||st==="completed") return;   // a live handshake is in progress — leave it
+        if(now-p.since<7000) return;         // give the normal handshake time first
+        var st=pcStateOf(p);
         var rs=reconnectState[pid]||(reconnectState[pid]={});
-        if(rs.lastMesh && now-rs.lastMesh<9000) return;             // throttle nudges
+        if(st==="checking"){ if(!rs.checkingSince) rs.checkingSince=now; if(now-rs.checkingSince<15000) return; }   // let a live handshake finish — but not forever
+        else rs.checkingSince=0;
+        if(rs.lastMesh && now-rs.lastMesh<9000) return;   // throttle nudges
         rs.lastMesh=now;
         if(shouldInitiate(myPeerId,pid)){ refreshIce().then(function(){ reconnectAsInitiator(pid); }); }
-        else rtSend({ type:"reneg", target:pid });                  // ask the caller to (re)establish to us
+        else rtSend({ type:"reneg", target:pid });        // ask the caller to (re)establish to us
       });
     }
     setInterval(meshTick, 3000);
+    /* ---- signaling self-heal: a PeerJS client that got destroyed (long offline gap, fatal error)
+            can never place calls again — only a page refresh used to fix that. Rebuild it in place,
+            keeping the same id when possible so the room state stays consistent. ---- */
+    var peerRestartAt=0;
+    function ensurePeerAlive(){
+      if(!peer) return false;
+      if(peer.destroyed){ restartPeer(); return false; }
+      if(peer.disconnected){ try{ peer.reconnect(); }catch(e){} return false; }
+      return true;
+    }
+    function restartPeer(force){
+      var now=Date.now(); if(!force && now-peerRestartAt<8000) return; peerRestartAt=now;
+      Object.keys(peers).forEach(function(pid){ var p=peers[pid]; if(p&&p.call){ try{ p.call.close(); }catch(e){} p.call=null; } });
+      try{ if(peer&&!peer.destroyed) peer.destroy(); }catch(e){}
+      refreshIce().then(function(){ startPeer(myPeerId); });
+    }
+    /* ---- wake/online recovery: after sleep, a network switch, or a dropped connection, kick everything
+            back to life immediately instead of waiting for timeouts. ---- */
+    function kickConnections(){
+      if(shareMode) return;
+      try{ if(rt && rt.readyState>=2 && !closing) connectRT(); }catch(e){}
+      if(peer){ if(peer.destroyed) restartPeer(); else if(peer.disconnected){ try{ peer.reconnect(); }catch(e){} } }
+      ensureLocalMediaLive();
+      refreshIce().then(function(){ try{ meshTick(); }catch(e){} });
+    }
+    window.addEventListener("online", kickConnections);
+    document.addEventListener("visibilitychange", function(){ if(!document.hidden) kickConnections(); });
+    var lastWakeCheck=Date.now();
+    setInterval(function(){ var n=Date.now(); if(n-lastWakeCheck>20000) kickConnections(); lastWakeCheck=n; },5000);   // a big clock jump means we were asleep
+    /* ---- the camera itself can die during sleep: re-acquire it and swap the fresh tracks into every call ---- */
+    function ensureLocalMediaLive(){
+      if(shareMode||!localStream) return;
+      var vt=localStream.getVideoTracks()[0], at=localStream.getAudioTracks()[0];
+      if(!((vt&&vt.readyState==="ended")||(at&&at.readyState==="ended"))) return;
+      var vOn=vt?vt.enabled:false, aOn=at?at.enabled:false;
+      navigator.mediaDevices.getUserMedia({ video:!!vt, audio:at?{ echoCancellation:true }:false }).then(function(s){
+        var old=localStream; localStream=s;
+        var nv=s.getVideoTracks()[0], na=s.getAudioTracks()[0];
+        if(nv) nv.enabled=vOn; if(na) na.enabled=aOn;      // keep the user's mute / camera-off choices
+        try{ selfVideo.srcObject=s; }catch(e){}
+        Object.keys(peers).forEach(function(pid){
+          var pc=peers[pid]&&peers[pid].call&&peers[pid].call.peerConnection; if(!pc||!pc.getSenders) return;
+          pc.getSenders().forEach(function(sn){ if(!sn.track) return; var nt=(sn.track.kind==="video")?nv:na; if(nt){ try{ sn.replaceTrack(nt); }catch(e){} } });
+        });
+        try{ old.getTracks().forEach(function(t){ t.stop(); }); }catch(e){}
+      }).catch(function(){});
+    }
     function addPeerStream(pid, stream){
       if(blockedSet&&blockedSet[pid]){ return; }   // locally blocked → ignore their stream
       var p=peers[pid]; if(!p){ p=peers[pid]={ name:"Guest" }; }
+      p.mediaStale=false; p.since=0;               // fresh stream → fresh health bookkeeping
       if(shareMode){ return; }   // phone companion stays silent — don't play anyone's audio/video
       p.stream=stream;
       if(!p.audioEl){ var a=document.createElement("audio"); a.autoplay=true; a.playsInline=true; a.style.display="none"; document.body.appendChild(a); p.audioEl=a; }
@@ -1308,11 +1389,14 @@
     function recomputeAuthority(){ if(shareMode){ isAuthority=false; diag.role="companion (share only)"; return; } var ids=[myPeerId].concat(Object.keys(peers)).filter(Boolean).sort(); isAuthority=(ids[0]===myPeerId); diag.role=isAuthority?"host (sync authority)":"guest"; }
 
     /* ---- control plane ---- */
+    var rtRetryTimer=null;
     function connectRT(){
+      clearTimeout(rtRetryTimer); rtRetryTimer=null;
+      if(rt){ try{ rt.onclose=null; rt.onmessage=null; rt.close(); }catch(e){} }   // never two live control sockets (a zombie would later broadcast us as "left")
       try{ rt=new WebSocket(rtUrl()); }catch(e){ toast("Could not reach the room server.",8000); return; }
       rt.onopen=function(){ rtReady=true; rtSend({ type:"join", room:roomCode, name:myName, peerId:myPeerId, pass:roomPass }); dbg(); };
       rt.onmessage=function(ev){ var m; try{ m=JSON.parse(ev.data); }catch(e){ return; } handleRT(m); };
-      rt.onclose=function(){ rtReady=false; joined=false; if(!closing){ setStatus("peer-present"); setTimeout(function(){ if(!closing) connectRT(); },3000); } };
+      rt.onclose=function(){ rtReady=false; joined=false; if(!closing){ setStatus("peer-present"); clearTimeout(rtRetryTimer); rtRetryTimer=setTimeout(function(){ if(!closing) connectRT(); },3000); } };
       rt.onerror=function(){};
     }
     function rtSend(o){ if(rt&&rt.readyState===1){ try{ rt.send(JSON.stringify(o)); }catch(e){} } }

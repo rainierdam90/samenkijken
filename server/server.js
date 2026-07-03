@@ -488,9 +488,15 @@ wss.on("connection", (ws) => {
         return;
       }
       const wasEmpty = r.members.size === 0;   // first arrival → notify anyone watching this room
+      const prevPid = r.members.has(ws) ? (r.members.get(ws) || {}).peerId : null;
       ws._room = code;
       ws._peerId = String(m.peerId || "").slice(0, 64) || ("p" + crypto.randomBytes(4).toString("hex"));
       ws._name = (String(m.name || "").trim().slice(0, 40)) || "Guest";
+      // Same person re-attaching over a NEW control socket (network blip) → drop the zombie entry
+      // SILENTLY. If we let the zombie time out via ping, its leaveRoom would broadcast "peer-left"
+      // for a peerId that is alive again — and every client would tear down a WORKING call.
+      r.members.forEach((v, w) => { if (w !== ws && v.peerId === ws._peerId) { r.members.delete(w); w._room = null; } });
+      if (prevPid && prevPid !== ws._peerId) broadcastRoom(r, { type: "peer-left", peerId: prevPid }, ws);   // client rebuilt under a new id → let the room forget the old one
       r.members.set(ws, { peerId: ws._peerId, name: ws._name });
       if (!r.host) { r.host = ws._peerId; store.ensureRoom(code, ws._peerId); }   // first person in becomes the host (persisted)
       if (!r._expiresAt && store.enabled()) r._expiresAt = Date.now() + store.freeDays() * 86400000;   // free wall lifetime
