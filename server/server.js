@@ -36,6 +36,9 @@ const TURN_URLS_RAW = (process.env.TURN_URLS || "").split(",").map(s => s.trim()
 const TURN_URLS = TURN_URLS_RAW.filter(u => /^(turns?|stun):/i.test(u));
 const TURN_TTL = parseInt(process.env.TURN_TTL || "3600", 10);
 const MAX_ROOM = parseInt(process.env.MAX_ROOM || "8", 10);
+// Test phase: everything that normally sits behind the paywall (wall expiry → Stripe extension)
+// stays free until PAYWALL=on is set in the environment. Rooms/walls are not pruned while free.
+const PAYWALL_ON = (process.env.PAYWALL || "off") === "on";
 const CHAT_KEEP = parseInt(process.env.CHAT_KEEP || "300", 10);
 const YT_API_KEY = process.env.YT_API_KEY || "";   // YouTube Data API v3 key — stays server-side, never sent to the browser
 const TURN_USERNAME = process.env.TURN_USERNAME || "";     // static TURN username (managed providers, e.g. Metered/Twilio)
@@ -123,7 +126,7 @@ app.use((req, res, next) => {
 });
 
 const jsonSmall = express.json({ limit: "16kb" });   // most POSTs are tiny
-const jsonWall = express.json({ limit: "3mb" });     // wall photos (downscaled client-side) need headroom
+const jsonWall = express.json({ limit: "8mb" });     // wall photos + voice/video messages (client-side capped)
 app.use((req, res, next) => (req.path === "/wall" ? jsonWall : jsonSmall)(req, res, next));
 const server = http.createServer(app);
 
@@ -308,10 +311,16 @@ app.post("/wall", async (req, res) => {
   const b = req.body || {};
   const room = String(b.room || "").slice(0, 80);
   if (!room) return res.status(400).json({ error: "bad_request" });
-  const kind = b.kind === "photo" ? "photo" : "note";
+  const kind = ["photo", "audio", "video"].includes(b.kind) ? b.kind : "note";
   let data, mime = null;
   if (kind === "note") { data = String(b.text || "").trim().slice(0, 1000); if (!data) return res.status(400).json({ error: "empty" }); }
-  else { data = String(b.data || ""); mime = String(b.mime || "image/jpeg").slice(0, 40); if (!/^data:image\//.test(data)) return res.status(400).json({ error: "bad_image" }); if (data.length > 3000000) return res.status(413).json({ error: "too_big" }); }
+  else {
+    data = String(b.data || ""); mime = String(b.mime || "").slice(0, 60) || null;
+    const rules = { photo: [/^data:image\//, 3000000], audio: [/^data:audio\//, 2500000], video: [/^data:video\//, 7000000] };
+    const [re, cap] = rules[kind];
+    if (!re.test(data)) return res.status(400).json({ error: "bad_media" });
+    if (data.length > cap) return res.status(413).json({ error: "too_big" });
+  }
   const item = { id: "w" + crypto.randomBytes(6).toString("hex"), room, kind, author: String(b.author || "Someone").slice(0, 40), mime, data, ts: Date.now() };
   await store.addWall(item);
   try { const r = rooms.get(room); if (r) broadcastRoom(r, { type: "wall-add", item }); } catch (e) {}   // live members see it instantly
@@ -504,7 +513,7 @@ wss.on("connection", (ws) => {
       r.lastActivity = Date.now();
       if (!ws._joinedAt) { ws._joinedAt = Date.now(); metrics.joins++; }   // count this session join once
       // tell the joiner who is already here; tell others someone joined
-      sendJSON(ws, { type: "roster", you: { peerId: ws._peerId, name: ws._name }, peers: rosterArr(r), host: r.host === ws._peerId, hasPass: !!r.pass, expiresAt: r._expiresAt || 0, theme: r.theme || "" });
+      sendJSON(ws, { type: "roster", you: { peerId: ws._peerId, name: ws._name }, peers: rosterArr(r), host: r.host === ws._peerId, hasPass: !!r.pass, expiresAt: PAYWALL_ON ? (r._expiresAt || 0) : 0, theme: r.theme || "" });
       broadcastRoom(r, { type: "peer-joined", peerId: ws._peerId, name: ws._name }, ws);
       if (r.gallery && r.gallery.items.length) sendJSON(ws, { type: "gallery", presenter: r.gallery.presenter, items: r.gallery.items, current: r.gallery.current });
       pushStats();
@@ -691,7 +700,7 @@ if (HAS_PUSH) {
 }
 
 /* prune expired free walls (their memories + room) periodically */
-if (store.enabled()) { store.pruneExpired(); setInterval(() => store.pruneExpired(), 3600000).unref(); }
+if (store.enabled() && PAYWALL_ON) { store.pruneExpired(); setInterval(() => store.pruneExpired(), 3600000).unref(); }   // free test phase: never delete rooms/walls
 
 server.listen(PORT, () => {
   console.log("SameCouch server on :" + PORT);

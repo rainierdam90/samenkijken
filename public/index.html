@@ -337,6 +337,21 @@
   .theme-row{display:flex; gap:9px; margin:2px 0 6px; flex-wrap:wrap}
   .theme-sw{width:36px; height:36px; border-radius:50%; cursor:pointer; border:2px solid transparent; padding:0; font-size:16px; display:grid; place-items:center}
   .theme-sw.cur{border-color:#fff; box-shadow:0 0 0 2px var(--amber)}
+
+  /* ---- room decorations: warm lamps, party garland… (follow the theme, only in the idle living room) ---- */
+  #decorLayer{position:absolute; inset:0; z-index:1; pointer-events:none; overflow:hidden}
+  .dglow{position:absolute; border-radius:50%; filter:blur(8px)}
+  @keyframes lampPulse{0%,100%{opacity:.7}50%{opacity:1}}
+  .dgarland{position:absolute; top:0; left:0; width:100%; height:130px; opacity:.9}
+  @keyframes garlandSway{0%,100%{transform:rotate(-.6deg)}50%{transform:rotate(.6deg)}}
+  .dgarland{transform-origin:50% 0; animation:garlandSway 7s ease-in-out infinite}
+
+  /* ---- voice & video messages on the wall ---- */
+  .wall-audio{width:230px; max-width:100%; display:block}
+  .wall-videomsg{width:100%; max-width:280px; max-height:220px; border-radius:10px; display:block; background:#000}
+  .wcard video{width:100%; max-height:150px; border-radius:8px; background:#000; display:block}
+  .wnote audio{width:100%; margin-top:6px}
+  .recing{background:rgba(232,115,107,.3)!important; border-color:rgba(232,115,107,.8)!important; animation:lampPulse 1s ease-in-out infinite}
   .sharebar{position:absolute; left:50%; transform:translateX(-50%); bottom:84px; z-index:40; display:none; align-items:center; gap:8px; max-width:94vw; padding:8px 10px; border-radius:14px; background:rgba(20,16,24,.92); border:1px solid var(--line); backdrop-filter:blur(10px); box-shadow:var(--shadow)}
   .sharebar.show{display:flex}
   .gstrip{display:flex; gap:6px; overflow-x:auto; max-width:58vw; padding:2px}
@@ -632,6 +647,7 @@
   </header>
 
   <main class="stage" id="stage">
+    <div id="decorLayer" aria-hidden="true"></div>
     <video id="movie" playsinline controls controlsList="nofullscreen nodownload noremoteplayback" preload="metadata"></video>
     <video id="screenVideo" autoplay playsinline></video>
     <img id="galleryImg" alt="" />
@@ -768,6 +784,8 @@
       <div class="chat-input">
         <input id="wallText" placeholder="Leave a note…" maxlength="1000" />
         <button class="fbtn" id="wallPhotoBtn" title="Add a photo" style="width:42px;height:42px;flex:0 0 auto;border-radius:11px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.8"/><path d="M21 15l-5-5L5 21"/></svg></button>
+        <button class="fbtn" id="wallMicBtn" title="Voice message" style="width:42px;height:42px;flex:0 0 auto;border-radius:11px;font-size:17px;line-height:1">🎙️</button>
+        <button class="fbtn" id="wallCamBtn" title="Video message" style="width:42px;height:42px;flex:0 0 auto;border-radius:11px;font-size:17px;line-height:1">🎥</button>
         <button class="btn primary" id="wallSend">Send</button>
       </div>
       <input id="wallFileInput" type="file" accept="image/*" style="display:none" />
@@ -1088,8 +1106,8 @@
     };
     Object.keys(NOTIFYCOPY).forEach(function(k){ if(I18N[k]) Object.keys(NOTIFYCOPY[k]).forEach(function(j){ I18N[k][j]=NOTIFYCOPY[k][j]; }); });
     var PASSCOPY = {
-      en:{save:"Save",pass_set_btn:"Set a room password",pass_change:"Change room password",pass_set_title:"Set a room password",pass_set_sub:"Only people with the password can join your room.",pass_need_title:"Password required",pass_need_sub:"This room is protected. Enter the password to join.",pass_wrong:"Wrong password — try again.",pass_on:"Room locked 🔒 — only people with the password can join.",pass_off:"Password removed — the room is open.",pass_denied:"Only the host can change the password.",pass_locked:"locked the room 🔒",pass_unlocked:"removed the password",settings_title:"Room settings",settings_sub:"Change your room name or set a password.",room_name_lbl:"Room name",settings_pass_lbl:"Password",rename_bad:"Pick a name with at least 2 letters.",rename_taken:"That name is taken — try another.",rename_saving:"Saving…",rename_ok:"",rename_done:"Room name updated ✓",room_settings_btn:"Room settings",screen_btn:"Browse together",screen_stop:"Stop sharing",screen_on:"You're sharing your screen — the others can watch along.",screen_off:"You stopped sharing your screen.",screen_started:"is sharing their screen 🖥️",screen_unsupported:"Screen sharing isn't supported on this device. On a phone, use 📷 Share instead.",g_btn:"Game night — draw & guess",g_pick:"Choose a word to draw",g_you_draw:"Draw:",g_other_draws:"{n} is drawing — guess the word!",g_choosing:"{n} is choosing a word…",g_guess_ph:"Type your guess…",g_guess:"Guess",g_correct:"{n} guessed it: {w}! 🎉",g_timeup:"Time's up! The word was: {w}",g_stop:"Stop game",g_clear:"Clear",g_wait_peer:"Wait until someone joins you, then start the game.",g_started:"{n} started a drawing game — guess along! 🎲",g_ended:"Game over — final scores in chat 🎲",theme_lbl:"Ambiance",theme_set:"set the mood to",theme_classic:"Cozy",theme_party:"Party",theme_cinema:"Cinema",theme_summer:"Summer",theme_winter:"Winter"},
-      nl:{save:"Opslaan",pass_set_btn:"Wachtwoord instellen",pass_change:"Wachtwoord wijzigen",pass_set_title:"Stel een kamerwachtwoord in",pass_set_sub:"Alleen mensen met het wachtwoord kunnen je kamer binnen.",pass_need_title:"Wachtwoord vereist",pass_need_sub:"Deze kamer is beveiligd. Vul het wachtwoord in om mee te doen.",pass_wrong:"Onjuist wachtwoord — probeer opnieuw.",pass_on:"Kamer vergrendeld 🔒 — alleen met wachtwoord toegang.",pass_off:"Wachtwoord verwijderd — de kamer is open.",pass_denied:"Alleen de host kan het wachtwoord wijzigen.",pass_locked:"heeft de kamer vergrendeld 🔒",pass_unlocked:"heeft het wachtwoord verwijderd",settings_title:"Kamerinstellingen",settings_sub:"Wijzig je kamernaam of stel een wachtwoord in.",room_name_lbl:"Kamernaam",settings_pass_lbl:"Wachtwoord",rename_bad:"Kies een naam van minstens 2 letters.",rename_taken:"Die naam is al bezet — kies een andere.",rename_saving:"Opslaan…",rename_ok:"",rename_done:"Kamernaam gewijzigd ✓",room_settings_btn:"Kamerinstellingen",screen_btn:"Samen browsen",screen_stop:"Stop delen",screen_on:"Je deelt je scherm — de anderen kijken mee.",screen_off:"Je bent gestopt met scherm delen.",screen_started:"deelt zijn scherm 🖥️",screen_unsupported:"Scherm delen wordt niet ondersteund op dit apparaat. Gebruik op een telefoon 📷 Delen.",g_btn:"Spelletjesavond — tekenen & raden",g_pick:"Kies een woord om te tekenen",g_you_draw:"Teken:",g_other_draws:"{n} tekent — raad het woord!",g_choosing:"{n} kiest een woord…",g_guess_ph:"Typ je gok…",g_guess:"Raad",g_correct:"{n} heeft het geraden: {w}! 🎉",g_timeup:"Tijd is om! Het woord was: {w}",g_stop:"Stop spel",g_clear:"Wissen",g_wait_peer:"Wacht tot er iemand bij je is, start dan het spel.",g_started:"{n} is een tekenspel begonnen — raad mee! 🎲",g_ended:"Spel afgelopen — eindstand in de chat 🎲",theme_lbl:"Sfeer",theme_set:"zette de sfeer op",theme_classic:"Knus",theme_party:"Feest",theme_cinema:"Bioscoop",theme_summer:"Zomer",theme_winter:"Winter"},
+      en:{save:"Save",pass_set_btn:"Set a room password",pass_change:"Change room password",pass_set_title:"Set a room password",pass_set_sub:"Only people with the password can join your room.",pass_need_title:"Password required",pass_need_sub:"This room is protected. Enter the password to join.",pass_wrong:"Wrong password — try again.",pass_on:"Room locked 🔒 — only people with the password can join.",pass_off:"Password removed — the room is open.",pass_denied:"Only the host can change the password.",pass_locked:"locked the room 🔒",pass_unlocked:"removed the password",settings_title:"Room settings",settings_sub:"Change your room name or set a password.",room_name_lbl:"Room name",settings_pass_lbl:"Password",rename_bad:"Pick a name with at least 2 letters.",rename_taken:"That name is taken — try another.",rename_saving:"Saving…",rename_ok:"",rename_done:"Room name updated ✓",room_settings_btn:"Room settings",screen_btn:"Browse together",screen_stop:"Stop sharing",screen_on:"You're sharing your screen — the others can watch along.",screen_off:"You stopped sharing your screen.",screen_started:"is sharing their screen 🖥️",screen_unsupported:"Screen sharing isn't supported on this device. On a phone, use 📷 Share instead.",g_btn:"Game night — draw & guess",g_pick:"Choose a word to draw",g_you_draw:"Draw:",g_other_draws:"{n} is drawing — guess the word!",g_choosing:"{n} is choosing a word…",g_guess_ph:"Type your guess…",g_guess:"Guess",g_correct:"{n} guessed it: {w}! 🎉",g_timeup:"Time's up! The word was: {w}",g_stop:"Stop game",g_clear:"Clear",g_wait_peer:"Wait until someone joins you, then start the game.",g_started:"{n} started a drawing game — guess along! 🎲",g_ended:"Game over — final scores in chat 🎲",theme_lbl:"Ambiance",theme_set:"set the mood to",theme_classic:"Cozy",theme_party:"Party",theme_cinema:"Cinema",theme_summer:"Summer",theme_winter:"Winter",wall_voice:"Voice message",wall_videomsg:"Video message",wall_rec_voice:"Recording voice message 🎙️ — tap again to finish (max 60s)",wall_rec_video:"Recording video message 🎥 — tap again to finish (max 30s)",wall_rec_denied:"Microphone/camera permission is needed for messages.",wall_rec_unsupported:"Recording isn't supported in this browser.",wall_too_big:"That message is too long — keep it a bit shorter."},
+      nl:{save:"Opslaan",pass_set_btn:"Wachtwoord instellen",pass_change:"Wachtwoord wijzigen",pass_set_title:"Stel een kamerwachtwoord in",pass_set_sub:"Alleen mensen met het wachtwoord kunnen je kamer binnen.",pass_need_title:"Wachtwoord vereist",pass_need_sub:"Deze kamer is beveiligd. Vul het wachtwoord in om mee te doen.",pass_wrong:"Onjuist wachtwoord — probeer opnieuw.",pass_on:"Kamer vergrendeld 🔒 — alleen met wachtwoord toegang.",pass_off:"Wachtwoord verwijderd — de kamer is open.",pass_denied:"Alleen de host kan het wachtwoord wijzigen.",pass_locked:"heeft de kamer vergrendeld 🔒",pass_unlocked:"heeft het wachtwoord verwijderd",settings_title:"Kamerinstellingen",settings_sub:"Wijzig je kamernaam of stel een wachtwoord in.",room_name_lbl:"Kamernaam",settings_pass_lbl:"Wachtwoord",rename_bad:"Kies een naam van minstens 2 letters.",rename_taken:"Die naam is al bezet — kies een andere.",rename_saving:"Opslaan…",rename_ok:"",rename_done:"Kamernaam gewijzigd ✓",room_settings_btn:"Kamerinstellingen",screen_btn:"Samen browsen",screen_stop:"Stop delen",screen_on:"Je deelt je scherm — de anderen kijken mee.",screen_off:"Je bent gestopt met scherm delen.",screen_started:"deelt zijn scherm 🖥️",screen_unsupported:"Scherm delen wordt niet ondersteund op dit apparaat. Gebruik op een telefoon 📷 Delen.",g_btn:"Spelletjesavond — tekenen & raden",g_pick:"Kies een woord om te tekenen",g_you_draw:"Teken:",g_other_draws:"{n} tekent — raad het woord!",g_choosing:"{n} kiest een woord…",g_guess_ph:"Typ je gok…",g_guess:"Raad",g_correct:"{n} heeft het geraden: {w}! 🎉",g_timeup:"Tijd is om! Het woord was: {w}",g_stop:"Stop spel",g_clear:"Wissen",g_wait_peer:"Wacht tot er iemand bij je is, start dan het spel.",g_started:"{n} is een tekenspel begonnen — raad mee! 🎲",g_ended:"Spel afgelopen — eindstand in de chat 🎲",theme_lbl:"Sfeer",theme_set:"zette de sfeer op",theme_classic:"Knus",theme_party:"Feest",theme_cinema:"Bioscoop",theme_summer:"Zomer",theme_winter:"Winter",wall_voice:"Spraakbericht",wall_videomsg:"Videoboodschap",wall_rec_voice:"Spraakbericht wordt opgenomen 🎙️ — tik nogmaals om te stoppen (max 60s)",wall_rec_video:"Videoboodschap wordt opgenomen 🎥 — tik nogmaals om te stoppen (max 30s)",wall_rec_denied:"Toegang tot microfoon/camera is nodig voor boodschappen.",wall_rec_unsupported:"Opnemen wordt niet ondersteund in deze browser.",wall_too_big:"Die boodschap is te lang — houd het iets korter."},
       de:{save:"Speichern",pass_set_btn:"Raumpasswort festlegen",pass_change:"Passwort ändern",pass_set_title:"Raumpasswort festlegen",pass_set_sub:"Nur Personen mit dem Passwort können beitreten.",pass_need_title:"Passwort erforderlich",pass_need_sub:"Dieser Raum ist geschützt. Gib das Passwort ein.",pass_wrong:"Falsches Passwort — versuch es erneut.",pass_on:"Raum gesperrt 🔒",pass_off:"Passwort entfernt — der Raum ist offen.",pass_denied:"Nur der Host kann das Passwort ändern.",pass_locked:"hat den Raum gesperrt 🔒",pass_unlocked:"hat das Passwort entfernt"},
       fr:{save:"Enregistrer",pass_set_btn:"Définir un mot de passe",pass_change:"Changer le mot de passe",pass_set_title:"Définir un mot de passe",pass_set_sub:"Seules les personnes avec le mot de passe peuvent rejoindre.",pass_need_title:"Mot de passe requis",pass_need_sub:"Ce salon est protégé. Entre le mot de passe.",pass_wrong:"Mot de passe incorrect — réessaie.",pass_on:"Salon verrouillé 🔒",pass_off:"Mot de passe retiré — le salon est ouvert.",pass_denied:"Seul l'hôte peut changer le mot de passe.",pass_locked:"a verrouillé le salon 🔒",pass_unlocked:"a retiré le mot de passe"},
       es:{save:"Guardar",pass_set_btn:"Poner contraseña",pass_change:"Cambiar contraseña",pass_set_title:"Poner contraseña a la sala",pass_set_sub:"Solo quien tenga la contraseña puede entrar.",pass_need_title:"Contraseña requerida",pass_need_sub:"Esta sala está protegida. Introduce la contraseña.",pass_wrong:"Contraseña incorrecta — inténtalo de nuevo.",pass_on:"Sala bloqueada 🔒",pass_off:"Contraseña eliminada — la sala está abierta.",pass_denied:"Solo el anfitrión puede cambiar la contraseña.",pass_locked:"bloqueó la sala 🔒",pass_unlocked:"quitó la contraseña"},
@@ -2041,7 +2059,44 @@
       clearInterval(ambTimer); ambTimer=null;
       var amb=THEMES[id].amb, reduce=window.matchMedia&&window.matchMedia("(prefers-reduced-motion: reduce)").matches;
       if(amb&&!reduce) ambTimer=setInterval(function(){ if(!document.hidden) spawnReaction(amb[Math.floor(Math.random()*amb.length)],""); },2800);
+      renderDecor(id);
       renderThemeRow();
+    }
+    /* dress up the living room: warm lamps, a party garland… (hidden while content plays) */
+    var decorLayer=$("decorLayer");
+    function dGlow(css){ var d=document.createElement("div"); d.className="dglow"; Object.keys(css).forEach(function(k){ d.style[k]=css[k]; }); decorLayer.appendChild(d); }
+    function garlandSVG(){
+      var colors=["#ff6fae","#f4b14a","#5ec8f4","#7bd88f","#8f5fd8"];
+      function swag(x0,x1,dip,ci){
+        var out='<path d="M'+x0+' 8 Q '+((x0+x1)/2)+' '+dip+' '+x1+' 8" stroke="rgba(255,255,255,.45)" stroke-width="1.5" fill="none"/>';
+        var n=7;
+        for(var i=0;i<=n;i++){ var t=i/n;
+          var x=(1-t)*(1-t)*x0 + 2*(1-t)*t*((x0+x1)/2) + t*t*x1;
+          var y=(1-t)*(1-t)*8 + 2*(1-t)*t*dip + t*t*8;
+          out+='<path d="M'+(x-9).toFixed(1)+' '+y.toFixed(1)+' L'+(x+9).toFixed(1)+' '+y.toFixed(1)+' L'+x.toFixed(1)+' '+(y+20).toFixed(1)+' Z" fill="'+colors[(i+ci)%colors.length]+'" opacity=".85"/>';
+        }
+        return out;
+      }
+      return '<svg class="dgarland" viewBox="0 0 1000 130" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">'+swag(-20,510,86,0)+swag(490,1020,86,2)+'</svg>';
+    }
+    function renderDecor(id){
+      if(!decorLayer) return; decorLayer.innerHTML="";
+      if(id==="classic"){   // warm lamps
+        dGlow({ left:"-70px", top:"16%", width:"280px", height:"280px", background:"radial-gradient(circle, rgba(244,177,74,.26), transparent 65%)", animation:"lampPulse 5s ease-in-out infinite" });
+        dGlow({ right:"-70px", bottom:"5%", width:"320px", height:"320px", background:"radial-gradient(circle, rgba(244,177,74,.20), transparent 65%)", animation:"lampPulse 6.5s ease-in-out 1.2s infinite" });
+      } else if(id==="party"){   // feestslinger + colored glow
+        decorLayer.insertAdjacentHTML("beforeend", garlandSVG());
+        dGlow({ left:"-50px", bottom:"0", width:"280px", height:"280px", background:"radial-gradient(circle, rgba(255,111,174,.18), transparent 65%)" });
+        dGlow({ right:"-50px", bottom:"12%", width:"260px", height:"260px", background:"radial-gradient(circle, rgba(140,90,220,.18), transparent 65%)" });
+      } else if(id==="cinema"){   // dimmed projector mood
+        dGlow({ left:"20%", top:"-120px", width:"60%", height:"260px", borderRadius:"50%", background:"radial-gradient(ellipse, rgba(143,123,255,.16), transparent 65%)" });
+      } else if(id==="summer"){   // low sun + sea
+        dGlow({ left:"-60px", top:"6%", width:"300px", height:"300px", background:"radial-gradient(circle, rgba(244,177,74,.22), transparent 65%)", animation:"lampPulse 7s ease-in-out infinite" });
+        dGlow({ right:"-60px", bottom:"0", width:"320px", height:"320px", background:"radial-gradient(circle, rgba(56,198,162,.16), transparent 65%)" });
+      } else if(id==="winter"){   // cold light
+        dGlow({ left:"10%", top:"-110px", width:"80%", height:"240px", borderRadius:"50%", background:"radial-gradient(ellipse, rgba(124,199,255,.14), transparent 65%)" });
+        dGlow({ right:"-60px", bottom:"4%", width:"260px", height:"260px", background:"radial-gradient(circle, rgba(124,199,255,.10), transparent 65%)" });
+      }
     }
     function renderThemeRow(){
       var row=$("themeRow"); if(!row) return; row.innerHTML="";
@@ -2239,6 +2294,7 @@
       setText("gQuit",tr("g_stop")); setText("gGuessBtn",tr("g_guess")); setPh("gGuessInput",tr("g_guess_ph"));
       setText("gPickTitle",tr("g_pick")); var cb=$("gClearBtn"); if(cb) cb.textContent=tr("g_clear");
       setText("themeLbl",tr("theme_lbl")); renderThemeRow();
+      setTitle("wallMicBtn",tr("wall_voice")); setTitle("wallCamBtn",tr("wall_videomsg"));
     }
 
     function showRoomFull(){
@@ -2552,10 +2608,12 @@
     function addWallItem(it){
       if(!it||!it.id||wallSeen[it.id]) return; wallSeen[it.id]=1;
       if(!wallHasItems){ wallHasItems=true; if(wallEmpty&&wallEmpty.parentNode) wallEmpty.parentNode.removeChild(wallEmpty); }
-      var row=document.createElement("div"); row.className="msg them"+(it.kind==="photo"?" photo":"");
+      var row=document.createElement("div"); row.className="msg them"+((it.kind==="photo"||it.kind==="video")?" photo":"");
       var who=document.createElement("div"); who.className="who"; who.textContent=it.author||tr("others"); row.appendChild(who);
       var bub=document.createElement("div"); bub.className="bub";
       if(it.kind==="photo"){ var img=document.createElement("img"); img.className="wall-img"; img.loading="lazy"; img.decoding="async"; img.alt=""; img.src=it.data; img.addEventListener("click", function(){ openLightbox(it.data); }); bub.appendChild(img); }
+      else if(it.kind==="audio"&&/^data:audio\//.test(it.data||"")){ var au=document.createElement("audio"); au.controls=true; au.preload="metadata"; au.className="wall-audio"; au.src=it.data; bub.appendChild(au); }
+      else if(it.kind==="video"&&/^data:video\//.test(it.data||"")){ var vd=document.createElement("video"); vd.controls=true; vd.playsInline=true; vd.preload="metadata"; vd.className="wall-videomsg"; vd.src=it.data; bub.appendChild(vd); }
       else { bub.textContent=it.data||""; }
       row.appendChild(bub);
       if(wallLog){ wallLog.appendChild(row); wallLog.scrollTop=wallLog.scrollHeight; }
@@ -2581,6 +2639,8 @@
     function renderWallCard(it){
       if(!wallStageEl) return; var el;
       if(it.kind==="photo"){ el=document.createElement("div"); el.className="wcard"; var img=document.createElement("img"); img.loading="lazy"; img.decoding="async"; img.alt=""; img.src=it.data; el.appendChild(img); if(it.author){ var c=document.createElement("div"); c.className="cap"; c.textContent=it.author; el.appendChild(c); } el.addEventListener("click", function(){ openLightbox(it.data); }); }
+      else if(it.kind==="video"&&/^data:video\//.test(it.data||"")){ el=document.createElement("div"); el.className="wcard"; var v=document.createElement("video"); v.controls=true; v.playsInline=true; v.preload="metadata"; v.src=it.data; el.appendChild(v); if(it.author){ var cv=document.createElement("div"); cv.className="cap"; cv.textContent="🎥 "+it.author; el.appendChild(cv); } }
+      else if(it.kind==="audio"&&/^data:audio\//.test(it.data||"")){ el=document.createElement("div"); el.className="wnote"; var lb=document.createElement("div"); lb.textContent="🎙️"; el.appendChild(lb); var a=document.createElement("audio"); a.controls=true; a.preload="metadata"; a.src=it.data; el.appendChild(a); var wa=document.createElement("div"); wa.className="who"; wa.textContent="— "+(it.author||tr("others")); el.appendChild(wa); }
       else { el=document.createElement("div"); el.className="wnote"; var tx=document.createElement("div"); tx.textContent=it.data||""; el.appendChild(tx); var w=document.createElement("div"); w.className="who"; w.textContent="— "+(it.author||tr("others")); el.appendChild(w); }
       el.style.setProperty("--r", (Math.random()*6-3).toFixed(1)+"deg");
       wallStageEl.appendChild(el);
@@ -2591,6 +2651,7 @@
       var idle = (mode==="none" || !mode);
       if(idle && wallItemsCount>0){ if(wallStageEl) wallStageEl.classList.add("show"); if(placeholder) placeholder.style.display="none"; }
       else { if(wallStageEl) wallStageEl.classList.remove("show"); if(idle && placeholder) placeholder.style.display=""; }
+      var dl=$("decorLayer"); if(dl) dl.style.display = idle ? "" : "none";   // decorations belong to the idle living room
     }
     function postWallNote(){ var t=((wallText&&wallText.value)||"").trim(); if(!t) return; if(!hasWall){ toast(tr("wall_off"),5000); return; } wallText.value="";
       fetch(httpBase()+"/wall",{ method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({ room:roomCode, kind:"note", text:t, author:myName }) }).then(function(r){ return r.json(); }).then(function(d){ if(d&&d.item) addWallItem(d.item); else toast(tr("wall_fail"),5000); }).catch(function(){ toast(tr("wall_fail"),5000); }); }
@@ -2632,6 +2693,64 @@
     if(wallText) wallText.addEventListener("keydown", function(e){ if(e.key==="Enter") postWallNote(); });
     if(wallPhotoBtn) wallPhotoBtn.addEventListener("click", function(){ if(wallFileInput) wallFileInput.click(); });
     if(wallFileInput) wallFileInput.addEventListener("change", function(){ if(wallFileInput.files&&wallFileInput.files[0]) postWallPhoto(wallFileInput.files[0]); try{ wallFileInput.value=""; }catch(e){} });
+
+    /* ---- voice & video messages on the wall: record, cap, post like a photo ----
+       Perfect for time zones: leave a message they play when they wake up. */
+    var wallMicBtn=$("wallMicBtn"), wallCamBtn=$("wallCamBtn");
+    var wallRec=null;   // { rec, kind, chunks, btn, stream, timer, maxTo, t0 }
+    function wallRecMime(kind){
+      var cands=kind==="audio"?["audio/webm;codecs=opus","audio/webm","audio/mp4"]:["video/webm;codecs=vp8,opus","video/webm","video/mp4"];
+      for(var i=0;i<cands.length;i++){ try{ if(window.MediaRecorder&&MediaRecorder.isTypeSupported(cands[i])) return cands[i]; }catch(e){} }
+      return "";
+    }
+    function stopWallRec(){ if(wallRec&&wallRec.rec&&wallRec.rec.state!=="inactive"){ try{ wallRec.rec.stop(); }catch(e){} } }
+    function startWallRec(kind){
+      if(wallRec){ stopWallRec(); return; }                      // second tap = finish
+      if(!hasWall){ toast(tr("wall_off"),5000); return; }
+      var mime=wallRecMime(kind);
+      if(!mime||!navigator.mediaDevices){ toast(tr("wall_rec_unsupported"),6000); return; }
+      var btn=(kind==="audio")?wallMicBtn:wallCamBtn, maxMs=(kind==="audio")?60000:30000;
+      function begin(stream){
+        var rec; try{ rec=new MediaRecorder(stream,{ mimeType:mime, videoBitsPerSecond:450000, audioBitsPerSecond:48000 }); }
+        catch(e){ try{ rec=new MediaRecorder(stream); }catch(e2){ stream.getTracks().forEach(function(t){ t.stop(); }); toast(tr("wall_rec_unsupported"),6000); return; } }
+        var st={ rec:rec, kind:kind, chunks:[], btn:btn, stream:stream, t0:Date.now() };
+        wallRec=st;
+        rec.ondataavailable=function(e){ if(e.data&&e.data.size) st.chunks.push(e.data); };
+        rec.onstop=function(){
+          clearInterval(st.timer); clearTimeout(st.maxTo);
+          if(btn){ btn.classList.remove("recing"); btn.textContent=(kind==="audio")?"🎙️":"🎥"; }
+          try{ st.stream.getTracks().forEach(function(t){ t.stop(); }); }catch(e){}
+          wallRec=null;
+          var blob=new Blob(st.chunks,{ type:(mime.split(";")[0]) });
+          if(blob.size<800) return;                              // accidental tap
+          if(blob.size>((kind==="audio")?2400000:6300000)){ toast(tr("wall_too_big"),6000); return; }
+          toast(tr("wall_uploading"),3000);
+          blobToDataUrl(blob, function(dataUrl){
+            if(!dataUrl){ toast(tr("wall_fail"),5000); return; }
+            fetch(httpBase()+"/wall",{ method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({ room:roomCode, kind:kind, data:dataUrl, mime:blob.type, author:myName }) })
+              .then(function(r){ return r.json(); }).then(function(d){ if(d&&d.item) addWallItem(d.item); else toast(tr("wall_fail"),5000); })
+              .catch(function(){ toast(tr("wall_fail"),5000); });
+          });
+        };
+        if(btn){ btn.classList.add("recing"); btn.textContent="⏹"; }
+        st.timer=setInterval(function(){ if(btn) btn.title=Math.floor((Date.now()-st.t0)/1000)+"s"; },1000);
+        st.maxTo=setTimeout(stopWallRec, maxMs);
+        try{ rec.start(250); toast(tr(kind==="audio"?"wall_rec_voice":"wall_rec_video"),4500); }
+        catch(e){ wallRec=null; if(btn){ btn.classList.remove("recing"); btn.textContent=(kind==="audio")?"🎙️":"🎥"; } toast(tr("wall_rec_unsupported"),6000); }
+      }
+      // reuse the live webcam/mic when we have it (no permission prompt); CLONE the tracks so a muted
+      // mic still records here without unmuting you towards the room
+      var vt=localStream&&localStream.getVideoTracks()[0], at=localStream&&localStream.getAudioTracks()[0];
+      var vtLive=vt&&vt.readyState==="live", atLive=at&&at.readyState==="live";
+      try{
+        if(kind==="audio"&&atLive){ var ac=at.clone(); ac.enabled=true; begin(new MediaStream([ac])); return; }
+        if(kind==="video"&&vtLive&&atLive){ var vc=vt.clone(), ac2=at.clone(); vc.enabled=true; ac2.enabled=true; begin(new MediaStream([vc,ac2])); return; }
+      }catch(e){ /* cloning unsupported → fall through to getUserMedia */ }
+      navigator.mediaDevices.getUserMedia(kind==="audio"?{ audio:true }:{ video:{ width:{ ideal:480 } }, audio:true })
+        .then(begin).catch(function(){ toast(tr("wall_rec_denied"),6000); });
+    }
+    if(wallMicBtn){ if(!window.MediaRecorder) wallMicBtn.style.display="none"; else wallMicBtn.addEventListener("click", function(){ startWallRec("audio"); }); }
+    if(wallCamBtn){ if(!window.MediaRecorder) wallCamBtn.style.display="none"; else wallCamBtn.addEventListener("click", function(){ startWallRec("video"); }); }
     if(chatBtn) chatBtn.addEventListener("click", function(){ if(wallPanel) wallPanel.hidden=true; });   // keep only one panel open
     ensureConfig().then(function(){ if(hasWall && wallBtn && !shareMode) wallBtn.style.display=""; });
 
