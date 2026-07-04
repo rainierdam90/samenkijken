@@ -494,7 +494,7 @@ wss.on("connection", (ws) => {
       const r = getRoom(code);
       // NOTE: the persisted host peerId is NOT restored — peer ids are random per session, so a stored
       // host can never match anyone again (it made room settings unreachable in existing rooms).
-      if (!r._loadP) { r._loadP = store.getRoom(code).then(row => { if (row) { if (row.passHash) r.pass = row.passHash; if (row.expiresAt) r._expiresAt = row.expiresAt; if (row.theme) r.theme = row.theme; } }).catch(() => {}); }
+      if (!r._loadP) { r._loadP = store.getRoom(code).then(row => { if (row) { if (row.passHash) r.pass = row.passHash; if (row.expiresAt) r._expiresAt = row.expiresAt; if (row.theme) r.theme = row.theme; if (row.decor) { try { r.decor = JSON.parse(row.decor); } catch (e) {} } } }).catch(() => {}); }
       await r._loadP;   // restore a persisted lock/host (awaited so the password check sees it; concurrent joins share one load)
       if (r._bans && r._bans.has(String(m.peerId || ""))) { sendJSON(ws, { type: "kicked" }); return; }   // removed by host
       if (r.members.size >= MAX_ROOM && !r.members.has(ws)) { sendJSON(ws, { type: "full" }); return; }
@@ -521,7 +521,7 @@ wss.on("connection", (ws) => {
       r.lastActivity = Date.now();
       if (!ws._joinedAt) { ws._joinedAt = Date.now(); metrics.joins++; }   // count this session join once
       // tell the joiner who is already here; tell others someone joined
-      sendJSON(ws, { type: "roster", you: { peerId: ws._peerId, name: ws._name }, peers: rosterArr(r), host: r.host === ws._peerId, hasPass: !!r.pass, expiresAt: PAYWALL_ON ? (r._expiresAt || 0) : 0, theme: r.theme || "" });
+      sendJSON(ws, { type: "roster", you: { peerId: ws._peerId, name: ws._name }, peers: rosterArr(r), host: r.host === ws._peerId, hasPass: !!r.pass, expiresAt: PAYWALL_ON ? (r._expiresAt || 0) : 0, theme: r.theme || "", decor: Array.isArray(r.decor) ? r.decor : [] });
       broadcastRoom(r, { type: "peer-joined", peerId: ws._peerId, name: ws._name }, ws);
       if (r.gallery && r.gallery.items.length) sendJSON(ws, { type: "gallery", presenter: r.gallery.presenter, items: r.gallery.items, current: r.gallery.current });
       else if (r.media && r.media.url) sendJSON(ws, { type: "video", from: "", mode: r.media.mode, url: r.media.url, id: r.media.id });   // replay the active link to (re)joiners
@@ -620,6 +620,17 @@ wss.on("connection", (ws) => {
       r.theme = theme;
       store.setTheme(ws._room, theme === "classic" ? null : theme);   // survive restarts
       broadcastRoom(r, { type: "theme", theme, by: ws._name }, ws);
+      return;
+    }
+    if (m.type === "set-decor") {                   // host furnishes the room: [{t,x},…] — validated, synced, persisted
+      if (r.host !== ws._peerId) return;
+      const DECOR_TYPES = ["lamp", "lights", "garland", "plant", "fire", "candles"];
+      const items = (Array.isArray(m.items) ? m.items : []).slice(0, 12)
+        .filter(it => it && DECOR_TYPES.includes(it.t) && typeof it.x === "number" && isFinite(it.x))
+        .map(it => ({ t: it.t, x: Math.min(0.97, Math.max(0.03, Math.round(it.x * 1000) / 1000)) }));
+      r.decor = items;
+      store.setDecor(ws._room, items.length ? JSON.stringify(items) : null);
+      broadcastRoom(r, { type: "decor", items, by: ws._name }, ws);
       return;
     }
     if (m.type === "game") {                        // game-night control messages (start/round/correct/end) — drawing strokes flow P2P

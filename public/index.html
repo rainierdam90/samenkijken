@@ -338,13 +338,31 @@
   .theme-sw{width:36px; height:36px; border-radius:50%; cursor:pointer; border:2px solid transparent; padding:0; font-size:16px; display:grid; place-items:center}
   .theme-sw.cur{border-color:#fff; box-shadow:0 0 0 2px var(--amber)}
 
-  /* ---- room decorations: warm lamps, party garland… (follow the theme, only in the idle living room) ---- */
-  #decorLayer{position:absolute; inset:0; z-index:1; pointer-events:none; overflow:hidden}
-  .dglow{position:absolute; border-radius:50%; filter:blur(8px)}
+  /* ---- room decorations: lamps, garlands, fireplace… above the wall (light washes over it), hidden while content plays ---- */
+  #decorLayer{position:absolute; inset:0; z-index:4; pointer-events:none; overflow:hidden; transition:opacity .5s ease}
+  .dglow{position:absolute; border-radius:50%; filter:blur(10px); mix-blend-mode:screen}
   @keyframes lampPulse{0%,100%{opacity:.7}50%{opacity:1}}
+  @keyframes flicker{0%,100%{opacity:.85}25%{opacity:1}60%{opacity:.72}80%{opacity:.95}}
+  @keyframes fireGlow{0%,100%{opacity:.75; transform:scale(1)}50%{opacity:1; transform:scale(1.07)}}
   .dgarland{position:absolute; top:0; left:0; width:100%; height:130px; opacity:.9}
   @keyframes garlandSway{0%,100%{transform:rotate(-.6deg)}50%{transform:rotate(.6deg)}}
   .dgarland{transform-origin:50% 0; animation:garlandSway 7s ease-in-out infinite}
+  .ditem{position:absolute; transform:translateX(-50%)}
+  .ditem svg{display:block; position:relative; z-index:1}
+  .ditem .iglow{position:absolute; border-radius:50%; mix-blend-mode:screen; filter:blur(8px)}
+  /* the same accent tint the stage gets per theme (the body backgrounds alone were invisible: the stage paints over them) */
+  body.theme-party .stage{background:radial-gradient(120% 80% at 50% -10%, rgba(255,111,174,.13), transparent 55%),radial-gradient(120% 120% at 50% 50%, #070409 40%, #0d0612 100%)}
+  body.theme-cinema .stage{background:radial-gradient(120% 80% at 50% -10%, rgba(102,80,220,.15), transparent 55%),radial-gradient(120% 120% at 50% 50%, #040309 40%, #070510 100%)}
+  body.theme-summer .stage{background:radial-gradient(120% 80% at 50% -10%, rgba(56,198,162,.11), transparent 55%),radial-gradient(90% 60% at 80% 110%, rgba(244,177,74,.08), transparent 60%),radial-gradient(120% 120% at 50% 50%, #050807 40%, #070a09 100%)}
+  body.theme-winter .stage{background:radial-gradient(120% 80% at 50% -10%, rgba(124,199,255,.11), transparent 55%),radial-gradient(120% 120% at 50% 50%, #050608 40%, #07080c 100%)}
+  /* furnishing mode: items become grabbable, a palette bar appears */
+  #decorLayer.editing{pointer-events:auto; z-index:56}
+  #decorLayer.editing .ditem{pointer-events:auto; cursor:grab; outline:2px dashed rgba(244,177,74,.75); outline-offset:5px; border-radius:10px}
+  .decorbar{position:fixed; left:50%; transform:translateX(-50%); bottom:14px; z-index:240; display:none; align-items:center; gap:8px; flex-wrap:wrap; justify-content:center; background:rgba(16,13,20,.96); border:1px solid var(--line); border-radius:14px; padding:10px 12px; box-shadow:var(--shadow); max-width:94vw}
+  .decorbar.show{display:flex}
+  .decorbar .dbtn{display:flex; flex-direction:column; align-items:center; gap:3px; background:var(--panel-2); border:1px solid var(--line); border-radius:11px; color:var(--txt); padding:8px 10px; cursor:pointer; font-size:18px; min-width:58px; font-family:inherit}
+  .decorbar .dbtn span{font-size:10.5px; color:var(--muted)}
+  .decorbar .dhint{flex-basis:100%; text-align:center; font-size:11.5px; color:var(--muted)}
 
   /* ---- voice & video messages on the wall ---- */
   .wall-audio{width:230px; max-width:100%; display:block}
@@ -742,6 +760,8 @@
       <div class="g-guess"><input id="gGuessInput" maxlength="60" autocomplete="off" placeholder="Type your guess…" /><button class="btn primary" id="gGuessBtn">Guess</button></div>
     </div>
 
+    <div class="decorbar" id="decorBar"></div>
+
     <div class="reactions-layer" id="reactionsLayer" aria-hidden="true"></div>
     <div class="rec-pill" id="recPill"><span class="rdot"></span><span id="recText">Recording…</span><button class="rstop" id="recStop">Stop</button></div>
 
@@ -919,6 +939,7 @@
         <div id="passNameMsg" style="font-size:13px;min-height:18px;margin:6px 0 2px;color:var(--muted)"></div>
         <div style="font-size:12px;letter-spacing:1px;text-transform:uppercase;color:var(--muted);margin:2px 0 7px" id="themeLbl">Ambiance</div>
         <div class="theme-row" id="themeRow"></div>
+        <button class="btn" id="decorEditBtn" style="width:100%;margin:2px 0 6px">🛋️ Decorate the room</button>
         <hr style="border:none;border-top:1px solid var(--line);margin:12px 0 14px" />
         <div style="font-size:12px;letter-spacing:1px;text-transform:uppercase;color:var(--muted);margin:0 0 7px" id="passPassLbl">Password</div>
       </div>
@@ -1106,8 +1127,8 @@
     };
     Object.keys(NOTIFYCOPY).forEach(function(k){ if(I18N[k]) Object.keys(NOTIFYCOPY[k]).forEach(function(j){ I18N[k][j]=NOTIFYCOPY[k][j]; }); });
     var PASSCOPY = {
-      en:{save:"Save",pass_set_btn:"Set a room password",pass_change:"Change room password",pass_set_title:"Set a room password",pass_set_sub:"Only people with the password can join your room.",pass_need_title:"Password required",pass_need_sub:"This room is protected. Enter the password to join.",pass_wrong:"Wrong password — try again.",pass_on:"Room locked 🔒 — only people with the password can join.",pass_off:"Password removed — the room is open.",pass_denied:"Only the host can change the password.",pass_locked:"locked the room 🔒",pass_unlocked:"removed the password",settings_title:"Room settings",settings_sub:"Change your room name or set a password.",room_name_lbl:"Room name",settings_pass_lbl:"Password",rename_bad:"Pick a name with at least 2 letters.",rename_taken:"That name is taken — try another.",rename_saving:"Saving…",rename_ok:"",rename_done:"Room name updated ✓",room_settings_btn:"Room settings",screen_btn:"Browse together",screen_stop:"Stop sharing",screen_on:"You're sharing your screen — the others can watch along.",screen_off:"You stopped sharing your screen.",screen_started:"is sharing their screen 🖥️",screen_unsupported:"Screen sharing isn't supported on this device. On a phone, use 📷 Share instead.",g_btn:"Game night — draw & guess",g_pick:"Choose a word to draw",g_you_draw:"Draw:",g_other_draws:"{n} is drawing — guess the word!",g_choosing:"{n} is choosing a word…",g_guess_ph:"Type your guess…",g_guess:"Guess",g_correct:"{n} guessed it: {w}! 🎉",g_timeup:"Time's up! The word was: {w}",g_stop:"Stop game",g_clear:"Clear",g_wait_peer:"Wait until someone joins you, then start the game.",g_started:"{n} started a drawing game — guess along! 🎲",g_ended:"Game over — final scores in chat 🎲",theme_lbl:"Ambiance",theme_set:"set the mood to",theme_classic:"Cozy",theme_party:"Party",theme_cinema:"Cinema",theme_summer:"Summer",theme_winter:"Winter",wall_voice:"Voice message",wall_videomsg:"Video message",wall_rec_voice:"Recording voice message 🎙️ — tap again to finish (max 60s)",wall_rec_video:"Recording video message 🎥 — tap again to finish (max 30s)",wall_rec_denied:"Microphone/camera permission is needed for messages.",wall_rec_unsupported:"Recording isn't supported in this browser.",wall_too_big:"That message is too long — keep it a bit shorter.",host_now:"You are now the host of this room 👑"},
-      nl:{save:"Opslaan",pass_set_btn:"Wachtwoord instellen",pass_change:"Wachtwoord wijzigen",pass_set_title:"Stel een kamerwachtwoord in",pass_set_sub:"Alleen mensen met het wachtwoord kunnen je kamer binnen.",pass_need_title:"Wachtwoord vereist",pass_need_sub:"Deze kamer is beveiligd. Vul het wachtwoord in om mee te doen.",pass_wrong:"Onjuist wachtwoord — probeer opnieuw.",pass_on:"Kamer vergrendeld 🔒 — alleen met wachtwoord toegang.",pass_off:"Wachtwoord verwijderd — de kamer is open.",pass_denied:"Alleen de host kan het wachtwoord wijzigen.",pass_locked:"heeft de kamer vergrendeld 🔒",pass_unlocked:"heeft het wachtwoord verwijderd",settings_title:"Kamerinstellingen",settings_sub:"Wijzig je kamernaam of stel een wachtwoord in.",room_name_lbl:"Kamernaam",settings_pass_lbl:"Wachtwoord",rename_bad:"Kies een naam van minstens 2 letters.",rename_taken:"Die naam is al bezet — kies een andere.",rename_saving:"Opslaan…",rename_ok:"",rename_done:"Kamernaam gewijzigd ✓",room_settings_btn:"Kamerinstellingen",screen_btn:"Samen browsen",screen_stop:"Stop delen",screen_on:"Je deelt je scherm — de anderen kijken mee.",screen_off:"Je bent gestopt met scherm delen.",screen_started:"deelt zijn scherm 🖥️",screen_unsupported:"Scherm delen wordt niet ondersteund op dit apparaat. Gebruik op een telefoon 📷 Delen.",g_btn:"Spelletjesavond — tekenen & raden",g_pick:"Kies een woord om te tekenen",g_you_draw:"Teken:",g_other_draws:"{n} tekent — raad het woord!",g_choosing:"{n} kiest een woord…",g_guess_ph:"Typ je gok…",g_guess:"Raad",g_correct:"{n} heeft het geraden: {w}! 🎉",g_timeup:"Tijd is om! Het woord was: {w}",g_stop:"Stop spel",g_clear:"Wissen",g_wait_peer:"Wacht tot er iemand bij je is, start dan het spel.",g_started:"{n} is een tekenspel begonnen — raad mee! 🎲",g_ended:"Spel afgelopen — eindstand in de chat 🎲",theme_lbl:"Sfeer",theme_set:"zette de sfeer op",theme_classic:"Knus",theme_party:"Feest",theme_cinema:"Bioscoop",theme_summer:"Zomer",theme_winter:"Winter",wall_voice:"Spraakbericht",wall_videomsg:"Videoboodschap",wall_rec_voice:"Spraakbericht wordt opgenomen 🎙️ — tik nogmaals om te stoppen (max 60s)",wall_rec_video:"Videoboodschap wordt opgenomen 🎥 — tik nogmaals om te stoppen (max 30s)",wall_rec_denied:"Toegang tot microfoon/camera is nodig voor boodschappen.",wall_rec_unsupported:"Opnemen wordt niet ondersteund in deze browser.",wall_too_big:"Die boodschap is te lang — houd het iets korter.",host_now:"Jij bent nu de host van deze kamer 👑"},
+      en:{save:"Save",pass_set_btn:"Set a room password",pass_change:"Change room password",pass_set_title:"Set a room password",pass_set_sub:"Only people with the password can join your room.",pass_need_title:"Password required",pass_need_sub:"This room is protected. Enter the password to join.",pass_wrong:"Wrong password — try again.",pass_on:"Room locked 🔒 — only people with the password can join.",pass_off:"Password removed — the room is open.",pass_denied:"Only the host can change the password.",pass_locked:"locked the room 🔒",pass_unlocked:"removed the password",settings_title:"Room settings",settings_sub:"Change your room name or set a password.",room_name_lbl:"Room name",settings_pass_lbl:"Password",rename_bad:"Pick a name with at least 2 letters.",rename_taken:"That name is taken — try another.",rename_saving:"Saving…",rename_ok:"",rename_done:"Room name updated ✓",room_settings_btn:"Room settings",screen_btn:"Browse together",screen_stop:"Stop sharing",screen_on:"You're sharing your screen — the others can watch along.",screen_off:"You stopped sharing your screen.",screen_started:"is sharing their screen 🖥️",screen_unsupported:"Screen sharing isn't supported on this device. On a phone, use 📷 Share instead.",g_btn:"Game night — draw & guess",g_pick:"Choose a word to draw",g_you_draw:"Draw:",g_other_draws:"{n} is drawing — guess the word!",g_choosing:"{n} is choosing a word…",g_guess_ph:"Type your guess…",g_guess:"Guess",g_correct:"{n} guessed it: {w}! 🎉",g_timeup:"Time's up! The word was: {w}",g_stop:"Stop game",g_clear:"Clear",g_wait_peer:"Wait until someone joins you, then start the game.",g_started:"{n} started a drawing game — guess along! 🎲",g_ended:"Game over — final scores in chat 🎲",theme_lbl:"Ambiance",theme_set:"set the mood to",theme_classic:"Cozy",theme_party:"Party",theme_cinema:"Cinema",theme_summer:"Summer",theme_winter:"Winter",wall_voice:"Voice message",wall_videomsg:"Video message",wall_rec_voice:"Recording voice message 🎙️ — tap again to finish (max 60s)",wall_rec_video:"Recording video message 🎥 — tap again to finish (max 30s)",wall_rec_denied:"Microphone/camera permission is needed for messages.",wall_rec_unsupported:"Recording isn't supported in this browser.",wall_too_big:"That message is too long — keep it a bit shorter.",host_now:"You are now the host of this room 👑",decor_btn:"Decorate the room",decor_done:"✓ Done",decor_hint:"Tap an item to add it • drag to move • double-tap to remove",decor_set:"redecorated the room 🛋️",decor_full:"That's plenty of furniture for one room 😄",d_lamp:"Lamp",d_lights:"Lights",d_garland:"Garland",d_plant:"Plant",d_fire:"Fireplace",d_candles:"Candles"},
+      nl:{save:"Opslaan",pass_set_btn:"Wachtwoord instellen",pass_change:"Wachtwoord wijzigen",pass_set_title:"Stel een kamerwachtwoord in",pass_set_sub:"Alleen mensen met het wachtwoord kunnen je kamer binnen.",pass_need_title:"Wachtwoord vereist",pass_need_sub:"Deze kamer is beveiligd. Vul het wachtwoord in om mee te doen.",pass_wrong:"Onjuist wachtwoord — probeer opnieuw.",pass_on:"Kamer vergrendeld 🔒 — alleen met wachtwoord toegang.",pass_off:"Wachtwoord verwijderd — de kamer is open.",pass_denied:"Alleen de host kan het wachtwoord wijzigen.",pass_locked:"heeft de kamer vergrendeld 🔒",pass_unlocked:"heeft het wachtwoord verwijderd",settings_title:"Kamerinstellingen",settings_sub:"Wijzig je kamernaam of stel een wachtwoord in.",room_name_lbl:"Kamernaam",settings_pass_lbl:"Wachtwoord",rename_bad:"Kies een naam van minstens 2 letters.",rename_taken:"Die naam is al bezet — kies een andere.",rename_saving:"Opslaan…",rename_ok:"",rename_done:"Kamernaam gewijzigd ✓",room_settings_btn:"Kamerinstellingen",screen_btn:"Samen browsen",screen_stop:"Stop delen",screen_on:"Je deelt je scherm — de anderen kijken mee.",screen_off:"Je bent gestopt met scherm delen.",screen_started:"deelt zijn scherm 🖥️",screen_unsupported:"Scherm delen wordt niet ondersteund op dit apparaat. Gebruik op een telefoon 📷 Delen.",g_btn:"Spelletjesavond — tekenen & raden",g_pick:"Kies een woord om te tekenen",g_you_draw:"Teken:",g_other_draws:"{n} tekent — raad het woord!",g_choosing:"{n} kiest een woord…",g_guess_ph:"Typ je gok…",g_guess:"Raad",g_correct:"{n} heeft het geraden: {w}! 🎉",g_timeup:"Tijd is om! Het woord was: {w}",g_stop:"Stop spel",g_clear:"Wissen",g_wait_peer:"Wacht tot er iemand bij je is, start dan het spel.",g_started:"{n} is een tekenspel begonnen — raad mee! 🎲",g_ended:"Spel afgelopen — eindstand in de chat 🎲",theme_lbl:"Sfeer",theme_set:"zette de sfeer op",theme_classic:"Knus",theme_party:"Feest",theme_cinema:"Bioscoop",theme_summer:"Zomer",theme_winter:"Winter",wall_voice:"Spraakbericht",wall_videomsg:"Videoboodschap",wall_rec_voice:"Spraakbericht wordt opgenomen 🎙️ — tik nogmaals om te stoppen (max 60s)",wall_rec_video:"Videoboodschap wordt opgenomen 🎥 — tik nogmaals om te stoppen (max 30s)",wall_rec_denied:"Toegang tot microfoon/camera is nodig voor boodschappen.",wall_rec_unsupported:"Opnemen wordt niet ondersteund in deze browser.",wall_too_big:"Die boodschap is te lang — houd het iets korter.",host_now:"Jij bent nu de host van deze kamer 👑",decor_btn:"Kamer inrichten",decor_done:"✓ Klaar",decor_hint:"Tik op een item om toe te voegen • sleep om te verplaatsen • dubbeltik om te verwijderen",decor_set:"heeft de kamer opnieuw ingericht 🛋️",decor_full:"Zo vol hoeft de kamer ook weer niet 😄",d_lamp:"Lamp",d_lights:"Lichtsnoer",d_garland:"Slinger",d_plant:"Plant",d_fire:"Open haard",d_candles:"Kaarsen"},
       de:{save:"Speichern",pass_set_btn:"Raumpasswort festlegen",pass_change:"Passwort ändern",pass_set_title:"Raumpasswort festlegen",pass_set_sub:"Nur Personen mit dem Passwort können beitreten.",pass_need_title:"Passwort erforderlich",pass_need_sub:"Dieser Raum ist geschützt. Gib das Passwort ein.",pass_wrong:"Falsches Passwort — versuch es erneut.",pass_on:"Raum gesperrt 🔒",pass_off:"Passwort entfernt — der Raum ist offen.",pass_denied:"Nur der Host kann das Passwort ändern.",pass_locked:"hat den Raum gesperrt 🔒",pass_unlocked:"hat das Passwort entfernt"},
       fr:{save:"Enregistrer",pass_set_btn:"Définir un mot de passe",pass_change:"Changer le mot de passe",pass_set_title:"Définir un mot de passe",pass_set_sub:"Seules les personnes avec le mot de passe peuvent rejoindre.",pass_need_title:"Mot de passe requis",pass_need_sub:"Ce salon est protégé. Entre le mot de passe.",pass_wrong:"Mot de passe incorrect — réessaie.",pass_on:"Salon verrouillé 🔒",pass_off:"Mot de passe retiré — le salon est ouvert.",pass_denied:"Seul l'hôte peut changer le mot de passe.",pass_locked:"a verrouillé le salon 🔒",pass_unlocked:"a retiré le mot de passe"},
       es:{save:"Guardar",pass_set_btn:"Poner contraseña",pass_change:"Cambiar contraseña",pass_set_title:"Poner contraseña a la sala",pass_set_sub:"Solo quien tenga la contraseña puede entrar.",pass_need_title:"Contraseña requerida",pass_need_sub:"Esta sala está protegida. Introduce la contraseña.",pass_wrong:"Contraseña incorrecta — inténtalo de nuevo.",pass_on:"Sala bloqueada 🔒",pass_off:"Contraseña eliminada — la sala está abierta.",pass_denied:"Solo el anfitrión puede cambiar la contraseña.",pass_locked:"bloqueó la sala 🔒",pass_unlocked:"quitó la contraseña"},
@@ -1484,7 +1505,7 @@
         case "roster":
           joined=true; if(m.you&&m.you.name) myName=m.you.name;
           hideConnecting(); isHost=!!m.host; roomHasPass=!!m.hasPass; if(passModalEl) passModalEl.classList.remove("show"); updateHostControls(); if(hasWall) fetchWall(); roomExpiresAt=m.expiresAt||0; maybeShowExpiryBanner();
-          if(typeof applyTheme==="function" && (m.theme||curTheme!=="classic")) applyTheme(m.theme||"classic");
+          if(typeof applyTheme==="function"){ roomDecor=Array.isArray(m.decor)?m.decor:roomDecor; applyTheme(m.theme||"classic"); }
           (m.peers||[]).forEach(function(pp){ if(pp.peerId===myPeerId) return; peers[pp.peerId]=peers[pp.peerId]||{}; peers[pp.peerId].name=pp.name||"Guest"; if(shouldInitiate(myPeerId,pp.peerId)) callPeer(pp.peerId); });
           recomputeAuthority(); updatePresenceStatus(); renderCams();
           if(currentMedia&&(isAuthority||currentMedia.mine)){ rtSend({ type:"video", mode:currentMedia.mode, url:currentMedia.url, id:currentMedia.id }); }   // after a reconnect the person who pasted the link re-announces it too
@@ -1506,6 +1527,7 @@
         case "peer-left": if(peers[m.peerId]) { if(peers[m.peerId].name) toast(peers[m.peerId].name+" left."); } removePeer(m.peerId); if(typeof gameOnPeerLeft==="function") gameOnPeerLeft(m.peerId); break;
         case "chat": if(typeof m.text==="string"){ receiveChat(m.from||tr("others"), m.text); if(typeof gameChatCheck==="function") gameChatCheck(m.peerId, m.from, m.text); } break;
         case "theme": if(typeof applyTheme==="function"){ applyTheme(m.theme); toast((m.by||tr("others"))+" "+tr("theme_set")+" "+tr("theme_"+(THEMES[m.theme]?m.theme:"classic"))+" "+(THEMES[m.theme]?THEMES[m.theme].e:""),4500); } break;
+        case "decor": roomDecor=Array.isArray(m.items)?m.items:[]; if(typeof renderDecor==="function") renderDecor(curTheme); if(m.by) toast(m.by+" "+tr("decor_set"),4000); break;
         case "game": if(typeof gameRT==="function") gameRT(m); break;
         case "sync": if(m.kind==="countdown"){ runCountdown(m.time||3); } else { applyRemote(m); } break;
         case "talking": setPeerTalking(m.from, !!m.on); break;
@@ -2106,23 +2128,123 @@
     }
     function renderDecor(id){
       if(!decorLayer) return; decorLayer.innerHTML="";
-      if(id==="classic"){   // warm lamps
+      if(id==="classic"){   // soft warmth
         dGlow({ left:"-70px", top:"16%", width:"280px", height:"280px", background:"radial-gradient(circle, rgba(244,177,74,.26), transparent 65%)", animation:"lampPulse 5s ease-in-out infinite" });
         dGlow({ right:"-70px", bottom:"5%", width:"320px", height:"320px", background:"radial-gradient(circle, rgba(244,177,74,.20), transparent 65%)", animation:"lampPulse 6.5s ease-in-out 1.2s infinite" });
       } else if(id==="party"){   // feestslinger + colored glow
         decorLayer.insertAdjacentHTML("beforeend", garlandSVG());
-        dGlow({ left:"-50px", bottom:"0", width:"280px", height:"280px", background:"radial-gradient(circle, rgba(255,111,174,.18), transparent 65%)" });
-        dGlow({ right:"-50px", bottom:"12%", width:"260px", height:"260px", background:"radial-gradient(circle, rgba(140,90,220,.18), transparent 65%)" });
+        dGlow({ left:"-50px", bottom:"0", width:"280px", height:"280px", background:"radial-gradient(circle, rgba(255,111,174,.20), transparent 65%)" });
+        dGlow({ right:"-50px", bottom:"12%", width:"260px", height:"260px", background:"radial-gradient(circle, rgba(140,90,220,.20), transparent 65%)" });
       } else if(id==="cinema"){   // dimmed projector mood
-        dGlow({ left:"20%", top:"-120px", width:"60%", height:"260px", borderRadius:"50%", background:"radial-gradient(ellipse, rgba(143,123,255,.16), transparent 65%)" });
+        dGlow({ left:"20%", top:"-120px", width:"60%", height:"260px", borderRadius:"50%", background:"radial-gradient(ellipse, rgba(143,123,255,.18), transparent 65%)" });
       } else if(id==="summer"){   // low sun + sea
-        dGlow({ left:"-60px", top:"6%", width:"300px", height:"300px", background:"radial-gradient(circle, rgba(244,177,74,.22), transparent 65%)", animation:"lampPulse 7s ease-in-out infinite" });
-        dGlow({ right:"-60px", bottom:"0", width:"320px", height:"320px", background:"radial-gradient(circle, rgba(56,198,162,.16), transparent 65%)" });
+        dGlow({ left:"-60px", top:"6%", width:"300px", height:"300px", background:"radial-gradient(circle, rgba(244,177,74,.24), transparent 65%)", animation:"lampPulse 7s ease-in-out infinite" });
+        dGlow({ right:"-60px", bottom:"0", width:"320px", height:"320px", background:"radial-gradient(circle, rgba(56,198,162,.18), transparent 65%)" });
       } else if(id==="winter"){   // cold light
-        dGlow({ left:"10%", top:"-110px", width:"80%", height:"240px", borderRadius:"50%", background:"radial-gradient(ellipse, rgba(124,199,255,.14), transparent 65%)" });
-        dGlow({ right:"-60px", bottom:"4%", width:"260px", height:"260px", background:"radial-gradient(circle, rgba(124,199,255,.10), transparent 65%)" });
+        dGlow({ left:"10%", top:"-110px", width:"80%", height:"240px", borderRadius:"50%", background:"radial-gradient(ellipse, rgba(124,199,255,.16), transparent 65%)" });
+        dGlow({ right:"-60px", bottom:"4%", width:"260px", height:"260px", background:"radial-gradient(circle, rgba(124,199,255,.12), transparent 65%)" });
       }
+      roomDecor.forEach(buildDecorItem);   // the host's own furnishing on top of the theme mood
     }
+
+    /* ---- furnish the room yourself: real items with light that washes over the wall; host drags them into place ---- */
+    var roomDecor=[], decorEditing=false;
+    var DECOR_META={ lamp:{e:"💡",floor:true}, lights:{e:"✨",floor:false}, garland:{e:"🎉",floor:false}, plant:{e:"🪴",floor:true}, fire:{e:"🔥",floor:true}, candles:{e:"🕯️",floor:true} };
+    var DECOR_GLOWS={
+      lamp:[ { left:"-40px", top:"-28px", width:"150px", height:"120px", background:"radial-gradient(circle, rgba(255,195,105,.5), transparent 65%)", animation:"lampPulse 6s ease-in-out infinite" },
+             { left:"-115px", top:"-150px", width:"300px", height:"210px", background:"radial-gradient(ellipse, rgba(255,190,100,.22), transparent 65%)", animation:"lampPulse 6s ease-in-out infinite" },
+             { left:"-55px", top:"112px", width:"180px", height:"70px", background:"radial-gradient(ellipse, rgba(255,190,110,.18), transparent 65%)" } ],
+      fire:[ { left:"-45px", top:"-30px", width:"220px", height:"170px", background:"radial-gradient(circle, rgba(255,140,60,.30), transparent 65%)", animation:"fireGlow 2.6s ease-in-out infinite" },
+             { left:"15px", top:"22px", width:"100px", height:"90px", background:"radial-gradient(circle, rgba(255,170,80,.5), transparent 65%)", animation:"fireGlow 1.9s ease-in-out .4s infinite" },
+             { left:"-95px", top:"-140px", width:"320px", height:"200px", background:"radial-gradient(ellipse, rgba(255,140,70,.16), transparent 65%)", animation:"fireGlow 3.4s ease-in-out infinite" } ],
+      candles:[ { left:"-35px", top:"-45px", width:"160px", height:"120px", background:"radial-gradient(circle, rgba(255,205,130,.30), transparent 65%)", animation:"flicker 3.2s ease-in-out infinite" } ]
+    };
+    function decorSVG(t){
+      var NS=' xmlns="http://www.w3.org/2000/svg"';
+      if(t==="lamp") return '<svg width="70" height="150" viewBox="0 0 70 150"'+NS+'>'+
+        '<rect x="33" y="40" width="4" height="98" rx="2" fill="#453a52"/><ellipse cx="35" cy="141" rx="17" ry="5" fill="#453a52"/>'+
+        '<path d="M18 42 L52 42 L44 12 L26 12 Z" fill="#f0c27a" stroke="#8a744e" stroke-width="1"/></svg>';
+      if(t==="plant") return '<svg width="84" height="112" viewBox="0 0 84 112"'+NS+'>'+
+        '<path d="M42 62 C 40 30 22 24 12 16 C 26 18 38 28 41 46 Z" fill="#2f7a4c"/>'+
+        '<path d="M42 62 C 44 28 60 22 72 14 C 60 18 46 28 43 46 Z" fill="#37945c"/>'+
+        '<path d="M42 64 C 42 40 42 24 42 10 C 46 26 46 44 44 62 Z" fill="#2a6b43"/>'+
+        '<path d="M26 66 L58 66 L52 106 L32 106 Z" fill="#8a5638"/><rect x="24" y="62" width="36" height="8" rx="3" fill="#a06844"/></svg>';
+      if(t==="fire") return '<svg width="130" height="104" viewBox="0 0 130 104"'+NS+'>'+
+        '<path d="M12 104 L12 34 Q65 4 118 34 L118 104 Z" fill="#241c2b"/>'+
+        '<path d="M30 104 L30 48 Q65 26 100 48 L100 104 Z" fill="#120d17"/>'+
+        '<path d="M55 100 Q50 78 65 64 Q64 80 72 84 Q80 72 78 62 Q92 78 84 100 Z" fill="#ff9c46"/>'+
+        '<path d="M60 100 Q58 86 66 78 Q66 88 72 90 Q76 84 74 78 Q82 90 76 100 Z" fill="#ffd27a"/></svg>';
+      if(t==="candles") return '<svg width="92" height="74" viewBox="0 0 92 74"'+NS+'>'+
+        '<rect x="14" y="40" width="12" height="32" rx="3" fill="#ece0c6"/><ellipse cx="20" cy="35" rx="3" ry="6" fill="#ffd27a"/>'+
+        '<rect x="40" y="26" width="13" height="46" rx="3" fill="#e6d8ba"/><ellipse cx="46.5" cy="20" rx="3.4" ry="7" fill="#ffca6a"/>'+
+        '<rect x="68" y="48" width="11" height="24" rx="3" fill="#efe3cb"/><ellipse cx="73.5" cy="43" rx="2.7" ry="5.4" fill="#ffd88a"/></svg>';
+      if(t==="lights"){
+        var b="", i, N=9, cols=["#ffd9a0","#ffb3c8","#bfe3ff","#d8ffc4"];
+        for(i=0;i<N;i++){ var tt=(i+0.5)/N;
+          var x=tt*320, y=(1-tt)*(1-tt)*8 + 2*(1-tt)*tt*58 + tt*tt*8;
+          b+='<circle cx="'+x.toFixed(1)+'" cy="'+(y+7).toFixed(1)+'" r="8" fill="'+cols[i%4]+'" opacity=".22"/>'+
+             '<circle cx="'+x.toFixed(1)+'" cy="'+(y+7).toFixed(1)+'" r="3.2" fill="'+cols[i%4]+'"/>';
+        }
+        return '<svg width="320" height="70" viewBox="0 0 320 70"'+NS+' style="animation:flicker 5s ease-in-out infinite">'+
+          '<path d="M0 8 Q160 58 320 8" stroke="rgba(255,255,255,.4)" stroke-width="1.5" fill="none"/>'+b+'</svg>';
+      }
+      if(t==="garland"){
+        var colors=["#ff6fae","#f4b14a","#5ec8f4","#7bd88f","#8f5fd8"], out="", n=7, x0=10, x1=330, dip=74, j;
+        out='<path d="M'+x0+' 8 Q '+((x0+x1)/2)+' '+dip+' '+x1+' 8" stroke="rgba(255,255,255,.45)" stroke-width="1.5" fill="none"/>';
+        for(j=0;j<=n;j++){ var t2=j/n;
+          var gx=(1-t2)*(1-t2)*x0 + 2*(1-t2)*t2*((x0+x1)/2) + t2*t2*x1;
+          var gy=(1-t2)*(1-t2)*8 + 2*(1-t2)*t2*dip + t2*t2*8;
+          out+='<path d="M'+(gx-9).toFixed(1)+' '+gy.toFixed(1)+' L'+(gx+9).toFixed(1)+' '+gy.toFixed(1)+' L'+gx.toFixed(1)+' '+(gy+19).toFixed(1)+' Z" fill="'+colors[j%colors.length]+'" opacity=".85"/>';
+        }
+        return '<svg width="340" height="100" viewBox="0 0 340 100"'+NS+' style="animation:garlandSway 7s ease-in-out infinite; transform-origin:50% 0">'+out+'</svg>';
+      }
+      return "";
+    }
+    function buildDecorItem(it, idx){
+      var meta=DECOR_META[it.t]; if(!meta||!decorLayer) return;
+      var d=document.createElement("div"); d.className="ditem";
+      d.style.left=(Math.min(.97,Math.max(.03,it.x||0.5))*100)+"%";
+      if(meta.floor) d.style.bottom="8px"; else d.style.top="0";
+      (DECOR_GLOWS[it.t]||[]).forEach(function(g){ var el=document.createElement("div"); el.className="iglow"; Object.keys(g).forEach(function(k){ el.style[k]=g[k]; }); d.appendChild(el); });
+      d.insertAdjacentHTML("beforeend", decorSVG(it.t));
+      d.addEventListener("pointerdown", function(e){
+        if(!decorEditing) return; e.preventDefault();
+        try{ d.setPointerCapture(e.pointerId); }catch(_){}
+        function mv(ev){ var r=decorLayer.getBoundingClientRect(); var x=Math.min(.97,Math.max(.03,(ev.clientX-r.left)/r.width)); it.x=x; d.style.left=(x*100)+"%"; }
+        function up(){ d.removeEventListener("pointermove",mv); d.removeEventListener("pointerup",up); d.removeEventListener("pointercancel",up); }
+        d.addEventListener("pointermove",mv); d.addEventListener("pointerup",up); d.addEventListener("pointercancel",up);
+      });
+      d.addEventListener("dblclick", function(){ if(!decorEditing) return; var k=roomDecor.indexOf(it); if(k>=0){ roomDecor.splice(k,1); renderDecor(curTheme); } });
+      decorLayer.appendChild(d);
+    }
+    function buildDecorBar(){
+      var bar=$("decorBar"); if(!bar) return; bar.innerHTML="";
+      Object.keys(DECOR_META).forEach(function(t){
+        var b=document.createElement("button"); b.type="button"; b.className="dbtn";
+        var s=document.createElement("span"); s.textContent=tr("d_"+t);
+        b.appendChild(document.createTextNode(DECOR_META[t].e)); b.appendChild(s);
+        b.addEventListener("click", function(){ if(roomDecor.length>=12){ toast(tr("decor_full"),4000); return; } roomDecor.push({ t:t, x:0.5 }); renderDecor(curTheme); });
+        bar.appendChild(b);
+      });
+      var done=document.createElement("button"); done.className="btn primary"; done.textContent=tr("decor_done");
+      done.addEventListener("click", function(){ exitDecorEdit(true); });
+      bar.appendChild(done);
+      var hint=document.createElement("div"); hint.className="dhint"; hint.textContent=tr("decor_hint");
+      bar.appendChild(hint);
+    }
+    function enterDecorEdit(){
+      if(passModalEl) passModalEl.classList.remove("show");
+      decorEditing=true; if(decorLayer) decorLayer.classList.add("editing");
+      buildDecorBar(); var bar=$("decorBar"); if(bar) bar.classList.add("show");
+      renderDecor(curTheme);
+    }
+    function exitDecorEdit(save){
+      decorEditing=false; if(decorLayer) decorLayer.classList.remove("editing");
+      var bar=$("decorBar"); if(bar) bar.classList.remove("show");
+      renderDecor(curTheme);
+      if(save) rtSend({ type:"set-decor", items:roomDecor });
+    }
+    if($("decorEditBtn")) $("decorEditBtn").addEventListener("click", enterDecorEdit);
     function renderThemeRow(){
       var row=$("themeRow"); if(!row) return; row.innerHTML="";
       Object.keys(THEMES).forEach(function(id){
@@ -2320,6 +2442,7 @@
       setText("gPickTitle",tr("g_pick")); var cb=$("gClearBtn"); if(cb) cb.textContent=tr("g_clear");
       setText("themeLbl",tr("theme_lbl")); renderThemeRow();
       setTitle("wallMicBtn",tr("wall_voice")); setTitle("wallCamBtn",tr("wall_videomsg"));
+      setText("decorEditBtn","🛋️ "+tr("decor_btn"));
     }
 
     function showRoomFull(){
@@ -2677,6 +2800,7 @@
       if(idle && wallItemsCount>0){ if(wallStageEl) wallStageEl.classList.add("show"); if(placeholder) placeholder.style.display="none"; }
       else { if(wallStageEl) wallStageEl.classList.remove("show"); if(idle && placeholder) placeholder.style.display=""; }
       var dl=$("decorLayer"); if(dl) dl.style.display = idle ? "" : "none";   // decorations belong to the idle living room
+      if(!idle && typeof exitDecorEdit==="function" && decorEditing) exitDecorEdit(true);   // content started mid-furnishing → save and step out
     }
     function postWallNote(){ var t=((wallText&&wallText.value)||"").trim(); if(!t) return; if(!hasWall){ toast(tr("wall_off"),5000); return; } wallText.value="";
       fetch(httpBase()+"/wall",{ method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({ room:roomCode, kind:"note", text:t, author:myName }) }).then(function(r){ return r.json(); }).then(function(d){ if(d&&d.item) addWallItem(d.item); else toast(tr("wall_fail"),5000); }).catch(function(){ toast(tr("wall_fail"),5000); }); }

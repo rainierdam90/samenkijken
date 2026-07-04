@@ -34,13 +34,15 @@ function makePg() {
       `);
       try { await pool.query("ALTER TABLE rooms ADD COLUMN IF NOT EXISTS expiresat BIGINT"); } catch (e) {}
       try { await pool.query("ALTER TABLE rooms ADD COLUMN IF NOT EXISTS theme TEXT"); } catch (e) {}
+      try { await pool.query("ALTER TABLE rooms ADD COLUMN IF NOT EXISTS decor TEXT"); } catch (e) {}
       ready = true;
       console.log("[store] persistence ON (Postgres)");
     } catch (e) { console.warn("[store] Postgres init failed — " + e.message); }
   })();
   return {
-    async getRoom(code) { try { const r = await pool.query("SELECT passhash, host, expiresat, theme FROM rooms WHERE code=$1", [code]); const row = r.rows[0]; return row ? { passHash: row.passhash, host: row.host, expiresAt: row.expiresat ? Number(row.expiresat) : 0, theme: row.theme || null } : null; } catch (e) { return null; } },
+    async getRoom(code) { try { const r = await pool.query("SELECT passhash, host, expiresat, theme, decor FROM rooms WHERE code=$1", [code]); const row = r.rows[0]; return row ? { passHash: row.passhash, host: row.host, expiresAt: row.expiresat ? Number(row.expiresat) : 0, theme: row.theme || null, decor: row.decor || null } : null; } catch (e) { return null; } },
     async setTheme(code, theme) { try { await pool.query("UPDATE rooms SET theme=$2 WHERE code=$1", [code, theme || null]); } catch (e) {} },
+    async setDecor(code, decor) { try { await pool.query("UPDATE rooms SET decor=$2 WHERE code=$1", [code, decor || null]); } catch (e) {} },
     async ensureRoom(code, host) { try { await pool.query("INSERT INTO rooms (code, host, createdat, expiresat) VALUES ($1,$2,$3,$4) ON CONFLICT (code) DO UPDATE SET host = COALESCE(rooms.host, EXCLUDED.host), expiresat = COALESCE(rooms.expiresat, EXCLUDED.expiresat)", [code, host || null, Date.now(), Date.now() + FREE_MS]); } catch (e) {} },
     async setPass(code, passHash) { try { await pool.query("INSERT INTO rooms (code, passhash, createdat, expiresat) VALUES ($1,$2,$3,$4) ON CONFLICT (code) DO UPDATE SET passhash = EXCLUDED.passhash", [code, passHash || null, Date.now(), Date.now() + FREE_MS]); } catch (e) {} },
     async extendRoom(code, addMs) { try { await pool.query("UPDATE rooms SET expiresat = GREATEST(COALESCE(expiresat, $2), $2) + $3 WHERE code=$1", [code, Date.now(), addMs]); } catch (e) {} },
@@ -80,11 +82,13 @@ function makeSqlite() {
   `);
   try { db.exec("ALTER TABLE rooms ADD COLUMN expiresAt INTEGER"); } catch (e) {}   // migrate older DBs (no-op if exists)
   try { db.exec("ALTER TABLE rooms ADD COLUMN theme TEXT"); } catch (e) {}          // room ambiance theme
+  try { db.exec("ALTER TABLE rooms ADD COLUMN decor TEXT"); } catch (e) {}          // user-placed room decorations (JSON)
   ready = true;
   console.log("[store] persistence ON (SQLite " + DB_PATH + ")");
   return {
-    async getRoom(code) { try { var r = db.prepare("SELECT passHash, host, expiresAt, theme FROM rooms WHERE code=?").get(code); return r ? { passHash: r.passHash, host: r.host, expiresAt: r.expiresAt || 0, theme: r.theme || null } : null; } catch (e) { return null; } },
+    async getRoom(code) { try { var r = db.prepare("SELECT passHash, host, expiresAt, theme, decor FROM rooms WHERE code=?").get(code); return r ? { passHash: r.passHash, host: r.host, expiresAt: r.expiresAt || 0, theme: r.theme || null, decor: r.decor || null } : null; } catch (e) { return null; } },
     async setTheme(code, theme) { try { db.prepare("UPDATE rooms SET theme=? WHERE code=?").run(theme || null, code); } catch (e) {} },
+    async setDecor(code, decor) { try { db.prepare("UPDATE rooms SET decor=? WHERE code=?").run(decor || null, code); } catch (e) {} },
     async ensureRoom(code, host) { try { db.prepare("INSERT INTO rooms (code, host, createdAt, expiresAt) VALUES (?, ?, ?, ?) ON CONFLICT(code) DO UPDATE SET host = COALESCE(rooms.host, excluded.host), expiresAt = COALESCE(rooms.expiresAt, excluded.expiresAt)").run(code, host || null, Date.now(), Date.now() + FREE_MS); } catch (e) {} },
     async setPass(code, passHash) { try { db.prepare("INSERT INTO rooms (code, passHash, createdAt, expiresAt) VALUES (?, ?, ?, ?) ON CONFLICT(code) DO UPDATE SET passHash = excluded.passHash").run(code, passHash || null, Date.now(), Date.now() + FREE_MS); } catch (e) {} },
     async extendRoom(code, addMs) { try { var r = db.prepare("SELECT expiresAt FROM rooms WHERE code=?").get(code); var base = Math.max((r && r.expiresAt) || 0, Date.now()); db.prepare("UPDATE rooms SET expiresAt=? WHERE code=?").run(base + addMs, code); } catch (e) {} },
@@ -121,6 +125,7 @@ module.exports = {
   ensureRoom: (c, h) => impl ? impl.ensureRoom(c, h) : noop(),
   setPass: (c, p) => impl ? impl.setPass(c, p) : noop(),
   setTheme: (c, t) => impl && impl.setTheme ? impl.setTheme(c, t) : noop(),
+  setDecor: (c, d) => impl && impl.setDecor ? impl.setDecor(c, d) : noop(),
   extendRoom: (c, ms) => impl && impl.extendRoom ? impl.extendRoom(c, ms) : noop(),
   renameRoom: (a, b) => impl && impl.renameRoom ? impl.renameRoom(a, b) : Promise.resolve(true),
   addWall: (it) => impl ? impl.addWall(it) : noop(),
