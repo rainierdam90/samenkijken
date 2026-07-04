@@ -1509,7 +1509,7 @@
         case "full": showRoomFull(); break;
         case "roster":
           joined=true; if(m.you&&m.you.name) myName=m.you.name;
-          hideConnecting(); isHost=!!m.host; roomHasPass=!!m.hasPass; if(passModalEl) passModalEl.classList.remove("show"); updateHostControls(); wallKey=m.wallKey||""; if(hasWall) fetchWall(); roomExpiresAt=m.expiresAt||0; maybeShowExpiryBanner();
+          hideConnecting(); isHost=!!m.host; roomHasPass=!!m.hasPass; if(passModalEl) passModalEl.classList.remove("show"); updateHostControls(); wallKey=m.wallKey||""; if(hasWall) fetchWall(); if(typeof refreshWallDelButtons==="function") refreshWallDelButtons(); roomExpiresAt=m.expiresAt||0; maybeShowExpiryBanner();
           if(typeof applyTheme==="function"){ roomDecor=Array.isArray(m.decor)?m.decor:roomDecor; applyTheme(m.theme||"classic"); }
           (m.peers||[]).forEach(function(pp){ if(pp.peerId===myPeerId) return; peers[pp.peerId]=peers[pp.peerId]||{}; peers[pp.peerId].name=pp.name||"Guest"; if(shouldInitiate(myPeerId,pp.peerId)) callPeer(pp.peerId); });
           recomputeAuthority(); updatePresenceStatus(); renderCams();
@@ -1539,7 +1539,7 @@
         case "talking": setPeerTalking(m.from, !!m.on); break;
         case "reaction": if(typeof m.emoji==="string") spawnReaction(m.emoji, m.name||""); break;
         case "video": if(typeof m.url==="string"){ if(currentMedia&&currentMedia.url===m.url&&mode===m.mode) break; /* already showing — replays must not reload */ urlInput.value=m.url; applyMedia(m.mode,m.url,m.id); toast((m.from&&peers[m.from]&&peers[m.from].name?peers[m.from].name:tr("others"))+" loaded a video."); } break;
-        case "host": { var meHost=(m.peerId===myPeerId); if(meHost&&!isHost) toast(tr("host_now"),5000); isHost=meHost; updateHostControls(); break; }
+        case "host": { var meHost=(m.peerId===myPeerId); if(meHost&&!isHost) toast(tr("host_now"),5000); isHost=meHost; updateHostControls(); if(typeof refreshWallDelButtons==="function") refreshWallDelButtons(); break; }
         case "reneg": if(m.target===myPeerId && m.from && peers[m.from]){ refreshIce().then(function(){ reconnectAsInitiator(m.from); }); } break;
       }
     }
@@ -2787,11 +2787,26 @@
     loadWallKeys();
     function newWallKey(){ return rand5()+rand5()+rand5()+rand5(); }
     function deleteWallItem(id){
-      var key=myWallKeys[id]; if(!key) return;
-      fetch(httpBase()+"/wall-delete",{ method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({ room:roomCode, id:id, key:key, k:wallKey }) })
-        .then(function(r){ return r.json(); }).then(function(d){ if(d&&d.ok){ removeWallLocal(id); delete myWallKeys[id]; saveWallKeys(); } else toast(tr("wall_del_fail"),5000); })
-        .catch(function(){ toast(tr("wall_del_fail"),5000); });
+      var key=myWallKeys[id];
+      if(key){
+        fetch(httpBase()+"/wall-delete",{ method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({ room:roomCode, id:id, key:key, k:wallKey }) })
+          .then(function(r){ return r.json(); }).then(function(d){ if(d&&d.ok){ removeWallLocal(id); delete myWallKeys[id]; saveWallKeys(); } else toast(tr("wall_del_fail"),5000); })
+          .catch(function(){ toast(tr("wall_del_fail"),5000); });
+      } else if(isHost){ rtSend({ type:"wall-del", id:id }); }   // host moderation — covers items without an owner key (e.g. older posts)
     }
+    function addWallDelBtn(id){
+      var e=wallDom[id]; if(!e||!e.row) return;
+      if(!(myWallKeys[id]||isHost)) return;                      // only your own items — or anything, when you're the host
+      if(e.row.querySelector(".wdel")) return;
+      var del=document.createElement("button"); del.type="button"; del.className="wdel"; del.textContent="🗑"; del.title=tr("wall_del");
+      del.addEventListener("click", function(ev){ ev.stopPropagation();
+        if(del._arm){ deleteWallItem(id); return; }
+        del._arm=1; del.classList.add("arm"); del.textContent=tr("wall_del_sure");
+        setTimeout(function(){ del._arm=0; del.classList.remove("arm"); del.textContent="🗑"; },3000);
+      });
+      e.row.appendChild(del);
+    }
+    function refreshWallDelButtons(){ Object.keys(wallDom).forEach(addWallDelBtn); }
     function removeWallLocal(id){
       var e=wallDom[id]; if(!e) return;
       if(e.row&&e.row.parentNode) e.row.parentNode.removeChild(e.row);
@@ -2816,15 +2831,7 @@
       else { bub.textContent=it.data||""; }
       row.appendChild(bub);
       wallDom[it.id]={ row:row };
-      if(myWallKeys[it.id]){   // my own item → offer removal (tap once to arm, again to confirm)
-        var del=document.createElement("button"); del.type="button"; del.className="wdel"; del.textContent="🗑"; del.title=tr("wall_del");
-        del.addEventListener("click", function(ev){ ev.stopPropagation();
-          if(del._arm){ deleteWallItem(it.id); return; }
-          del._arm=1; del.classList.add("arm"); del.textContent=tr("wall_del_sure");
-          setTimeout(function(){ del._arm=0; del.classList.remove("arm"); del.textContent="🗑"; },3000);
-        });
-        row.appendChild(del);
-      }
+      addWallDelBtn(it.id);   // own item (or host) → removal button; also retrofitted later if the key/host state arrives after render
       if(wallLog){ wallLog.appendChild(row); wallLog.scrollTop=wallLog.scrollHeight; }
       renderWallCard(it); wallItemsCount++; updateRoomView();
     }
@@ -2864,7 +2871,7 @@
       var dl=$("decorLayer"); if(dl) dl.style.display = idle ? "" : "none";   // decorations belong to the idle living room
       if(!idle && typeof exitDecorEdit==="function" && decorEditing) exitDecorEdit(true);   // content started mid-furnishing → save and step out
     }
-    function acceptWallPost(ownerKey){ return function(d){ if(d&&d.item){ myWallKeys[d.item.id]=ownerKey; saveWallKeys(); addWallItem(d.item); } else toast(tr("wall_fail"),5000); }; }
+    function acceptWallPost(ownerKey){ return function(d){ if(d&&d.item){ myWallKeys[d.item.id]=ownerKey; saveWallKeys(); addWallItem(d.item); addWallDelBtn(d.item.id); } else toast(tr("wall_fail"),5000); }; }   // the WS broadcast usually renders the item first (no key yet) — retrofit the trash button once the key is saved
     function postWallNote(){ var t=((wallText&&wallText.value)||"").trim(); if(!t) return; if(!hasWall){ toast(tr("wall_off"),5000); return; } wallText.value="";
       var wk=newWallKey();
       fetch(httpBase()+"/wall",{ method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({ room:roomCode, kind:"note", text:t, author:myName, key:wk, k:wallKey }) }).then(function(r){ return r.json(); }).then(acceptWallPost(wk)).catch(function(){ toast(tr("wall_fail"),5000); }); }

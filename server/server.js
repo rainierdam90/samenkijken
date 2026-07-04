@@ -654,6 +654,13 @@ wss.on("connection", (ws) => {
       broadcastRoom(r, { type: "theme", theme, by: ws._name }, ws);
       return;
     }
+    if (m.type === "wall-del") {                    // host moderation: remove ANY item from this room's wall (incl. legacy items without owner key)
+      if (r.host !== ws._peerId) return;
+      const wid = String(m.id || "").slice(0, 40);
+      if (!wid) return;
+      store.delWallAny(ws._room, wid).then(ok => { if (ok) broadcastRoom(r, { type: "wall-remove", id: wid }); }).catch(() => {});
+      return;
+    }
     if (m.type === "set-decor") {                   // host furnishes the room: [{t,x},…] — validated, synced, persisted
       if (r.host !== ws._peerId) return;
       const DECOR_TYPES = ["lamp", "lights", "garland", "plant", "fire", "candles"];
