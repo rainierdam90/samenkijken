@@ -35,6 +35,7 @@ function makePg() {
       try { await pool.query("ALTER TABLE rooms ADD COLUMN IF NOT EXISTS expiresat BIGINT"); } catch (e) {}
       try { await pool.query("ALTER TABLE rooms ADD COLUMN IF NOT EXISTS theme TEXT"); } catch (e) {}
       try { await pool.query("ALTER TABLE rooms ADD COLUMN IF NOT EXISTS decor TEXT"); } catch (e) {}
+      try { await pool.query("ALTER TABLE wall ADD COLUMN IF NOT EXISTS editkey TEXT"); } catch (e) {}
       ready = true;
       console.log("[store] persistence ON (Postgres)");
     } catch (e) { console.warn("[store] Postgres init failed — " + e.message); }
@@ -54,9 +55,10 @@ function makePg() {
         return true;
       } catch (e) { return false; } },
     async addWall(it) { try {
-        await pool.query("INSERT INTO wall (id, room, kind, author, mime, data, ts) VALUES ($1,$2,$3,$4,$5,$6,$7)", [it.id, it.room, it.kind, it.author || null, it.mime || null, it.data || null, it.ts]);
+        await pool.query("INSERT INTO wall (id, room, kind, author, mime, data, ts, editkey) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)", [it.id, it.room, it.kind, it.author || null, it.mime || null, it.data || null, it.ts, it.editKey || null]);
         await pool.query("DELETE FROM wall WHERE id IN (SELECT id FROM wall WHERE room=$1 ORDER BY ts DESC OFFSET $2)", [it.room, WALL_KEEP]);
       } catch (e) {} },
+    async delWall(room, id, keyHash) { try { const r = await pool.query("DELETE FROM wall WHERE room=$1 AND id=$2 AND editkey=$3", [room, id, keyHash]); return r.rowCount > 0; } catch (e) { return false; } },
     async getWall(code, limit) { try { const r = await pool.query("SELECT id, kind, author, mime, data, ts FROM wall WHERE room=$1 ORDER BY ts ASC LIMIT $2", [code, limit || WALL_KEEP]); return r.rows; } catch (e) { return []; } },
     async recordVisit(day, ipHash) { try { await pool.query("INSERT INTO visits (day, iphash) VALUES ($1,$2) ON CONFLICT DO NOTHING", [day, ipHash]); } catch (e) {} },
     async visitorDays(limit) { try { const r = await pool.query("SELECT day, COUNT(*)::int AS n FROM visits GROUP BY day ORDER BY day DESC LIMIT $1", [limit || 30]); return r.rows.map(x => ({ day: x.day, count: Number(x.n) })); } catch (e) { return []; } },
@@ -83,6 +85,7 @@ function makeSqlite() {
   try { db.exec("ALTER TABLE rooms ADD COLUMN expiresAt INTEGER"); } catch (e) {}   // migrate older DBs (no-op if exists)
   try { db.exec("ALTER TABLE rooms ADD COLUMN theme TEXT"); } catch (e) {}          // room ambiance theme
   try { db.exec("ALTER TABLE rooms ADD COLUMN decor TEXT"); } catch (e) {}          // user-placed room decorations (JSON)
+  try { db.exec("ALTER TABLE wall ADD COLUMN editKey TEXT"); } catch (e) {}         // hashed owner key → lets the poster remove their own item
   ready = true;
   console.log("[store] persistence ON (SQLite " + DB_PATH + ")");
   return {
@@ -99,9 +102,10 @@ function makeSqlite() {
         return true;
       } catch (e) { return false; } },
     async addWall(it) { try {
-        db.prepare("INSERT INTO wall (id, room, kind, author, mime, data, ts) VALUES (?, ?, ?, ?, ?, ?, ?)").run(it.id, it.room, it.kind, it.author || null, it.mime || null, it.data || null, it.ts);
+        db.prepare("INSERT INTO wall (id, room, kind, author, mime, data, ts, editKey) VALUES (?, ?, ?, ?, ?, ?, ?, ?)").run(it.id, it.room, it.kind, it.author || null, it.mime || null, it.data || null, it.ts, it.editKey || null);
         db.prepare("DELETE FROM wall WHERE id IN (SELECT id FROM wall WHERE room=? ORDER BY ts DESC LIMIT -1 OFFSET ?)").run(it.room, WALL_KEEP);
       } catch (e) {} },
+    async delWall(room, id, keyHash) { try { var r = db.prepare("DELETE FROM wall WHERE room=? AND id=? AND editKey=?").run(room, id, keyHash); return r.changes > 0; } catch (e) { return false; } },
     async getWall(code, limit) { try { return db.prepare("SELECT id, kind, author, mime, data, ts FROM wall WHERE room=? ORDER BY ts ASC LIMIT ?").all(code, limit || WALL_KEEP); } catch (e) { return []; } },
     async recordVisit(day, ipHash) { try { db.prepare("INSERT OR IGNORE INTO visits (day, ipHash) VALUES (?, ?)").run(day, ipHash); } catch (e) {} },
     async visitorDays(limit) { try { return db.prepare("SELECT day, COUNT(*) AS count FROM visits GROUP BY day ORDER BY day DESC LIMIT ?").all(limit || 30); } catch (e) { return []; } },
@@ -129,6 +133,7 @@ module.exports = {
   extendRoom: (c, ms) => impl && impl.extendRoom ? impl.extendRoom(c, ms) : noop(),
   renameRoom: (a, b) => impl && impl.renameRoom ? impl.renameRoom(a, b) : Promise.resolve(true),
   addWall: (it) => impl ? impl.addWall(it) : noop(),
+  delWall: (r, i, k) => impl && impl.delWall ? impl.delWall(r, i, k) : Promise.resolve(false),
   getWall: (c, l) => impl ? impl.getWall(c, l) : Promise.resolve([]),
   recordVisit: (d, h) => impl && impl.recordVisit ? impl.recordVisit(d, h) : noop(),
   visitorDays: (n) => impl && impl.visitorDays ? impl.visitorDays(n) : Promise.resolve([]),

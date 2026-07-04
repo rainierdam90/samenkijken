@@ -116,6 +116,8 @@ app.use((req, res, next) => {
   res.setHeader("X-Frame-Options", "SAMEORIGIN");
   res.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
   res.setHeader("Permissions-Policy", "camera=(self), microphone=(self), geolocation=(), browsing-topics=()");
+  res.setHeader("Cross-Origin-Opener-Policy", "same-origin");
+  res.setHeader("X-Permitted-Cross-Domain-Policies", "none");
   if ((req.headers["x-forwarded-proto"] || req.protocol) === "https")
     res.setHeader("Strict-Transport-Security", "max-age=31536000; includeSubDomains");
   // Full CSP only for top-level documents — API responses are JSON and don't need it.
@@ -161,6 +163,7 @@ function makeLimiter(max, windowMs) {
 }
 const httpLimiter = makeLimiter(RL_HTTP_MAX, RL_HTTP_WINDOW);
 const connLimiter = makeLimiter(RL_CONN_MAX, RL_CONN_WINDOW);
+const wallWriteLimiter = makeLimiter(25, 10 * 60 * 1000);   // wall posts/deletes: 25 per 10 min per IP (anti-spam, anti-DB-bloat)
 const ipConns = new Map();   // ip -> live /rt socket count (concurrency cap)
 function tooMany(res) { res.setHeader("Retry-After", "60"); res.status(429).json({ error: "rate_limited" }); }
 
@@ -296,21 +299,36 @@ function notifyRoomAlive(room, arriverName) {
 
 /* ---- Persistent wall: notes & photos that stay between sessions (the "living room" memory) ---- */
 app.options("/wall", (req, res) => { cors(req, res); res.setHeader("Access-Control-Allow-Methods", "GET,POST,OPTIONS"); res.sendStatus(204); });
+/* Wall access control: for PASSWORD-LOCKED rooms the wall is only reachable with a membership token
+   that the server hands out on a successful (password-checked) join — guessing a room code is not enough. */
+const WALL_TOKEN_SECRET = crypto.randomBytes(32);
+function wallTokenFor(room) { return crypto.createHmac("sha256", WALL_TOKEN_SECRET).update("wall|" + room).digest("hex").slice(0, 32); }
+async function wallLocked(room) {
+  const live = rooms.get(room);
+  if (live && (live.pass || live._loadP)) { try { await live._loadP; } catch (e) {} return !!live.pass; }
+  const row = await store.getRoom(room).catch(() => null);
+  return !!(row && row.passHash);
+}
+function sha256hex(s) { return crypto.createHash("sha256").update(String(s)).digest("hex"); }
+
 app.get("/wall", async (req, res) => {
   cors(req, res);
   if (!httpLimiter(clientIp(req))) return tooMany(res);
   res.setHeader("Cache-Control", "no-store");
   const room = String(req.query.room || "").slice(0, 80);
-  const items = room ? await store.getWall(room, 100) : [];
+  if (!room) return res.json({ enabled: store.enabled(), items: [] });
+  if (await wallLocked(room) && !safeEqual(String(req.query.k || ""), wallTokenFor(room))) return res.status(403).json({ error: "locked" });
+  const items = await store.getWall(room, 100);
   res.json({ enabled: store.enabled(), items });
 });
 app.post("/wall", async (req, res) => {
   cors(req, res); res.setHeader("Access-Control-Allow-Methods", "GET,POST,OPTIONS");
-  if (!httpLimiter(clientIp(req))) return tooMany(res);
+  if (!wallWriteLimiter(clientIp(req))) return tooMany(res);
   if (!store.enabled()) return res.status(503).json({ error: "no_store" });
   const b = req.body || {};
   const room = String(b.room || "").slice(0, 80);
   if (!room) return res.status(400).json({ error: "bad_request" });
+  if (await wallLocked(room) && !safeEqual(String(b.k || ""), wallTokenFor(room))) return res.status(403).json({ error: "locked" });
   const kind = ["photo", "audio", "video"].includes(b.kind) ? b.kind : "note";
   let data, mime = null;
   if (kind === "note") { data = String(b.text || "").trim().slice(0, 1000); if (!data) return res.status(400).json({ error: "empty" }); }
@@ -321,10 +339,24 @@ app.post("/wall", async (req, res) => {
     if (!re.test(data)) return res.status(400).json({ error: "bad_media" });
     if (data.length > cap) return res.status(413).json({ error: "too_big" });
   }
-  const item = { id: "w" + crypto.randomBytes(6).toString("hex"), room, kind, author: String(b.author || "Someone").slice(0, 40), mime, data, ts: Date.now() };
-  await store.addWall(item);
-  try { const r = rooms.get(room); if (r) broadcastRoom(r, { type: "wall-add", item }); } catch (e) {}   // live members see it instantly
-  res.json({ ok: true, item });
+  const ownerKey = String(b.key || "").slice(0, 64);   // poster keeps the key → only they can remove the item
+  const pub = { id: "w" + crypto.randomBytes(6).toString("hex"), room, kind, author: String(b.author || "Someone").slice(0, 40), mime, data, ts: Date.now() };
+  await store.addWall(Object.assign({ editKey: ownerKey ? sha256hex(ownerKey) : null }, pub));
+  try { const r = rooms.get(room); if (r) broadcastRoom(r, { type: "wall-add", item: pub }); } catch (e) {}   // live members see it instantly
+  res.json({ ok: true, item: pub });
+});
+app.post("/wall-delete", async (req, res) => {
+  cors(req, res); res.setHeader("Access-Control-Allow-Methods", "GET,POST,OPTIONS");
+  if (!wallWriteLimiter(clientIp(req))) return tooMany(res);
+  if (!store.enabled()) return res.status(503).json({ error: "no_store" });
+  const b = req.body || {};
+  const room = String(b.room || "").slice(0, 80), id = String(b.id || "").slice(0, 40), key = String(b.key || "").slice(0, 64);
+  if (!room || !id || !key) return res.status(400).json({ error: "bad_request" });
+  if (await wallLocked(room) && !safeEqual(String(b.k || ""), wallTokenFor(room))) return res.status(403).json({ error: "locked" });
+  const ok = await store.delWall(room, id, sha256hex(key));   // only deletes when the owner key matches
+  if (!ok) return res.status(403).json({ error: "not_yours" });
+  try { const r = rooms.get(room); if (r) broadcastRoom(r, { type: "wall-remove", id }); } catch (e) {}
+  res.json({ ok: true });
 });
 
 /* ---- YouTube search proxy: the API key stays on the server, never in the browser ---- */
@@ -521,7 +553,7 @@ wss.on("connection", (ws) => {
       r.lastActivity = Date.now();
       if (!ws._joinedAt) { ws._joinedAt = Date.now(); metrics.joins++; }   // count this session join once
       // tell the joiner who is already here; tell others someone joined
-      sendJSON(ws, { type: "roster", you: { peerId: ws._peerId, name: ws._name }, peers: rosterArr(r), host: r.host === ws._peerId, hasPass: !!r.pass, expiresAt: PAYWALL_ON ? (r._expiresAt || 0) : 0, theme: r.theme || "", decor: Array.isArray(r.decor) ? r.decor : [] });
+      sendJSON(ws, { type: "roster", you: { peerId: ws._peerId, name: ws._name }, peers: rosterArr(r), host: r.host === ws._peerId, hasPass: !!r.pass, expiresAt: PAYWALL_ON ? (r._expiresAt || 0) : 0, theme: r.theme || "", decor: Array.isArray(r.decor) ? r.decor : [], wallKey: wallTokenFor(code) });
       broadcastRoom(r, { type: "peer-joined", peerId: ws._peerId, name: ws._name }, ws);
       if (r.gallery && r.gallery.items.length) sendJSON(ws, { type: "gallery", presenter: r.gallery.presenter, items: r.gallery.items, current: r.gallery.current });
       else if (r.media && r.media.url) sendJSON(ws, { type: "video", from: "", mode: r.media.mode, url: r.media.url, id: r.media.id });   // replay the active link to (re)joiners
