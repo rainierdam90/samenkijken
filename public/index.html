@@ -302,8 +302,9 @@
   .btn.on{background:rgba(244,177,74,.18); border-color:rgba(244,177,74,.6); color:var(--amber-2)}
 
   /* ---- game night: draw & guess ---- */
-  .gamewrap{position:absolute; inset:0; z-index:52; display:none; flex-direction:column; background:rgba(8,7,10,.97); backdrop-filter:blur(6px)}
+  .gamewrap{position:absolute; inset:0; z-index:52; display:none; flex-direction:column; background:rgba(8,7,10,.97); backdrop-filter:blur(6px); padding-bottom:76px}   /* keep the guess bar clear of the floating controls */
   .gamewrap.show{display:flex}
+  @media (max-width:760px){ .gamewrap{padding-bottom:calc(62px + env(safe-area-inset-bottom))} }
   .stage.game-on .cams{z-index:53}   /* keep the faces visible over the game board */
   .g-head{display:flex; align-items:center; gap:11px; padding:9px 14px; border-bottom:1px solid var(--line); flex-wrap:wrap}
   .g-status{color:var(--muted); font-size:13px}
@@ -358,7 +359,8 @@
   /* furnishing mode: items become grabbable, a palette bar appears */
   #decorLayer.editing{pointer-events:auto; z-index:56}
   #decorLayer.editing .ditem{pointer-events:auto; cursor:grab; outline:2px dashed rgba(244,177,74,.75); outline-offset:5px; border-radius:10px}
-  .decorbar{position:fixed; left:50%; transform:translateX(-50%); bottom:14px; z-index:240; display:none; align-items:center; gap:8px; flex-wrap:wrap; justify-content:center; background:rgba(16,13,20,.96); border:1px solid var(--line); border-radius:14px; padding:10px 12px; box-shadow:var(--shadow); max-width:94vw}
+  .decorbar{position:fixed; left:50%; transform:translateX(-50%); bottom:84px; z-index:240; display:none; align-items:center; gap:8px; flex-wrap:wrap; justify-content:center; background:rgba(16,13,20,.96); border:1px solid var(--line); border-radius:14px; padding:10px 12px; box-shadow:var(--shadow); max-width:94vw}
+  @media (max-width:760px){ .decorbar{bottom:calc(64px + env(safe-area-inset-bottom))} }
   .decorbar.show{display:flex}
   .decorbar .dbtn{display:flex; flex-direction:column; align-items:center; gap:3px; background:var(--panel-2); border:1px solid var(--line); border-radius:11px; color:var(--txt); padding:8px 10px; cursor:pointer; font-size:18px; min-width:58px; font-family:inherit}
   .decorbar .dbtn span{font-size:10.5px; color:var(--muted)}
@@ -372,6 +374,7 @@
   .recing{background:rgba(232,115,107,.3)!important; border-color:rgba(232,115,107,.8)!important; animation:lampPulse 1s ease-in-out infinite}
   /* delete your own wall items (side panel): tap once to arm, again to confirm */
   .msg{position:relative}
+  .msg .who{padding-right:44px}   /* keep the author name clear of the trash button */
   .wdel{position:absolute; top:2px; right:0; background:rgba(20,16,24,.85); border:1px solid var(--line); color:var(--muted); border-radius:8px; font-size:12px; padding:3px 8px; cursor:pointer; opacity:.75; font-family:inherit}
   .wdel:hover{opacity:1; color:#fff}
   .wdel.arm{background:rgba(232,115,107,.25); border-color:rgba(232,115,107,.7); color:#ffb3ac; opacity:1}
@@ -565,6 +568,7 @@
   .wnote:hover{transform:rotate(0deg) scale(1.05)}
   .wnote .who{font-size:10px; opacity:.65; margin-top:10px}
   .wall-add-hint{position:absolute; left:50%; bottom:70px; transform:translateX(-50%); z-index:5; font-size:12px; color:var(--muted); background:rgba(20,16,24,.7); border:1px solid var(--line); border-radius:999px; padding:6px 13px; display:none}
+  @media (max-width:760px){ .wall-add-hint{bottom:calc(76px + env(safe-area-inset-bottom))} }
   .wall-stage.show ~ .wall-add-hint{display:block}
 
   /* memories wall items (panel) */
@@ -2788,10 +2792,13 @@
     function newWallKey(){ return rand5()+rand5()+rand5()+rand5(); }
     function deleteWallItem(id){
       var key=myWallKeys[id];
+      // items posted while an older backend was still live have a local key but no key in the DB —
+      // if the key route refuses and we're host, fall back to host moderation instead of giving up
+      function keyFailed(){ if(isHost){ rtSend({ type:"wall-del", id:id }); delete myWallKeys[id]; saveWallKeys(); } else toast(tr("wall_del_fail"),5000); }
       if(key){
         fetch(httpBase()+"/wall-delete",{ method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({ room:roomCode, id:id, key:key, k:wallKey }) })
-          .then(function(r){ return r.json(); }).then(function(d){ if(d&&d.ok){ removeWallLocal(id); delete myWallKeys[id]; saveWallKeys(); } else toast(tr("wall_del_fail"),5000); })
-          .catch(function(){ toast(tr("wall_del_fail"),5000); });
+          .then(function(r){ return r.json(); }).then(function(d){ if(d&&d.ok){ removeWallLocal(id); delete myWallKeys[id]; saveWallKeys(); } else keyFailed(); })
+          .catch(keyFailed);
       } else if(isHost){ rtSend({ type:"wall-del", id:id }); }   // host moderation — covers items without an owner key (e.g. older posts)
     }
     function addWallDelBtn(id){
@@ -2812,6 +2819,7 @@
       if(e.row&&e.row.parentNode) e.row.parentNode.removeChild(e.row);
       if(e.card&&e.card.parentNode) e.card.parentNode.removeChild(e.card);
       delete wallDom[id];
+      if(myWallKeys[id]){ delete myWallKeys[id]; saveWallKeys(); }   // gone is gone — drop the orphaned owner key
       wallItemsCount=Math.max(0,wallItemsCount-1); updateRoomView();
     }
     var wallLoaded=false, wallHasItems=false, wallSeen={};
