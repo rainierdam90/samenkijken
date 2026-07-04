@@ -433,6 +433,10 @@ function leaveRoom(ws) {
     r.members.delete(ws);
     if (me) broadcastRoom(r, { type: "peer-left", peerId: me.peerId, name: me.name });
     if (me && r.gallery && r.gallery.presenter === me.peerId) { r.gallery = null; broadcastRoom(r, { type: "gallery-clear" }); }
+    if (me && r.host === me.peerId && r.members.size) {   // host left → promote the longest-present member
+      const next = r.members.values().next().value;
+      if (next) { r.host = next.peerId; broadcastRoom(r, { type: "host", peerId: r.host }); }
+    }
     r.lastActivity = Date.now();
     if (r.members.size === 0 && r.chat.length === 0) rooms.delete(ws._room);
   }
@@ -488,7 +492,9 @@ wss.on("connection", (ws) => {
       const code = String(m.room || "").slice(0, 80);
       if (!code) return;
       const r = getRoom(code);
-      if (!r._loadP) { r._loadP = store.getRoom(code).then(row => { if (row) { if (row.passHash) r.pass = row.passHash; if (row.host) r.host = row.host; if (row.expiresAt) r._expiresAt = row.expiresAt; if (row.theme) r.theme = row.theme; } }).catch(() => {}); }
+      // NOTE: the persisted host peerId is NOT restored — peer ids are random per session, so a stored
+      // host can never match anyone again (it made room settings unreachable in existing rooms).
+      if (!r._loadP) { r._loadP = store.getRoom(code).then(row => { if (row) { if (row.passHash) r.pass = row.passHash; if (row.expiresAt) r._expiresAt = row.expiresAt; if (row.theme) r.theme = row.theme; } }).catch(() => {}); }
       await r._loadP;   // restore a persisted lock/host (awaited so the password check sees it; concurrent joins share one load)
       if (r._bans && r._bans.has(String(m.peerId || ""))) { sendJSON(ws, { type: "kicked" }); return; }   // removed by host
       if (r.members.size >= MAX_ROOM && !r.members.has(ws)) { sendJSON(ws, { type: "full" }); return; }
@@ -507,7 +513,9 @@ wss.on("connection", (ws) => {
       r.members.forEach((v, w) => { if (w !== ws && v.peerId === ws._peerId) { r.members.delete(w); w._room = null; } });
       if (prevPid && prevPid !== ws._peerId) broadcastRoom(r, { type: "peer-left", peerId: prevPid }, ws);   // client rebuilt under a new id → let the room forget the old one
       r.members.set(ws, { peerId: ws._peerId, name: ws._name });
-      if (!r.host) { r.host = ws._peerId; store.ensureRoom(code, ws._peerId); }   // first person in becomes the host (persisted)
+      // the host must be someone who is actually HERE — if not (empty room reopened, host gone), this joiner takes over
+      const hostLive = Array.from(r.members.values()).some(v => v.peerId === r.host);
+      if (!hostLive) { r.host = ws._peerId; store.ensureRoom(code, ws._peerId); broadcastRoom(r, { type: "host", peerId: r.host }, ws); }
       if (!r._expiresAt && store.enabled()) r._expiresAt = Date.now() + store.freeDays() * 86400000;   // free wall lifetime
       if (wasEmpty) notifyRoomAlive(code, ws._name);
       r.lastActivity = Date.now();
@@ -516,6 +524,7 @@ wss.on("connection", (ws) => {
       sendJSON(ws, { type: "roster", you: { peerId: ws._peerId, name: ws._name }, peers: rosterArr(r), host: r.host === ws._peerId, hasPass: !!r.pass, expiresAt: PAYWALL_ON ? (r._expiresAt || 0) : 0, theme: r.theme || "" });
       broadcastRoom(r, { type: "peer-joined", peerId: ws._peerId, name: ws._name }, ws);
       if (r.gallery && r.gallery.items.length) sendJSON(ws, { type: "gallery", presenter: r.gallery.presenter, items: r.gallery.items, current: r.gallery.current });
+      else if (r.media && r.media.url) sendJSON(ws, { type: "video", from: "", mode: r.media.mode, url: r.media.url, id: r.media.id });   // replay the active link to (re)joiners
       pushStats();
       return;
     }
@@ -624,6 +633,7 @@ wss.on("connection", (ws) => {
       const mode = String(m.mode || "").slice(0, 16);
       const url = String(m.url || "").slice(0, 2000);
       const id = String(m.id || "").slice(0, 64);
+      r.media = url ? { mode, url, id } : null;   // remember what's playing → replay to (re)joiners so a missed link never stays blank
       broadcastRoom(r, { type: "video", from: ws._peerId, mode, url, id }, ws);
       return;
     }
@@ -631,6 +641,7 @@ wss.on("connection", (ws) => {
     /* ---- shared gallery (photos/videos): only control state is relayed; the bytes go peer-to-peer ---- */
     if (m.type === "gallery") {
       const items = cleanGalleryItems(m.items);
+      r.media = null;   // a gallery share replaces a pasted link
       r.gallery = { presenter: ws._peerId, items, current: String(m.current || "").slice(0, 64) || null };
       broadcastRoom(r, { type: "gallery", presenter: ws._peerId, items: r.gallery.items, current: r.gallery.current }, ws);
       return;
