@@ -645,6 +645,10 @@ wss.on("connection", (ws) => {
       broadcastRoom(r, { type: m.type, from: ws._peerId }, ws);
       return;
     }
+    if (m.type === "gallery-prog" || m.type === "gallery-done") {   // transfer-then-reveal: viewers report share-download progress to the presenter
+      broadcastRoom(r, { type: m.type, from: ws._peerId, pct: Math.max(0, Math.min(100, Math.round(+m.pct || 0))) }, ws);
+      return;
+    }
     if (m.type === "set-theme") {                   // room ambiance — host picks, everyone follows
       if (r.host !== ws._peerId) return;
       const THEME_IDS = ["classic", "party", "cinema", "summer", "winter"];
@@ -693,7 +697,8 @@ wss.on("connection", (ws) => {
       const items = cleanGalleryItems(m.items);
       r.media = null;   // a gallery share replaces a pasted link
       r.gallery = { presenter: ws._peerId, items, current: String(m.current || "").slice(0, 64) || null };
-      broadcastRoom(r, { type: "gallery", presenter: ws._peerId, items: r.gallery.items, current: r.gallery.current }, ws);
+      // hold is relayed but NOT stored: live viewers wait for the synchronized reveal, late joiners reveal for themselves
+      broadcastRoom(r, { type: "gallery", presenter: ws._peerId, items: r.gallery.items, current: r.gallery.current, hold: !!m.hold }, ws);
       return;
     }
     if (m.type === "gallery-show") {

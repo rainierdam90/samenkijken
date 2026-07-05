@@ -378,6 +378,29 @@
   .wdel{position:absolute; top:2px; right:0; background:rgba(20,16,24,.85); border:1px solid var(--line); color:var(--muted); border-radius:8px; font-size:12px; padding:3px 8px; cursor:pointer; opacity:.75; font-family:inherit}
   .wdel:hover{opacity:1; color:#fff}
   .wdel.arm{background:rgba(232,115,107,.25); border-color:rgba(232,115,107,.7); color:#ffb3ac; opacity:1}
+
+  /* wall videos: poster tile with a play badge — click opens the enlarged player (like photos) */
+  .wvidwrap{position:relative; cursor:zoom-in; border-radius:10px; overflow:hidden}
+  .wvidwrap video{pointer-events:none}
+  .wvidwrap .wplay{position:absolute; inset:0; display:grid; place-items:center; pointer-events:none}
+  .wvidwrap .wplay span{width:44px; height:44px; border-radius:50%; display:grid; place-items:center; background:rgba(10,8,12,.62); border:1px solid rgba(255,255,255,.35); color:#fff; font-size:17px; padding-left:3px; backdrop-filter:blur(3px)}
+  #lightboxVid{max-width:92vw; max-height:86vh; border-radius:12px; display:none; background:#000; box-shadow:var(--shadow)}
+
+  /* transfer pill: sharing waits until everyone has 100%, then reveals for all at once */
+  .xferpill{position:absolute; left:50%; transform:translateX(-50%); bottom:140px; z-index:41; display:flex; align-items:center; gap:9px; padding:9px 16px; border-radius:999px; background:rgba(20,16,24,.94); border:1px solid var(--line); box-shadow:var(--shadow); font-size:13.5px; color:var(--txt); backdrop-filter:blur(8px)}
+  .xferpill[hidden]{display:none}
+  .xspin{width:13px; height:13px; border-radius:50%; border:2px solid rgba(244,177,74,.25); border-top-color:var(--amber); animation:xspin 1s linear infinite}
+  @keyframes xspin{to{transform:rotate(360deg)}}
+
+  /* intro: the couch flies at you — dark shield with a couch-shaped hole that zooms until you're "inside" */
+  #introZoom{position:fixed; inset:0; z-index:420; background:#0b0a0c; pointer-events:none; display:none;
+    -webkit-mask-image:linear-gradient(#fff,#fff),url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%20100%2072'%3E%3Crect%20x='14'%20y='10'%20width='72'%20height='34'%20rx='9'/%3E%3Crect%20x='4'%20y='24'%20width='16'%20height='30'%20rx='8'/%3E%3Crect%20x='80'%20y='24'%20width='16'%20height='30'%20rx='8'/%3E%3Crect%20x='12'%20y='40'%20width='76'%20height='16'%20rx='5'/%3E%3Crect%20x='16'%20y='56'%20width='8'%20height='8'%20rx='2'/%3E%3Crect%20x='76'%20y='56'%20width='8'%20height='8'%20rx='2'/%3E%3C/svg%3E");
+    mask-image:linear-gradient(#fff,#fff),url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%20100%2072'%3E%3Crect%20x='14'%20y='10'%20width='72'%20height='34'%20rx='9'/%3E%3Crect%20x='4'%20y='24'%20width='16'%20height='30'%20rx='8'/%3E%3Crect%20x='80'%20y='24'%20width='16'%20height='30'%20rx='8'/%3E%3Crect%20x='12'%20y='40'%20width='76'%20height='16'%20rx='5'/%3E%3Crect%20x='16'%20y='56'%20width='8'%20height='8'%20rx='2'/%3E%3Crect%20x='76'%20y='56'%20width='8'%20height='8'%20rx='2'/%3E%3C/svg%3E");
+    -webkit-mask-repeat:no-repeat,no-repeat; mask-repeat:no-repeat,no-repeat;
+    -webkit-mask-position:0 0,center; mask-position:0 0,center;
+    -webkit-mask-size:100% 100%,var(--introS,150px); mask-size:100% 100%,var(--introS,150px);
+    -webkit-mask-composite:destination-out; mask-composite:exclude}
+  #introZoom.on{display:block}
   .sharebar{position:absolute; left:50%; transform:translateX(-50%); bottom:84px; z-index:40; display:none; align-items:center; gap:8px; max-width:94vw; padding:8px 10px; border-radius:14px; background:rgba(20,16,24,.92); border:1px solid var(--line); backdrop-filter:blur(10px); box-shadow:var(--shadow)}
   .sharebar.show{display:flex}
   .gstrip{display:flex; gap:6px; overflow-x:auto; max-width:58vw; padding:2px}
@@ -709,7 +732,11 @@
     </div>
     <div class="wall-add-hint" id="wallAddHint">Tap 📌 to add a memory</div>
 
-    <div class="lightbox" id="lightbox"><button class="lb-x" id="lightboxX" aria-label="Close">×</button><img id="lightboxImg" alt="" /></div>
+    <div class="lightbox" id="lightbox"><button class="lb-x" id="lightboxX" aria-label="Close">×</button><img id="lightboxImg" alt="" /><video id="lightboxVid" playsinline controls></video></div>
+
+    <div class="xferpill" id="xferPill" hidden><span class="xspin"></span><span id="xferTxt">…</span></div>
+
+    <div id="introZoom" aria-hidden="true"></div>
 
     <div class="playgate" id="playgate" hidden>
       <button id="playgateBtn"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg> <span id="playgateTxt">Click to watch along</span></button>
@@ -1136,8 +1163,8 @@
     };
     Object.keys(NOTIFYCOPY).forEach(function(k){ if(I18N[k]) Object.keys(NOTIFYCOPY[k]).forEach(function(j){ I18N[k][j]=NOTIFYCOPY[k][j]; }); });
     var PASSCOPY = {
-      en:{save:"Save",pass_set_btn:"Set a room password",pass_change:"Change room password",pass_set_title:"Set a room password",pass_set_sub:"Only people with the password can join your room.",pass_need_title:"Password required",pass_need_sub:"This room is protected. Enter the password to join.",pass_wrong:"Wrong password — try again.",pass_on:"Room locked 🔒 — only people with the password can join.",pass_off:"Password removed — the room is open.",pass_denied:"Only the host can change the password.",pass_locked:"locked the room 🔒",pass_unlocked:"removed the password",settings_title:"Room settings",settings_sub:"Change your room name or set a password.",room_name_lbl:"Room name",settings_pass_lbl:"Password",rename_bad:"Pick a name with at least 2 letters.",rename_taken:"That name is taken — try another.",rename_saving:"Saving…",rename_ok:"",rename_done:"Room name updated ✓",room_settings_btn:"Room settings",screen_btn:"Browse together",screen_stop:"Stop sharing",screen_on:"You're sharing your screen — the others can watch along.",screen_off:"You stopped sharing your screen.",screen_started:"is sharing their screen 🖥️",screen_unsupported:"Screen sharing isn't supported on this device. On a phone, use 📷 Share instead.",g_btn:"Game night — draw & guess",g_pick:"Choose a word to draw",g_you_draw:"Draw:",g_other_draws:"{n} is drawing — guess the word!",g_choosing:"{n} is choosing a word…",g_guess_ph:"Type your guess…",g_guess:"Guess",g_correct:"{n} guessed it: {w}! 🎉",g_timeup:"Time's up! The word was: {w}",g_stop:"Stop game",g_clear:"Clear",g_wait_peer:"Wait until someone joins you, then start the game.",g_started:"{n} started a drawing game — guess along! 🎲",g_ended:"Game over — final scores in chat 🎲",theme_lbl:"Ambiance",theme_set:"set the mood to",theme_classic:"Cozy",theme_party:"Party",theme_cinema:"Cinema",theme_summer:"Summer",theme_winter:"Winter",wall_voice:"Voice message",wall_videomsg:"Video message",wall_rec_voice:"Recording voice message 🎙️ — tap again to finish (max 60s)",wall_rec_video:"Recording video message 🎥 — tap again to finish (max 30s)",wall_rec_denied:"Microphone/camera permission is needed for messages.",wall_rec_unsupported:"Recording isn't supported in this browser.",wall_too_big:"That message is too long — keep it a bit shorter.",host_now:"You are now the host of this room 👑",decor_btn:"Decorate the room",decor_done:"✓ Done",decor_hint:"Tap an item to add it • drag to move • double-tap to remove",decor_set:"redecorated the room 🛋️",decor_full:"That's plenty of furniture for one room 😄",d_lamp:"Lamp",d_lights:"Lights",d_garland:"Garland",d_plant:"Plant",d_fire:"Fireplace",d_candles:"Candles",wall_del:"Remove",wall_del_sure:"Delete?",wall_del_fail:"Couldn't remove that.",wall_vid_prep:"Preparing your video for the wall — this takes as long as the clip plays (max 60s)…",wall_vid_long:"Only the first 60 seconds go on the wall",wall_vid_unsupported:"This browser can't convert video files — record a video message 🎥 instead.",wall_vid_bad:"Couldn't read that video in this browser."},
-      nl:{save:"Opslaan",pass_set_btn:"Wachtwoord instellen",pass_change:"Wachtwoord wijzigen",pass_set_title:"Stel een kamerwachtwoord in",pass_set_sub:"Alleen mensen met het wachtwoord kunnen je kamer binnen.",pass_need_title:"Wachtwoord vereist",pass_need_sub:"Deze kamer is beveiligd. Vul het wachtwoord in om mee te doen.",pass_wrong:"Onjuist wachtwoord — probeer opnieuw.",pass_on:"Kamer vergrendeld 🔒 — alleen met wachtwoord toegang.",pass_off:"Wachtwoord verwijderd — de kamer is open.",pass_denied:"Alleen de host kan het wachtwoord wijzigen.",pass_locked:"heeft de kamer vergrendeld 🔒",pass_unlocked:"heeft het wachtwoord verwijderd",settings_title:"Kamerinstellingen",settings_sub:"Wijzig je kamernaam of stel een wachtwoord in.",room_name_lbl:"Kamernaam",settings_pass_lbl:"Wachtwoord",rename_bad:"Kies een naam van minstens 2 letters.",rename_taken:"Die naam is al bezet — kies een andere.",rename_saving:"Opslaan…",rename_ok:"",rename_done:"Kamernaam gewijzigd ✓",room_settings_btn:"Kamerinstellingen",screen_btn:"Samen browsen",screen_stop:"Stop delen",screen_on:"Je deelt je scherm — de anderen kijken mee.",screen_off:"Je bent gestopt met scherm delen.",screen_started:"deelt zijn scherm 🖥️",screen_unsupported:"Scherm delen wordt niet ondersteund op dit apparaat. Gebruik op een telefoon 📷 Delen.",g_btn:"Spelletjesavond — tekenen & raden",g_pick:"Kies een woord om te tekenen",g_you_draw:"Teken:",g_other_draws:"{n} tekent — raad het woord!",g_choosing:"{n} kiest een woord…",g_guess_ph:"Typ je gok…",g_guess:"Raad",g_correct:"{n} heeft het geraden: {w}! 🎉",g_timeup:"Tijd is om! Het woord was: {w}",g_stop:"Stop spel",g_clear:"Wissen",g_wait_peer:"Wacht tot er iemand bij je is, start dan het spel.",g_started:"{n} is een tekenspel begonnen — raad mee! 🎲",g_ended:"Spel afgelopen — eindstand in de chat 🎲",theme_lbl:"Sfeer",theme_set:"zette de sfeer op",theme_classic:"Knus",theme_party:"Feest",theme_cinema:"Bioscoop",theme_summer:"Zomer",theme_winter:"Winter",wall_voice:"Spraakbericht",wall_videomsg:"Videoboodschap",wall_rec_voice:"Spraakbericht wordt opgenomen 🎙️ — tik nogmaals om te stoppen (max 60s)",wall_rec_video:"Videoboodschap wordt opgenomen 🎥 — tik nogmaals om te stoppen (max 30s)",wall_rec_denied:"Toegang tot microfoon/camera is nodig voor boodschappen.",wall_rec_unsupported:"Opnemen wordt niet ondersteund in deze browser.",wall_too_big:"Die boodschap is te lang — houd het iets korter.",host_now:"Jij bent nu de host van deze kamer 👑",decor_btn:"Kamer inrichten",decor_done:"✓ Klaar",decor_hint:"Tik op een item om toe te voegen • sleep om te verplaatsen • dubbeltik om te verwijderen",decor_set:"heeft de kamer opnieuw ingericht 🛋️",decor_full:"Zo vol hoeft de kamer ook weer niet 😄",d_lamp:"Lamp",d_lights:"Lichtsnoer",d_garland:"Slinger",d_plant:"Plant",d_fire:"Open haard",d_candles:"Kaarsen",wall_del:"Verwijderen",wall_del_sure:"Zeker?",wall_del_fail:"Verwijderen lukte niet.",wall_vid_prep:"Je video wordt klaargemaakt voor de muur — dit duurt zo lang als het fragment speelt (max 60s)…",wall_vid_long:"Alleen de eerste 60 seconden komen op de muur",wall_vid_unsupported:"Deze browser kan videobestanden niet omzetten — neem in plaats daarvan een videoboodschap op 🎥.",wall_vid_bad:"Kan deze video niet lezen in deze browser."},
+      en:{save:"Save",pass_set_btn:"Set a room password",pass_change:"Change room password",pass_set_title:"Set a room password",pass_set_sub:"Only people with the password can join your room.",pass_need_title:"Password required",pass_need_sub:"This room is protected. Enter the password to join.",pass_wrong:"Wrong password — try again.",pass_on:"Room locked 🔒 — only people with the password can join.",pass_off:"Password removed — the room is open.",pass_denied:"Only the host can change the password.",pass_locked:"locked the room 🔒",pass_unlocked:"removed the password",settings_title:"Room settings",settings_sub:"Change your room name or set a password.",room_name_lbl:"Room name",settings_pass_lbl:"Password",rename_bad:"Pick a name with at least 2 letters.",rename_taken:"That name is taken — try another.",rename_saving:"Saving…",rename_ok:"",rename_done:"Room name updated ✓",room_settings_btn:"Room settings",screen_btn:"Browse together",screen_stop:"Stop sharing",screen_on:"You're sharing your screen — the others can watch along.",screen_off:"You stopped sharing your screen.",screen_started:"is sharing their screen 🖥️",screen_unsupported:"Screen sharing isn't supported on this device. On a phone, use 📷 Share instead.",g_btn:"Game night — draw & guess",g_pick:"Choose a word to draw",g_you_draw:"Draw:",g_other_draws:"{n} is drawing — guess the word!",g_choosing:"{n} is choosing a word…",g_guess_ph:"Type your guess…",g_guess:"Guess",g_correct:"{n} guessed it: {w}! 🎉",g_timeup:"Time's up! The word was: {w}",g_stop:"Stop game",g_clear:"Clear",g_wait_peer:"Wait until someone joins you, then start the game.",g_started:"{n} started a drawing game — guess along! 🎲",g_ended:"Game over — final scores in chat 🎲",theme_lbl:"Ambiance",theme_set:"set the mood to",theme_classic:"Cozy",theme_party:"Party",theme_cinema:"Cinema",theme_summer:"Summer",theme_winter:"Winter",wall_voice:"Voice message",wall_videomsg:"Video message",wall_rec_voice:"Recording voice message 🎙️ — tap again to finish (max 60s)",wall_rec_video:"Recording video message 🎥 — tap again to finish (max 30s)",wall_rec_denied:"Microphone/camera permission is needed for messages.",wall_rec_unsupported:"Recording isn't supported in this browser.",wall_too_big:"That message is too long — keep it a bit shorter.",host_now:"You are now the host of this room 👑",decor_btn:"Decorate the room",decor_done:"✓ Done",decor_hint:"Tap an item to add it • drag to move • double-tap to remove",decor_set:"redecorated the room 🛋️",decor_full:"That's plenty of furniture for one room 😄",d_lamp:"Lamp",d_lights:"Lights",d_garland:"Garland",d_plant:"Plant",d_fire:"Fireplace",d_candles:"Candles",wall_del:"Remove",wall_del_sure:"Delete?",wall_del_fail:"Couldn't remove that.",wall_vid_prep:"Preparing your video for the wall — this takes as long as the clip plays (max 60s)…",wall_vid_long:"Only the first 60 seconds go on the wall",wall_vid_unsupported:"This browser can't convert video files — record a video message 🎥 instead.",wall_vid_bad:"Couldn't read that video in this browser.",xfer_send:"Sending to the room… {p}% — it appears for everyone at 100%",xfer_recv:"Receiving… {p}%"},
+      nl:{save:"Opslaan",pass_set_btn:"Wachtwoord instellen",pass_change:"Wachtwoord wijzigen",pass_set_title:"Stel een kamerwachtwoord in",pass_set_sub:"Alleen mensen met het wachtwoord kunnen je kamer binnen.",pass_need_title:"Wachtwoord vereist",pass_need_sub:"Deze kamer is beveiligd. Vul het wachtwoord in om mee te doen.",pass_wrong:"Onjuist wachtwoord — probeer opnieuw.",pass_on:"Kamer vergrendeld 🔒 — alleen met wachtwoord toegang.",pass_off:"Wachtwoord verwijderd — de kamer is open.",pass_denied:"Alleen de host kan het wachtwoord wijzigen.",pass_locked:"heeft de kamer vergrendeld 🔒",pass_unlocked:"heeft het wachtwoord verwijderd",settings_title:"Kamerinstellingen",settings_sub:"Wijzig je kamernaam of stel een wachtwoord in.",room_name_lbl:"Kamernaam",settings_pass_lbl:"Wachtwoord",rename_bad:"Kies een naam van minstens 2 letters.",rename_taken:"Die naam is al bezet — kies een andere.",rename_saving:"Opslaan…",rename_ok:"",rename_done:"Kamernaam gewijzigd ✓",room_settings_btn:"Kamerinstellingen",screen_btn:"Samen browsen",screen_stop:"Stop delen",screen_on:"Je deelt je scherm — de anderen kijken mee.",screen_off:"Je bent gestopt met scherm delen.",screen_started:"deelt zijn scherm 🖥️",screen_unsupported:"Scherm delen wordt niet ondersteund op dit apparaat. Gebruik op een telefoon 📷 Delen.",g_btn:"Spelletjesavond — tekenen & raden",g_pick:"Kies een woord om te tekenen",g_you_draw:"Teken:",g_other_draws:"{n} tekent — raad het woord!",g_choosing:"{n} kiest een woord…",g_guess_ph:"Typ je gok…",g_guess:"Raad",g_correct:"{n} heeft het geraden: {w}! 🎉",g_timeup:"Tijd is om! Het woord was: {w}",g_stop:"Stop spel",g_clear:"Wissen",g_wait_peer:"Wacht tot er iemand bij je is, start dan het spel.",g_started:"{n} is een tekenspel begonnen — raad mee! 🎲",g_ended:"Spel afgelopen — eindstand in de chat 🎲",theme_lbl:"Sfeer",theme_set:"zette de sfeer op",theme_classic:"Knus",theme_party:"Feest",theme_cinema:"Bioscoop",theme_summer:"Zomer",theme_winter:"Winter",wall_voice:"Spraakbericht",wall_videomsg:"Videoboodschap",wall_rec_voice:"Spraakbericht wordt opgenomen 🎙️ — tik nogmaals om te stoppen (max 60s)",wall_rec_video:"Videoboodschap wordt opgenomen 🎥 — tik nogmaals om te stoppen (max 30s)",wall_rec_denied:"Toegang tot microfoon/camera is nodig voor boodschappen.",wall_rec_unsupported:"Opnemen wordt niet ondersteund in deze browser.",wall_too_big:"Die boodschap is te lang — houd het iets korter.",host_now:"Jij bent nu de host van deze kamer 👑",decor_btn:"Kamer inrichten",decor_done:"✓ Klaar",decor_hint:"Tik op een item om toe te voegen • sleep om te verplaatsen • dubbeltik om te verwijderen",decor_set:"heeft de kamer opnieuw ingericht 🛋️",decor_full:"Zo vol hoeft de kamer ook weer niet 😄",d_lamp:"Lamp",d_lights:"Lichtsnoer",d_garland:"Slinger",d_plant:"Plant",d_fire:"Open haard",d_candles:"Kaarsen",wall_del:"Verwijderen",wall_del_sure:"Zeker?",wall_del_fail:"Verwijderen lukte niet.",wall_vid_prep:"Je video wordt klaargemaakt voor de muur — dit duurt zo lang als het fragment speelt (max 60s)…",wall_vid_long:"Alleen de eerste 60 seconden komen op de muur",wall_vid_unsupported:"Deze browser kan videobestanden niet omzetten — neem in plaats daarvan een videoboodschap op 🎥.",wall_vid_bad:"Kan deze video niet lezen in deze browser.",xfer_send:"Versturen naar de kamer… {p}% — bij 100% verschijnt het bij iedereen tegelijk",xfer_recv:"Ontvangen… {p}%"},
       de:{save:"Speichern",pass_set_btn:"Raumpasswort festlegen",pass_change:"Passwort ändern",pass_set_title:"Raumpasswort festlegen",pass_set_sub:"Nur Personen mit dem Passwort können beitreten.",pass_need_title:"Passwort erforderlich",pass_need_sub:"Dieser Raum ist geschützt. Gib das Passwort ein.",pass_wrong:"Falsches Passwort — versuch es erneut.",pass_on:"Raum gesperrt 🔒",pass_off:"Passwort entfernt — der Raum ist offen.",pass_denied:"Nur der Host kann das Passwort ändern.",pass_locked:"hat den Raum gesperrt 🔒",pass_unlocked:"hat das Passwort entfernt"},
       fr:{save:"Enregistrer",pass_set_btn:"Définir un mot de passe",pass_change:"Changer le mot de passe",pass_set_title:"Définir un mot de passe",pass_set_sub:"Seules les personnes avec le mot de passe peuvent rejoindre.",pass_need_title:"Mot de passe requis",pass_need_sub:"Ce salon est protégé. Entre le mot de passe.",pass_wrong:"Mot de passe incorrect — réessaie.",pass_on:"Salon verrouillé 🔒",pass_off:"Mot de passe retiré — le salon est ouvert.",pass_denied:"Seul l'hôte peut changer le mot de passe.",pass_locked:"a verrouillé le salon 🔒",pass_unlocked:"a retiré le mot de passe"},
       es:{save:"Guardar",pass_set_btn:"Poner contraseña",pass_change:"Cambiar contraseña",pass_set_title:"Poner contraseña a la sala",pass_set_sub:"Solo quien tenga la contraseña puede entrar.",pass_need_title:"Contraseña requerida",pass_need_sub:"Esta sala está protegida. Introduce la contraseña.",pass_wrong:"Contraseña incorrecta — inténtalo de nuevo.",pass_on:"Sala bloqueada 🔒",pass_off:"Contraseña eliminada — la sala está abierta.",pass_denied:"Solo el anfitrión puede cambiar la contraseña.",pass_locked:"bloqueó la sala 🔒",pass_unlocked:"quitó la contraseña"},
@@ -1513,7 +1540,7 @@
         case "full": showRoomFull(); break;
         case "roster":
           joined=true; if(m.you&&m.you.name) myName=m.you.name;
-          hideConnecting(); isHost=!!m.host; roomHasPass=!!m.hasPass; if(passModalEl) passModalEl.classList.remove("show"); updateHostControls(); wallKey=m.wallKey||""; if(hasWall) fetchWall(); if(typeof refreshWallDelButtons==="function") refreshWallDelButtons(); roomExpiresAt=m.expiresAt||0; maybeShowExpiryBanner();
+          hideConnecting(); if(typeof playIntroZoom==="function") setTimeout(playIntroZoom,200); isHost=!!m.host; roomHasPass=!!m.hasPass; if(passModalEl) passModalEl.classList.remove("show"); updateHostControls(); wallKey=m.wallKey||""; if(hasWall) fetchWall(); if(typeof refreshWallDelButtons==="function") refreshWallDelButtons(); roomExpiresAt=m.expiresAt||0; maybeShowExpiryBanner();
           if(typeof applyTheme==="function"){ roomDecor=Array.isArray(m.decor)?m.decor:roomDecor; applyTheme(m.theme||"classic"); }
           (m.peers||[]).forEach(function(pp){ if(pp.peerId===myPeerId) return; peers[pp.peerId]=peers[pp.peerId]||{}; peers[pp.peerId].name=pp.name||"Guest"; if(shouldInitiate(myPeerId,pp.peerId)) callPeer(pp.peerId); });
           recomputeAuthority(); updatePresenceStatus(); renderCams();
@@ -1534,7 +1561,7 @@
           recomputeAuthority(); updatePresenceStatus(); renderCams();
           if(isAuthority&&currentMedia){ rtSend({ type:"video", mode:currentMedia.mode, url:currentMedia.url, id:currentMedia.id }); if(mode==="file"||mode==="youtube") rtSend({ type:"sync", kind:isPausedMedia()?"pause":"play", time:getTime() }); }
           break;
-        case "peer-left": if(peers[m.peerId]) { if(peers[m.peerId].name) toast(peers[m.peerId].name+" left."); } removePeer(m.peerId); if(typeof gameOnPeerLeft==="function") gameOnPeerLeft(m.peerId); break;
+        case "peer-left": if(peers[m.peerId]) { if(peers[m.peerId].name) toast(peers[m.peerId].name+" left."); } removePeer(m.peerId); if(typeof gameOnPeerLeft==="function") gameOnPeerLeft(m.peerId); if(typeof presWaitPeerLeft==="function") presWaitPeerLeft(m.peerId); break;
         case "chat": if(typeof m.text==="string"){ receiveChat(m.from||tr("others"), m.text); if(typeof gameChatCheck==="function") gameChatCheck(m.peerId, m.from, m.text); } break;
         case "theme": if(typeof applyTheme==="function"){ applyTheme(m.theme); toast((m.by||tr("others"))+" "+tr("theme_set")+" "+tr("theme_"+(THEMES[m.theme]?m.theme:"classic"))+" "+(THEMES[m.theme]?THEMES[m.theme].e:""),4500); } break;
         case "decor": roomDecor=Array.isArray(m.items)?m.items:[]; if(typeof renderDecor==="function") renderDecor(curTheme); if(m.by) toast(m.by+" "+tr("decor_set"),4000); break;
@@ -1965,11 +1992,86 @@
       if(!gallery) return; var it=null, i;
       for(i=0;i<gallery.items.length;i++){ if(gallery.items[i].fileId===fileId){ it=gallery.items[i]; break; } }
       if(!it) return; gallery.current=fileId;
-      var url = amPresenter() ? localURLs[fileId] : ("/wmt-stream/"+encodeURIComponent(fileId));
-      if(!amPresenter()){ if(it.type==="video" && !swControlled) toast(tr("sw_needed"),8000); swRegisterFile(it); }
+      // fully transferred copy plays from a local blob (smooth); only oversized files still stream live
+      var url = amPresenter() ? localURLs[fileId] : (galleryBlobs[fileId] || ("/wmt-stream/"+encodeURIComponent(fileId)));
+      if(!amPresenter() && !galleryBlobs[fileId]){ if(it.type==="video" && !swControlled) toast(tr("sw_needed"),8000); swRegisterFile(it); }
       if(it.type==="image") showImage(url); else showVideoSrc(url);
       renderStrip();
     }
+
+    /* ---- transfer-then-reveal: files are fully copied to every viewer first (progress pill, chunked with
+            endless retry so a dropped connection simply RESUMES), and only when everyone is at 100% does the
+            presenter's first item appear for the whole room at the same moment. ---- */
+    var galleryBlobs={};                       // fileId -> blob URL (fully received)
+    var galleryXfer=null;                      // receiver-side transfer state
+    var presWait=null;                         // presenter-side "who is at 100%?" state
+    var XFER_CHUNK=262144, PREFETCH_MAX=200*1024*1024;
+    var xferPillEl=$("xferPill");
+    function showXfer(txt){ if(!xferPillEl) return; setText("xferTxt",txt); xferPillEl.hidden=false; }
+    function hideXfer(){ if(xferPillEl) xferPillEl.hidden=true; }
+    function prefetchGallery(hold){
+      if(!gallery||amPresenter()) return;
+      if(galleryXfer) galleryXfer.cancelled=true;
+      var run={ cancelled:false, active:true, hold:!!hold, pendingShow:null };
+      galleryXfer=run;
+      var items=gallery.items.filter(function(it){ return it.size>0 && it.size<=PREFETCH_MAX && !galleryBlobs[it.fileId]; });
+      var total=0; items.forEach(function(it){ total+=it.size; });
+      var got=0, lastSent=0;
+      function pct(){ return total?Math.min(100,Math.round(got/total*100)):100; }
+      function report(){
+        showXfer(tr("xfer_recv").replace("{p}",String(pct())));
+        var now=Date.now();
+        if(now-lastSent>900){ lastSent=now; rtSend({ type:"gallery-prog", pct:pct() }); }
+      }
+      function fetchChunkRetry(fid,start,end){
+        return fetchRange(fid,start,end).catch(function(err){
+          if(run.cancelled||!gallery) throw err;
+          return new Promise(function(res){ setTimeout(res,2500); }).then(function(){
+            if(run.cancelled||!gallery) throw err;
+            try{ ensureData(gallery.presenter); }catch(e){}       // reconnect heals → transfer resumes where it was
+            return fetchChunkRetry(fid,start,end);
+          });
+        });
+      }
+      var seq=Promise.resolve();
+      items.forEach(function(it){
+        seq=seq.then(function(){
+          if(run.cancelled) return;
+          var parts=[], pos=0;
+          function next(){
+            if(run.cancelled) return;
+            if(pos>=it.size){ try{ galleryBlobs[it.fileId]=URL.createObjectURL(new Blob(parts,{ type:it.mime||"" })); }catch(e){} parts=null; return; }
+            var end=Math.min(pos+XFER_CHUNK,it.size)-1;
+            return fetchChunkRetry(it.fileId,pos,end).then(function(buf){
+              if(run.cancelled) return;
+              parts.push(buf); got+=((buf&&buf.byteLength)||(end-pos+1)); pos=end+1; report();
+              return next();
+            });
+          }
+          report();
+          return next();
+        });
+      });
+      seq.then(function(){
+        if(run.cancelled) return;
+        run.active=false; rtSend({ type:"gallery-done" }); hideXfer();
+        var show=run.pendingShow||(!run.hold&&gallery?gallery.current:null);   // late joiner reveals for himself; a fresh share waits for the presenter
+        if(show) showGalleryItem(show);
+      }).catch(function(){ if(!run.cancelled){ run.active=false; hideXfer(); } });
+    }
+    function presCheckDone(){
+      if(!presWait) return;
+      var open=presWait.need.filter(function(pid){ return !presWait.done[pid]; });
+      if(!open.length){ presReveal(); return; }
+      var pcts=presWait.need.map(function(pid){ return presWait.done[pid]?100:(presWait.pct[pid]||0); });
+      showXfer(tr("xfer_send").replace("{p}", String(Math.min.apply(null,pcts))));
+    }
+    function presReveal(){
+      if(!presWait) return;
+      clearTimeout(presWait.timer); presWait=null; hideXfer();
+      if(gallery&&gallery.items.length) presenterShow(gallery.current||gallery.items[0].fileId);
+    }
+    function presWaitPeerLeft(pid){ if(!presWait) return; presWait.need=presWait.need.filter(function(x){ return x!==pid; }); presCheckDone(); }
     function renderStrip(){
       if(!gstrip) return; gstrip.innerHTML="";
       if(!gallery) return;
@@ -2015,14 +2117,25 @@
       var items=[], i;
       for(i=0;i<list.length;i++){ var e=list[i], f=e.blob; var id="f"+rand5()+rand5(); myFiles[id]=f; try{ localURLs[id]=URL.createObjectURL(f); }catch(ex){} items.push({fileId:id,name:(e.name||id).slice(0,120),type:(e.mime&&e.mime.indexOf("image/")===0)?"image":"video",size:f.size,mime:e.mime}); }
       gallery={presenter:myPeerId, items:items, current:items[0].fileId};
-      rtSend({type:"gallery", presenter:myPeerId, items:items, current:items[0].fileId});
-      openGalleryUI(); showGalleryItem(items[0].fileId);
+      rtSend({type:"gallery", presenter:myPeerId, items:items, current:items[0].fileId, hold:true});   // hold: viewers reveal only when everyone is at 100%
+      openGalleryUI();
+      var receivers=Object.keys(peers);
+      if(!receivers.length){ showGalleryItem(items[0].fileId); }
+      else {
+        presWait={ need:receivers, done:{}, pct:{}, timer:setTimeout(function(){ presReveal(); },120000) };   // safety valve: never wait forever
+        showXfer(tr("xfer_send").replace("{p}","0"));
+      }
       toast(items.length+(items.length===1?" item":" items")+" shared. Others can now watch along.",6000);
       if(shareMode) updateCompanionShared(items);
     }
     function stopSharing(){ if(!amPresenter()) return; rtSend({type:"gallery-clear"}); teardownGallery(); }
     function teardownGallery(){
       Object.keys(localURLs).forEach(function(id){ try{ URL.revokeObjectURL(localURLs[id]); }catch(e){} });
+      if(galleryXfer){ galleryXfer.cancelled=true; galleryXfer=null; }
+      if(presWait){ clearTimeout(presWait.timer); presWait=null; }
+      hideXfer();
+      Object.keys(galleryBlobs).forEach(function(id){ try{ URL.revokeObjectURL(galleryBlobs[id]); }catch(e){} });
+      galleryBlobs={};
       localURLs={}; myFiles={}; gallery=null; closeGalleryUI();
       if(galleryImg){ galleryImg.style.display="none"; try{ galleryImg.removeAttribute("src"); }catch(e){} }
       if(mode==="gallery-image"||mode==="file"){ clearPlayers(); placeholder.style.display=""; mode="none"; }
@@ -2035,11 +2148,18 @@
         ensureData(m.presenter);
         var who=(peers[m.presenter]&&peers[m.presenter].name)||tr("others");
         toast(who+" "+tr("someone_sharing")+".",6000);
-        openGalleryUI(); if(gallery.current) showGalleryItem(gallery.current);
+        openGalleryUI();
+        prefetchGallery(!!m.hold);   // copy everything over first (progress + resume); reveal follows
         return true;
       }
-      if(m.type==="gallery-show"){ if(!gallery) return true; showGalleryItem(m.fileId); return true; }
-      if(m.type==="gallery-clear"){ if(!amPresenter()){ gallery=null; closeGalleryUI(); if(galleryImg){ galleryImg.style.display="none"; try{ galleryImg.removeAttribute("src"); }catch(e){} } if(mode==="gallery-image"||mode==="file"){ clearPlayers(); placeholder.style.display=""; mode="none"; } if(typeof updateRoomView==="function") updateRoomView(); renderCams(); } return true; }
+      if(m.type==="gallery-show"){
+        if(!gallery) return true;
+        if(galleryXfer&&galleryXfer.active){ galleryXfer.pendingShow=m.fileId; gallery.current=m.fileId; renderStrip(); return true; }   // still receiving → remember, reveal at 100%
+        showGalleryItem(m.fileId); return true;
+      }
+      if(m.type==="gallery-prog"){ if(presWait&&m.from){ presWait.pct[m.from]=m.pct||0; presCheckDone(); } return true; }
+      if(m.type==="gallery-done"){ if(presWait&&m.from){ presWait.done[m.from]=true; presCheckDone(); } return true; }
+      if(m.type==="gallery-clear"){ if(!amPresenter()){ if(galleryXfer){ galleryXfer.cancelled=true; galleryXfer=null; } hideXfer(); Object.keys(galleryBlobs).forEach(function(id){ try{ URL.revokeObjectURL(galleryBlobs[id]); }catch(e){} }); galleryBlobs={}; gallery=null; closeGalleryUI(); if(galleryImg){ galleryImg.style.display="none"; try{ galleryImg.removeAttribute("src"); }catch(e){} } if(mode==="gallery-image"||mode==="file"){ clearPlayers(); placeholder.style.display=""; mode="none"; } if(typeof updateRoomView==="function") updateRoomView(); renderCams(); } return true; }
       return false;
     }
     if(shareMediaBtn) shareMediaBtn.addEventListener("click", function(){
@@ -2492,6 +2612,31 @@
       connectingWakeTimer=setTimeout(function(){ if(connectingEl.classList.contains("show")) setText("connectingTxt",tr("conn_wake")); },7000);   // be honest about server cold starts
       connectingTimer=setTimeout(hideConnecting,60000); }
     function hideConnecting(){ if(connectingEl) connectingEl.classList.remove("show"); clearTimeout(connectingTimer); clearTimeout(connectingWakeTimer); }
+    /* intro: the couch rushes at you — a dark shield with a couch-shaped hole zooms until you are "inside" the room */
+    var introPlayed=false;
+    function playIntroZoom(){
+      if(introPlayed||shareMode) return; introPlayed=true;
+      var el=$("introZoom"); if(!el) return;
+      var reduce=window.matchMedia&&window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      var okMask=false;
+      try{ okMask=!!(window.CSS&&CSS.supports&&(CSS.supports("mask-composite","exclude")||CSS.supports("-webkit-mask-composite","destination-out"))); }catch(e){}
+      if(reduce||!okMask){   // graceful: a plain quick fade instead of the zoom
+        el.style.webkitMaskImage="none"; el.style.maskImage="none";
+        el.classList.add("on");
+        requestAnimationFrame(function(){ el.style.transition="opacity .5s ease"; el.style.opacity="0"; setTimeout(function(){ if(el.parentNode) el.parentNode.removeChild(el); },650); });
+        return;
+      }
+      el.classList.add("on");
+      var t0=null, D=1100, maxS=Math.max(window.innerWidth,window.innerHeight)*7;
+      function frame(ts){
+        if(t0===null) t0=ts;
+        var t=Math.min(1,(ts-t0)/D), e=t*t*t;   // accelerating — the couch comes AT you
+        el.style.setProperty("--introS",(150+(maxS-150)*e)+"px");
+        if(t<1) requestAnimationFrame(frame);
+        else { el.style.transition="opacity .3s ease"; el.style.opacity="0"; setTimeout(function(){ if(el.parentNode) el.parentNode.removeChild(el); },400); }
+      }
+      requestAnimationFrame(frame);
+    }
     /* your saved rooms (recurring "huiskamers") — localStorage, no account needed */
     function getMyRooms(){ try{ return JSON.parse(localStorage.getItem("wmt_rooms")||"[]"); }catch(e){ return []; } }
     function saveMyRoom(code){ if(!code) return; try{ var l=getMyRooms().filter(function(r){return r.code!==code;}); l.unshift({code:code, ts:Date.now()}); localStorage.setItem("wmt_rooms", JSON.stringify(l.slice(0,8))); }catch(e){} }
@@ -2819,8 +2964,35 @@
       if(e.row&&e.row.parentNode) e.row.parentNode.removeChild(e.row);
       if(e.card&&e.card.parentNode) e.card.parentNode.removeChild(e.card);
       delete wallDom[id];
+      if(wallBlobUrls[id]){ try{ URL.revokeObjectURL(wallBlobUrls[id]); }catch(e2){} delete wallBlobUrls[id]; }
       if(myWallKeys[id]){ delete myWallKeys[id]; saveWallKeys(); }   // gone is gone — drop the orphaned owner key
       wallItemsCount=Math.max(0,wallItemsCount-1); updateRoomView();
+    }
+    /* media on the wall arrives as a base64 data URL (fine for storage, terrible for playback:
+       no buffering/seeking → stutter). Convert once to a blob URL and every player runs smooth. */
+    var wallBlobUrls={};
+    function dataUrlToBlob(du){
+      var m=/^data:([^;,]+)?(;base64)?,([\s\S]*)$/.exec(du||""); if(!m) return null;
+      var mime=m[1]||"application/octet-stream";
+      if(!m[2]) return new Blob([decodeURIComponent(m[3])],{ type:mime });
+      var bin=atob(m[3]), n=bin.length, u=new Uint8Array(n);
+      for(var i=0;i<n;i++) u[i]=bin.charCodeAt(i);
+      return new Blob([u],{ type:mime });
+    }
+    function wallMediaUrl(it){
+      if(!wallBlobUrls[it.id]){
+        try{ var b=dataUrlToBlob(it.data); wallBlobUrls[it.id]=b?URL.createObjectURL(b):it.data; }
+        catch(e){ wallBlobUrls[it.id]=it.data; }
+      }
+      return wallBlobUrls[it.id];
+    }
+    function wallVideoTile(it, cls){
+      var wrap=document.createElement("div"); wrap.className="wvidwrap";
+      var vd=document.createElement("video"); vd.playsInline=true; vd.preload="metadata"; vd.muted=true; if(cls) vd.className=cls; vd.src=wallMediaUrl(it);
+      wrap.appendChild(vd);
+      var pb=document.createElement("div"); pb.className="wplay"; var pi=document.createElement("span"); pi.textContent="▶"; pb.appendChild(pi); wrap.appendChild(pb);
+      wrap.addEventListener("click", function(ev){ ev.stopPropagation(); openVideoLightbox(wallMediaUrl(it)); });
+      return wrap;
     }
     var wallLoaded=false, wallHasItems=false, wallSeen={};
     var MAX_WALL_STAGE=36;
@@ -2834,8 +3006,8 @@
       var who=document.createElement("div"); who.className="who"; who.textContent=it.author||tr("others"); row.appendChild(who);
       var bub=document.createElement("div"); bub.className="bub";
       if(it.kind==="photo"){ var img=document.createElement("img"); img.className="wall-img"; img.loading="lazy"; img.decoding="async"; img.alt=""; img.src=it.data; img.addEventListener("click", function(){ openLightbox(it.data); }); bub.appendChild(img); }
-      else if(it.kind==="audio"&&/^data:audio\//.test(it.data||"")){ var au=document.createElement("audio"); au.controls=true; au.preload="metadata"; au.className="wall-audio"; au.src=it.data; bub.appendChild(au); }
-      else if(it.kind==="video"&&/^data:video\//.test(it.data||"")){ var vd=document.createElement("video"); vd.controls=true; vd.playsInline=true; vd.preload="metadata"; vd.className="wall-videomsg"; vd.src=it.data; bub.appendChild(vd); }
+      else if(it.kind==="audio"&&/^data:audio\//.test(it.data||"")){ var au=document.createElement("audio"); au.controls=true; au.preload="metadata"; au.className="wall-audio"; au.src=wallMediaUrl(it); bub.appendChild(au); }
+      else if(it.kind==="video"&&/^data:video\//.test(it.data||"")){ bub.appendChild(wallVideoTile(it,"wall-videomsg")); }
       else { bub.textContent=it.data||""; }
       row.appendChild(bub);
       wallDom[it.id]={ row:row };
@@ -2846,10 +3018,12 @@
     var wallStageEl=$("wallStage"), wallItemsCount=0;
 
     /* lightbox: photos enlarge in-page instead of opening a tab */
-    function openLightbox(src){ var lb=$("lightbox"), im=$("lightboxImg"); if(!lb||!im) return; im.src=src; lb.classList.add("show"); }
-    function closeLightbox(){ var lb=$("lightbox"), im=$("lightboxImg"); if(lb) lb.classList.remove("show"); if(im) im.removeAttribute("src"); }
+    function openLightbox(src){ var lb=$("lightbox"), im=$("lightboxImg"), vd=$("lightboxVid"); if(!lb||!im) return; if(vd){ try{ vd.pause(); }catch(e){} vd.removeAttribute("src"); vd.style.display="none"; } im.style.display=""; im.src=src; lb.classList.add("show"); }
+    function openVideoLightbox(src){ var lb=$("lightbox"), im=$("lightboxImg"), vd=$("lightboxVid"); if(!lb||!vd) return; if(im){ im.removeAttribute("src"); im.style.display="none"; } vd.style.display="block"; vd.src=src; lb.classList.add("show"); var p=vd.play(); if(p&&p.catch) p.catch(function(){}); }
+    function closeLightbox(){ var lb=$("lightbox"), im=$("lightboxImg"), vd=$("lightboxVid"); if(lb) lb.classList.remove("show"); if(im){ im.removeAttribute("src"); im.style.display=""; } if(vd){ try{ vd.pause(); }catch(e){} vd.removeAttribute("src"); try{ vd.load(); }catch(e){} vd.style.display="none"; } }
     if($("lightbox")) $("lightbox").addEventListener("click", closeLightbox);
     if($("lightboxX")) $("lightboxX").addEventListener("click", function(e){ e.stopPropagation(); closeLightbox(); });
+    if($("lightboxVid")) $("lightboxVid").addEventListener("click", function(e){ e.stopPropagation(); });   // using the player controls must not close the lightbox
     document.addEventListener("keydown", function(e){ if(e.key==="Escape") closeLightbox(); });
 
     /* room actions stay reachable when the wall covers the placeholder card */
@@ -2863,7 +3037,7 @@
     function renderWallCard(it){
       if(!wallStageEl) return; var el;
       if(it.kind==="photo"){ el=document.createElement("div"); el.className="wcard"; var img=document.createElement("img"); img.loading="lazy"; img.decoding="async"; img.alt=""; img.src=it.data; el.appendChild(img); if(it.author){ var c=document.createElement("div"); c.className="cap"; c.textContent=it.author; el.appendChild(c); } el.addEventListener("click", function(){ openLightbox(it.data); }); }
-      else if(it.kind==="video"&&/^data:video\//.test(it.data||"")){ el=document.createElement("div"); el.className="wcard"; var v=document.createElement("video"); v.controls=true; v.playsInline=true; v.preload="metadata"; v.src=it.data; el.appendChild(v); if(it.author){ var cv=document.createElement("div"); cv.className="cap"; cv.textContent="🎥 "+it.author; el.appendChild(cv); } }
+      else if(it.kind==="video"&&/^data:video\//.test(it.data||"")){ el=document.createElement("div"); el.className="wcard"; el.appendChild(wallVideoTile(it,"")); if(it.author){ var cv=document.createElement("div"); cv.className="cap"; cv.textContent="🎥 "+it.author; el.appendChild(cv); } }
       else if(it.kind==="audio"&&/^data:audio\//.test(it.data||"")){ el=document.createElement("div"); el.className="wnote"; var lb=document.createElement("div"); lb.textContent="🎙️"; el.appendChild(lb); var a=document.createElement("audio"); a.controls=true; a.preload="metadata"; a.src=it.data; el.appendChild(a); var wa=document.createElement("div"); wa.className="who"; wa.textContent="— "+(it.author||tr("others")); el.appendChild(wa); }
       else { el=document.createElement("div"); el.className="wnote"; var tx=document.createElement("div"); tx.textContent=it.data||""; el.appendChild(tx); var w=document.createElement("div"); w.className="who"; w.textContent="— "+(it.author||tr("others")); el.appendChild(w); }
       el.style.setProperty("--r", (Math.random()*6-3).toFixed(1)+"deg");
