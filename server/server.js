@@ -464,7 +464,7 @@ function leaveRoom(ws) {
     const me = r.members.get(ws);
     r.members.delete(ws);
     if (me) broadcastRoom(r, { type: "peer-left", peerId: me.peerId, name: me.name });
-    if (me && r.gallery && r.gallery.presenter === me.peerId) { r.gallery = null; broadcastRoom(r, { type: "gallery-clear" }); }
+    if (me && r.gallery && r.gallery.presenter === me.peerId) { r.gallery = null; broadcastRoom(r, { type: "gallery-clear", gone: true }); }   // gone:true → viewers keep what they already fully downloaded
     if (me && r.host === me.peerId && r.members.size) {   // host left → promote the longest-present member
       const next = r.members.values().next().value;
       if (next) { r.host = next.peerId; broadcastRoom(r, { type: "host", peerId: r.host }); }
@@ -708,7 +708,7 @@ wss.on("connection", (ws) => {
       return;
     }
     if (m.type === "gallery-clear") {
-      if (r.gallery && r.gallery.presenter === ws._peerId) r.gallery = null;
+      r.gallery = null;   // presenter OR any viewer may end a share (small trusted rooms); explicit stop, so no "gone" flag
       broadcastRoom(r, { type: "gallery-clear" }, ws);
       return;
     }

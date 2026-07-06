@@ -602,8 +602,10 @@
   .wall-time{font-size:10px; color:#6f655c; margin:2px 4px 0}
 
   /* when a video FILE is playing, lift our floating controls above the native video control bar */
-  .stage.file-mode .floatctrls{ bottom:calc(58px + env(safe-area-inset-bottom)) }
-  @media (max-width:760px){ .stage.file-mode .floatctrls{ bottom:calc(54px + env(safe-area-inset-bottom)) } }
+  /* when a video plays, lift our controls clear of the native play/scrub bar and group them into a
+     neat translucent pill so the video's own play button is never hidden behind our icons */
+  .stage.file-mode .floatctrls{ bottom:calc(70px + env(safe-area-inset-bottom)); background:rgba(12,10,15,.66); border:1px solid var(--line); border-radius:14px; padding:5px 7px; backdrop-filter:blur(8px); opacity:1 }
+  @media (max-width:760px){ .stage.file-mode .floatctrls{ bottom:calc(62px + env(safe-area-inset-bottom)); border-radius:16px } }
 
   /* mobile: collapse the action controls behind a menu toggle so content gets the screen */
   .bar-toggle{ display:none }
@@ -1079,8 +1081,8 @@
     Object.keys(EXTRA2).forEach(function(k){ if(I18N[k]) Object.keys(EXTRA2[k]).forEach(function(j){ I18N[k][j]=EXTRA2[k][j]; }); });
 
     var EXTRA3 = {
-      en:{share_media:"Share photos/videos",stop_share:"Stop",someone_sharing:"is sharing photos & videos",sw_needed:"Your browser can't stream shared video here. Photos still work."},
-      nl:{share_media:"Foto's/video's delen",stop_share:"Stoppen",someone_sharing:"deelt foto's en video's",sw_needed:"Je browser kan gedeelde video hier niet streamen. Foto's werken wel."},
+      en:{share_media:"Share photos/videos",stop_share:"Stop",stop_watch2:"✕ Close",someone_sharing:"is sharing photos & videos",sw_needed:"Your browser can't stream shared video here. Photos still work."},
+      nl:{share_media:"Foto's/video's delen",stop_share:"Stoppen",stop_watch2:"✕ Sluiten",someone_sharing:"deelt foto's en video's",sw_needed:"Je browser kan gedeelde video hier niet streamen. Foto's werken wel."},
       de:{share_media:"Fotos/Videos teilen",stop_share:"Stopp",someone_sharing:"teilt Fotos und Videos",sw_needed:"Dein Browser kann geteiltes Video hier nicht streamen. Fotos gehen."},
       zh:{share_media:"分享照片/视频",stop_share:"停止",someone_sharing:"正在分享照片和视频",sw_needed:"你的浏览器无法在此播放共享视频。照片仍可用。"},
       ja:{share_media:"写真/動画を共有",stop_share:"停止",someone_sharing:"が写真と動画を共有中",sw_needed:"このブラウザでは共有動画を再生できません。写真は使えます。"},
@@ -1244,7 +1246,7 @@
       setText("cdTitle",tr("cd_title")); setText("cdHint",tr("cd_hint")); if(!cdBusy) setText("cdBtn",tr("cd_btn")); setText("openTab",tr("open_tab"));
       setText("playgateTxt",tr("playgate")); setText("volLbl",tr("vol")); setText("duckLbl",tr("duck_lbl")); setText("pvLbl",tr("their_vol")); setText("autoMomentLbl",tr("auto_moment_lbl"));
       setTitle("micBtn",tr("t_mic")); setTitle("camBtn",tr("t_cam")); setTitle("volBtn",tr("vol")); setTitle("chatBtn",tr("t_chat")); setTitle("fsBtn",tr("t_fs")); setTitle("dbgBtn",tr("t_diag")); setTitle("browseBtn",tr("t_browse"));
-      setText("shareMediaBtn","\uD83D\uDCF7 "+tr("share_media")); setTitle("shareMediaBtn",tr("share_media")); setText("gStop",tr("stop_share"));
+      setText("shareMediaBtn","\uD83D\uDCF7 "+tr("share_media")); setTitle("shareMediaBtn",tr("share_media")); setText("gStop",(typeof gallery!=="undefined"&&gallery&&!amPresenter())?tr("stop_watch2"):tr("stop_share"));
       if(typeof updateScreenBtn==="function") updateScreenBtn();
       if(typeof applyLangGame==="function") applyLangGame();
       setText("ytbTitle",tr("yt_title")); setPh("ytQuery",tr("yt_ph")); setText("ytSearchBtn",tr("yt_search")); setText("ytOpen",tr("open_yt")); if($("ytbMsg")&&!ytbSearched) $("ytbMsg").textContent=tr("yt_hint");
@@ -2096,7 +2098,7 @@
         gstrip.appendChild(d);
       });
     }
-    function openGalleryUI(){ if(sharebar){ sharebar.classList.add("show"); sharebar.classList.toggle("presenter", amPresenter()); } if(gnav) gnav.style.display="flex"; if(gStop) gStop.style.display=amPresenter()?"":"none"; renderStrip(); }
+    function openGalleryUI(){ if(sharebar){ sharebar.classList.add("show"); sharebar.classList.toggle("presenter", amPresenter()); } if(gnav) gnav.style.display="flex"; if(gStop){ gStop.style.display=""; gStop.textContent=amPresenter()?tr("stop_share"):tr("stop_watch2"); } renderStrip(); }
     function closeGalleryUI(){ if(sharebar) sharebar.classList.remove("show"); }
 
     function presenterShow(fileId){ if(!amPresenter()) return; showGalleryItem(fileId); rtSend({type:"gallery-show",fileId:fileId}); }
@@ -2163,6 +2165,30 @@
       if(mode==="gallery-image"||mode==="file"){ clearPlayers(); placeholder.style.display=""; mode="none"; }
       if(typeof updateRoomView==="function") updateRoomView(); renderCams();
     }
+    /* viewer-side teardown (presenter keeps its own localURLs/myFiles via teardownGallery) */
+    function galleryClearLocal(){
+      if(galleryXfer){ galleryXfer.cancelled=true; galleryXfer=null; }
+      hideXfer();
+      Object.keys(galleryBlobs).forEach(function(id){ try{ URL.revokeObjectURL(galleryBlobs[id]); }catch(e){} });
+      galleryBlobs={}; gallery=null; closeGalleryUI();
+      if(galleryImg){ galleryImg.style.display="none"; try{ galleryImg.removeAttribute("src"); }catch(e){} }
+      if(mode==="gallery-image"||mode==="file"){ clearPlayers(); placeholder.style.display=""; mode="none"; }
+      if(typeof updateRoomView==="function") updateRoomView(); renderCams();
+    }
+    /* presenter left (e.g. phone locked): keep whatever was FULLY transferred, drop the rest — so the laptop
+       keeps showing the uploaded photos/videos even though the phone is gone */
+    function orphanGallery(){
+      if(galleryXfer){ galleryXfer.cancelled=true; galleryXfer=null; }
+      hideXfer();
+      if(!gallery){ return; }
+      var kept=gallery.items.filter(function(it){ return galleryBlobs[it.fileId]; });
+      if(!kept.length){ galleryClearLocal(); return; }              // nothing finished downloading → nothing to keep
+      gallery.items=kept; gallery.presenter=null;                    // orphaned: plays from local blobs, no presenter needed
+      if(!gallery.current || !galleryBlobs[gallery.current]) gallery.current=kept[0].fileId;
+      openGalleryUI(); showGalleryItem(gallery.current);
+    }
+    /* a viewer closing a share (their own Stop button): clear for the whole room */
+    function viewerStopGallery(){ rtSend({ type:"gallery-clear" }); galleryClearLocal(); }
     function galleryRT(m){
       if(m.type==="gallery"){
         if(m.presenter===myPeerId) return true;
@@ -2181,7 +2207,7 @@
       }
       if(m.type==="gallery-prog"){ if(presWait&&m.from){ presWait.pct[m.from]=m.pct||0; presCheckDone(); } return true; }
       if(m.type==="gallery-done"){ if(presWait&&m.from){ presWait.done[m.from]=true; presCheckDone(); } return true; }
-      if(m.type==="gallery-clear"){ if(!amPresenter()){ if(galleryXfer){ galleryXfer.cancelled=true; galleryXfer=null; } hideXfer(); Object.keys(galleryBlobs).forEach(function(id){ try{ URL.revokeObjectURL(galleryBlobs[id]); }catch(e){} }); galleryBlobs={}; gallery=null; closeGalleryUI(); if(galleryImg){ galleryImg.style.display="none"; try{ galleryImg.removeAttribute("src"); }catch(e){} } if(mode==="gallery-image"||mode==="file"){ clearPlayers(); placeholder.style.display=""; mode="none"; } if(typeof updateRoomView==="function") updateRoomView(); renderCams(); } return true; }
+      if(m.type==="gallery-clear"){ if(!amPresenter()){ if(m.gone) orphanGallery(); else galleryClearLocal(); } return true; }
       return false;
     }
     if(shareMediaBtn) shareMediaBtn.addEventListener("click", function(){
@@ -2191,7 +2217,7 @@
     if(fileInput) fileInput.addEventListener("change", function(){ startSharing(fileInput.files); try{ fileInput.value=""; }catch(e){} });
     if(gPrev) gPrev.addEventListener("click", function(){ presenterStep(-1); });
     if(gNext) gNext.addEventListener("click", function(){ presenterStep(1); });
-    if(gStop) gStop.addEventListener("click", stopSharing);
+    if(gStop) gStop.addEventListener("click", function(){ if(amPresenter()) stopSharing(); else viewerStopGallery(); });
 
     /* ===================== Browse the web together (live screen share, presenter → viewers) ===================== */
     var screenVideo=$("screenVideo"), screenBtn=$("screenBtn");
