@@ -125,12 +125,15 @@ test("participants relay playback, progressive transfer, subtitles, and chat", a
   const failure = await failurePromise;
   assert.equal(failure.from, "guestqa");
 
-  const videoUrl = "https://media.example.test/movie.mp4";
+  const videoUrl = "https://media.example.test/movie.mkv";
   const videoPromise = waitForMessage(guest, "video");
-  host.send(JSON.stringify({ type: "video", mode: "file", url: videoUrl, id: "" }));
-  assert.equal((await videoPromise).url, videoUrl);
+  host.send(JSON.stringify({ type: "video", mode: "mkv", url: videoUrl, id: "" }));
+  const relayedVideo = await videoPromise;
+  assert.equal(relayedVideo.url, videoUrl);
+  assert.equal(relayedVideo.mode, "mkv");
 
-  const vtt = "WEBVTT\n\n00:00:01.000 --> 00:00:03.000\nMovie night!\n";
+  const vtt = "WEBVTT\n\n00:00:01.000 --> 00:00:03.000\n" + "Movie night!\n".repeat(24000);
+  assert.ok(Buffer.byteLength(vtt) > 256 * 1024, "subtitle regression payload must exceed the old WebSocket limit");
   const subtitlePromise = waitForMessage(guest, "subtitle");
   host.send(JSON.stringify({ type: "subtitle", url: videoUrl, name: "movie.nl.srt", lang: "nl", vtt }));
   const subtitle = await subtitlePromise;

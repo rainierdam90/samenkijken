@@ -8,6 +8,8 @@ const vm = require("node:vm");
 
 const ROOT = path.resolve(__dirname, "..");
 const html = fs.readFileSync(path.join(ROOT, "public", "index.html"), "utf8");
+const serverSource = fs.readFileSync(path.join(ROOT, "server", "server.js"), "utf8");
+const subtitles = require(path.join(ROOT, "public", "subtitles.js"));
 
 test("inline application script parses", () => {
   const scripts = [...html.matchAll(/<script(?:\s[^>]*)?>([\s\S]*?)<\/script>/gi)]
@@ -62,6 +64,31 @@ test("direct video URLs accept room-synced SRT or VTT subtitles", () => {
   assert.match(html, /case "subtitle"/);
 });
 
+test("SRT conversion handles real files, legacy encoding, and invalid input", () => {
+  const srt = "\uFEFF1\r\n00:00:01,250 --> 00:00:03,500\r\nHallo café\r\n";
+  const vtt = subtitles.toWebVtt(srt);
+  assert.match(vtt, /^WEBVTT\n\n/);
+  assert.match(vtt, /00:00:01\.250 --> 00:00:03\.500/);
+  assert.match(vtt, /Hallo café/);
+  const cp1252 = Uint8Array.from(Buffer.from("1\n00:00:01,000 --> 00:00:02,000\nCaf\u00e9\n", "latin1"));
+  assert.match(subtitles.toWebVtt(cp1252), /Café/);
+  assert.match(subtitles.toWebVtt("webvtt\n\n00:00:00.000 --> 00:00:01.000\nHi"), /^WEBVTT/);
+  assert.equal(subtitles.toWebVtt("not a subtitle"), "");
+  assert.equal(subtitles.inferLanguage("movie.nl.srt"), "nl");
+});
+
+test("MKV and opaque direct links use the server transcoder and native controls", () => {
+  assert.match(html, /\.mkv/);
+  assert.match(html, /return \{ mode:"mkv", url:url, opaque:true \}/);
+  assert.match(html, /\/mkv-prepare\?url=/);
+  assert.match(html, /function nativeMode\(\)/);
+  assert.match(html, /pickKind==="url"/);
+  assert.match(serverSource, /app\.get\("\/mkv-prepare"/);
+  assert.match(serverSource, /app\.get\("\/mkv-stream"/);
+  assert.match(serverSource, /frag_keyframe\+empty_moov\+default_base_moof/);
+  assert.match(serverSource, /maxPayload: 2 \* 1024 \* 1024/);
+});
+
 test("shared-media and YouTube results remain usable without a mouse or thumbnail", () => {
   assert.match(html, /document\.createElement\("button"\); d\.type="button"; d\.className="gthumb"/);
   assert.match(html, /className="yt-thumb-fallback"/);
@@ -85,4 +112,9 @@ test("deployment policy allows HTTPS video and same-origin wake lock", () => {
   const permissions = headers.find(header => header.key === "Permissions-Policy");
   assert.match(csp.value, /media-src[^;]*https:/);
   assert.match(permissions.value, /screen-wake-lock=\(self\)/);
+});
+
+test("fullscreen playback hides the floating icon strip above subtitles", () => {
+  assert.match(html, /\.stage:fullscreen \.floatctrls/);
+  assert.match(html, /\.stage:-webkit-full-screen \.floatctrls\{display:none!important\}/);
 });

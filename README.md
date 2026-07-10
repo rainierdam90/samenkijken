@@ -11,12 +11,13 @@ This repo is a **single Node app** that provides everything:
   talking", and **chat**)
 - an **admin dashboard** at `/admin` (live people-count + **chat monitoring**)
 - **short-lived TURN credentials** at `/turn-credentials`
+- a protected **MKV/opaque-link transcoder** at `/mkv-stream` (FFmpeg → fragmented MP4)
 
 ## Privacy model — read this first
 
-- **Video and audio are peer-to-peer and end-to-end encrypted** (WebRTC,
-  DTLS-SRTP). They never touch the server. Even you, the operator, cannot watch
-  or listen.
+- **Camera/microphone calls and files shared from a device are peer-to-peer and
+  end-to-end encrypted** (WebRTC, DTLS-SRTP). The operator cannot watch or
+  listen to calls or inspect device-shared files.
 - **Chat and selected subtitle text are different.** Chat is relayed and stored
   temporarily so that you can moderate it (e.g. spot illegal use). Subtitle
   text for a direct video URL is relayed and held in the active room's memory
@@ -25,6 +26,9 @@ This repo is a **single Node app** that provides everything:
   controller of that data — see `SECURITY.md` and disclose it in your privacy
   policy. The app already shows users an in-room notice that chat messages may
   be reviewed.
+- **Remote MKV and opaque direct-video links are converted by the Node server.**
+  Those film bytes temporarily pass through FFmpeg, are not stored, and are not
+  end-to-end encrypted from the source host to the viewer. Disclose this too.
 
 ## Architecture at a glance
 
@@ -38,6 +42,10 @@ Browser  ──(audio/video, P2P, E2E encrypted)──  Browser     ← never hi
                          │
                     coturn (TURN relay, your VPS or managed)  ← media only when P2P fails
 ```
+
+The diagram's P2P media path refers to calls and files shared from a device.
+A pasted MKV/opaque direct-video source follows `source → Node/FFmpeg → viewer`
+instead, as described below.
 
 Multi-party uses a **mesh** (everyone connects to everyone). This is good for
 small groups (roughly up to 6–8 people). Beyond that you'd move to an **SFU**
@@ -70,7 +78,8 @@ brief noises don't cause false switches). You still **hear** everyone.
    The included Vercel configuration redirects `www` to the apex after TLS is valid.
 
 Free tier sleeps when idle (cold start on first visit). Use a paid instance to
-avoid that.
+avoid that. Live MKV conversion is CPU-intensive; a paid/dedicated instance is
+strongly recommended for a real film night.
 
 ### Option B — Railway / Fly
 
@@ -181,20 +190,52 @@ site on `watchmovietogether.com`), make sure `sw.js` is deployed at
 - **The presenter must stay in the room while a large movie is streaming.** A
   smaller file that finished transferring can keep playing after they leave.
 - **Not moderatable.** Like the webcams, these files are pure peer-to-peer and
-  never reach your server, so the admin dashboard cannot see them (see
-  `SECURITY.md`).
+never reach your server, so the admin dashboard cannot see them (see
+`SECURITY.md`).
+
+## Streaming MKV and opaque direct-video links
+
+Paste a public URL containing `.mkv` and SameCouch automatically asks the Node
+server to convert it live to browser-compatible fragmented MP4 (H.264 + AAC).
+For signed download endpoints or links without a visible extension, open the
+content picker, choose **Video URL**, and paste the link there. FFmpeg inspects
+the actual bytes, so the source does not need a perfect content type or filename.
+
+Source compatibility is deliberately broad:
+
+- every public `http://` or `https://` host is allowed by default;
+- signed query strings, up to three redirects, generic content types and opaque
+  download paths are accepted;
+- CORS support at the source is not required because the Node server fetches it;
+- login cookies, embedded credentials, DRM and extraction from a normal webpage
+  are not supported or bypassed;
+- private/local network addresses remain blocked to prevent SSRF. HTTPS sources
+  still need a valid certificate.
+
+`npm install` installs `ffmpeg-static`; alternatively set `FFMPEG_PATH` to a
+system FFmpeg binary. Each viewer currently uses one conversion process, so two
+people watching means two FFmpeg processes. Set `MKV_MAX_STREAMS` to match the
+CPU available. Live converted streams support play/pause synchronization, but
+arbitrary seeking and late-join catch-up are less reliable than with a normal
+range-enabled MP4. FFmpeg's fragmented MP4 mode is what lets playback begin
+before the entire source is received.
+
+`ffmpeg-static` is distributed under GPL-3.0-or-later. Anyone operating or
+redistributing this build is responsible for complying with that licence.
 
 ## Subtitles for a pasted video URL
 
-Paste a direct HTTPS video link ending in `.mp4`, `.webm`, `.ogg`, `.m4v` or
-`.mov` and load it. The in-room controls then show **CC+**. Pick an `.srt` (or
+Paste a direct video link ending in `.mp4`, `.webm`, `.ogg`, `.m4v`, `.mov` or
+`.mkv` and load it. The in-room controls then show **CC+**. Pick an `.srt` (or
 `.vtt`) file of up to 512 KB; the browser converts SRT to WebVTT and enables it
-in the native video player. Subtitle text is relayed to the room and remembered
-for late joiners, but the video itself still comes directly from its URL.
+in the native video player. UTF-8, UTF-16 and common Windows-1252 SRT files are
+accepted. Subtitle text is relayed to the room and remembered for late joiners.
+For regular files the video comes directly from its URL; converted MKV streams
+pass temporarily through the Node server as described above.
 
 The remote host must allow browser playback and byte-range requests. H.264 MP4
 is the most compatible choice. Subtitle support here intentionally applies to
-direct video URLs, not YouTube/Vimeo embeds or the photo/video gallery.
+direct/MKV video URLs, not YouTube/Vimeo embeds or the photo/video gallery.
 
 ## Split hosting (static front-end elsewhere)
 
@@ -222,6 +263,15 @@ enabled.
 | `TURN2_URLS` + (`TURN2_USERNAME`/`TURN2_CREDENTIAL` or `TURN2_SECRET`) | reserve TURN on a **different IP** so two relay-only peers (both on VPN/symmetric NAT) can still connect | *(none — reserve disabled)* |
 | `MAX_ROOM` | max people per room | `8` |
 | `CHAT_KEEP` | chat messages kept in memory per room | `300` |
+| `FFMPEG_PATH` | optional path to a system FFmpeg binary; otherwise `ffmpeg-static` is used | bundled binary |
+| `MKV_TOKEN_SECRET` | shared secret for short-lived stream tickets; set the same value on every app instance | random per process |
+| `MKV_TOKEN_TTL` | stream-ticket lifetime in seconds | `300` |
+| `MKV_MAX_STREAMS` | maximum simultaneous FFmpeg conversions per app instance | `4` |
+| `MKV_MAX_STREAMS_PER_IP` | simultaneous conversions per viewer IP | `2` |
+| `MKV_PRESET` | FFmpeg x264 preset (`ultrafast`, `veryfast`, etc.) | `veryfast` |
+| `MKV_ALLOWED_HOSTS` | optional comma-separated exact/`*.suffix` allowlist; empty deliberately permits all public hosts | *(all public hosts)* |
+| `MKV_ALLOWED_PORTS` | source ports allowed by the fetcher | `80,443` |
+| `MKV_ALLOW_PRIVATE` | test/private-infrastructure escape hatch; also requires an explicit host allowlist | `0` |
 
 ## What still needs you / honest limitations
 
