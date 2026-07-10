@@ -359,6 +359,14 @@ app.post("/wall-delete", async (req, res) => {
   res.json({ ok: true });
 });
 
+/* decode the HTML entities YouTube puts in titles (&quot; &#39; &amp; …) */
+function decodeEntities(s) {
+  return String(s || "").replace(/&(#x?[0-9a-f]+|[a-z]+);/gi, (m, e) => {
+    const named = { quot: '"', amp: "&", apos: "'", lt: "<", gt: ">", nbsp: " " };
+    if (e[0] === "#") { const n = e[1] === "x" || e[1] === "X" ? parseInt(e.slice(2), 16) : parseInt(e.slice(1), 10); return isFinite(n) ? String.fromCodePoint(n) : m; }
+    return Object.prototype.hasOwnProperty.call(named, e.toLowerCase()) ? named[e.toLowerCase()] : m;
+  });
+}
 /* ---- YouTube search proxy: the API key stays on the server, never in the browser ---- */
 app.get("/yt-search", (req, res) => {
   cors(req, res);
@@ -372,7 +380,7 @@ app.get("/yt-search", (req, res) => {
   fetch(url).then(r => r.json()).then(data => {
     const items = (data.items || []).filter(it => it.id && it.id.videoId).map(it => ({
       id: it.id.videoId,
-      title: (it.snippet && it.snippet.title) || it.id.videoId,
+      title: decodeEntities((it.snippet && it.snippet.title) || it.id.videoId),   // YouTube returns HTML-encoded titles (&quot; &#39;) — decode so the browser doesn't show the codes
       thumb: ((it.snippet && it.snippet.thumbnails && (it.snippet.thumbnails.medium || it.snippet.thumbnails.default)) || {}).url || ""
     }));
     res.json({ items });
