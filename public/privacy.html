@@ -21,16 +21,17 @@
 <main>
   <a class="back" href="/">← SameCouch</a>
   <h1>Privacy Policy</h1>
-  <p class="upd">Last updated: June 2026</p>
+  <p class="upd">Last updated: July 2026</p>
 
   <h2>The short version</h2>
-  <p>Your video and audio go directly between you and the people in your room, end-to-end encrypted — they never touch our servers and we cannot see or record them. We store only what's needed to make your room work: relayed chat, subtitle text selected for a direct video URL, your shared memories wall, and anonymous usage counts.</p>
+  <p>Your live camera/microphone call and files shared from your device go directly between room participants, end-to-end encrypted. We cannot see or record them. Remote MKV or opaque video links are different: when conversion is needed, the film temporarily passes through our server so browsers can play it. We store only what's needed to make your room work: relayed chat, selected subtitle text, your shared memories wall, and anonymous usage counts.</p>
 
   <h2>What we process</h2>
   <ul>
     <li><b>Video &amp; audio calls</b> — peer-to-peer and end-to-end encrypted (WebRTC/DTLS-SRTP). When a direct connection isn't possible, our relay server (TURN) forwards the <i>encrypted</i> stream without being able to read it. Nothing is recorded by us.</li>
     <li><b>Chat messages</b> — relayed through our server and kept temporarily so they can be moderated for safety. They are not used for advertising.</li>
     <li><b>Subtitle files</b> — when someone selects an SRT/VTT file for a direct video URL, its text is relayed through the room server and held in the active room's memory so current and late-joining participants see the same subtitles. It is not shown in the admin dashboard or used for advertising.</li>
+    <li><b>Remote MKV/direct-video conversion</b> — a remote MKV or opaque direct-video URL may be fetched by our server and converted live to a browser-compatible stream. The source URL and film bytes therefore pass temporarily through the server and FFmpeg. We do not save the film. Each viewer receives a separate temporary stream.</li>
     <li><b>Memories wall</b> — notes and photos you choose to post are stored so everyone in your room can see them later. Free walls are automatically deleted about 10 days after creation (extended walls stay as long as the extension runs).</li>
     <li><b>Room settings</b> — room code, an irreversibly hashed password (if the host sets one) and the host identifier.</li>
     <li><b>Display name</b> — whatever name you type; it's only shown to people in your room.</li>

@@ -11,10 +11,10 @@
  *   - Short-lived TURN credentials at /turn-credentials  (HMAC, coturn-compatible)
  *
  * IMPORTANT — privacy model:
- *   Video and audio stay peer-to-peer and end-to-end encrypted (WebRTC). They
- *   never pass through this server. CHAT and selected subtitle text, by design,
- *   DO pass through this server. Chat can be moderated; subtitle text is kept
- *   only with the active room for synchronization. Disclose both in privacy.
+ *   Live camera/mic and device-shared media stay peer-to-peer and end-to-end
+ *   encrypted (WebRTC). CHAT and selected subtitle text pass through this
+ *   server. Remote MKV/opaque direct-video sources also pass temporarily through
+ *   FFmpeg on this server. Disclose these distinctions in the privacy policy.
  *
  * Deploy on a host with persistent WebSocket support (Render / Railway / Fly /
  * a VPS). It does NOT run on Vercel's serverless functions.
@@ -22,8 +22,12 @@
 "use strict";
 
 const http = require("http");
+const https = require("https");
+const dns = require("dns").promises;
+const net = require("net");
 const path = require("path");
 const crypto = require("crypto");
+const { spawn, spawnSync } = require("child_process");
 const express = require("express");
 const { WebSocketServer } = require("ws");
 const { ExpressPeerServer } = require("peer");
@@ -54,6 +58,26 @@ const TURN2_CREDENTIAL = process.env.TURN2_CREDENTIAL || "";
 const TURN2_TTL = parseInt(process.env.TURN2_TTL || "3600", 10);
 const HAS_TURN = !!((TURN_URLS.length && (TURN_SECRET || (TURN_USERNAME && TURN_CREDENTIAL))) ||
                     (TURN2_URLS.length && (TURN2_SECRET || (TURN2_USERNAME && TURN2_CREDENTIAL))));
+
+/* ---- browser-compatible MKV and opaque video-link streaming ----
+   Browsers do not consistently decode Matroska containers. A short-lived,
+   signed stream URL feeds a validated remote source into FFmpeg and returns a
+   fragmented MP4 (H.264 + AAC) that regular <video> elements can play. */
+const MKV_TOKEN_TTL = Math.max(30, parseInt(process.env.MKV_TOKEN_TTL || "300", 10));
+const MKV_TOKEN_SECRET = process.env.MKV_TOKEN_SECRET || crypto.randomBytes(32).toString("hex");
+const MKV_ALLOWED_HOSTS = (process.env.MKV_ALLOWED_HOSTS || "").split(",").map(s => s.trim().toLowerCase()).filter(Boolean);
+const MKV_ALLOWED_PORTS = new Set((process.env.MKV_ALLOWED_PORTS || "80,443,8080,8443").split(",").map(s => s.trim()).filter(Boolean));
+const MKV_ALLOW_PRIVATE = process.env.MKV_ALLOW_PRIVATE === "1";
+const MKV_MAX_STREAMS = Math.max(1, parseInt(process.env.MKV_MAX_STREAMS || "4", 10));
+const MKV_MAX_STREAMS_PER_IP = Math.max(1, parseInt(process.env.MKV_MAX_STREAMS_PER_IP || "2", 10));
+const MKV_PRESET = /^[a-z0-9-]+$/i.test(process.env.MKV_PRESET || "") ? process.env.MKV_PRESET : "veryfast";
+function resolveFfmpeg() {
+  if (process.env.FFMPEG_PATH) return process.env.FFMPEG_PATH;
+  try { return require("ffmpeg-static"); } catch (_) { return "ffmpeg"; }
+}
+const FFMPEG_PATH = resolveFfmpeg();
+const ffmpegProbe = spawnSync(FFMPEG_PATH, ["-version"], { stdio: "ignore" });
+const HAS_FFMPEG = !ffmpegProbe.error && ffmpegProbe.status === 0;
 
 /* ---- rate limiting (lightweight, in-memory; tune via env, all per-IP unless noted) ----
    Defaults are deliberately generous so shared/CGNAT mobile IPs (common in expat
@@ -86,6 +110,7 @@ if (TURN_URLS_RAW.length && TURN_URLS.length < TURN_URLS_RAW.length) {
     TURN_URLS_RAW.filter(u => !/^(turns?|stun):/i.test(u)));
 }
 if (!HAS_TURN) console.warn("[WARN] No usable TURN (need TURN_URLS plus either TURN_SECRET or TURN_USERNAME+TURN_CREDENTIAL) — only public STUN offered; cross-network calls may fail.");
+if (!HAS_FFMPEG) console.warn("[WARN] MKV streaming disabled — install ffmpeg-static or set FFMPEG_PATH to a working FFmpeg binary.");
 
 const app = express();
 app.disable("x-powered-by");
@@ -168,6 +193,109 @@ const wallWriteLimiter = makeLimiter(25, 10 * 60 * 1000);   // wall posts/delete
 const ipConns = new Map();   // ip -> live /rt socket count (concurrency cap)
 function tooMany(res) { res.setHeader("Retry-After", "60"); res.status(429).json({ error: "rate_limited" }); }
 
+/* ---- safe remote-video validation + signed stream tickets ---- */
+const mkvPrepareLimiter = makeLimiter(30, 10 * 60 * 1000);
+let activeMkvStreams = 0;
+const activeMkvByIp = new Map();
+function mkvError(code, status, message) {
+  const error = new Error(message || code); error.code = code; error.status = status; return error;
+}
+function hostMatchesAllowlist(host) {
+  host = String(host || "").replace(/^\[|\]$/g, "").toLowerCase();
+  if (!MKV_ALLOWED_HOSTS.length) return true;
+  return MKV_ALLOWED_HOSTS.some(rule => {
+    if (rule === host) return true;
+    if (!rule.startsWith("*.")) return false;
+    const suffix = rule.slice(1);
+    return host.endsWith(suffix) && host !== suffix.slice(1);
+  });
+}
+function explicitlyAllowedHost(host) { return MKV_ALLOWED_HOSTS.length > 0 && hostMatchesAllowlist(host); }
+function blockedIp(address) {
+  address = String(address || "").toLowerCase().split("%")[0];
+  if (address.startsWith("::ffff:")) return blockedIp(address.slice(7));
+  const kind = net.isIP(address);
+  if (kind === 4) {
+    const p = address.split(".").map(Number), a = p[0], b = p[1], c = p[2];
+    return a === 0 || a === 10 || a === 127 || a >= 224 ||
+      (a === 100 && b >= 64 && b <= 127) || (a === 169 && b === 254) ||
+      (a === 172 && b >= 16 && b <= 31) || (a === 192 && b === 168) ||
+      (a === 192 && b === 0 && (c === 0 || c === 2)) ||
+      (a === 198 && (b === 18 || b === 19)) || (a === 198 && b === 51 && c === 100) ||
+      (a === 203 && b === 0 && c === 113);
+  }
+  if (kind === 6) return address === "::" || address === "::1" || address.startsWith("fc") || address.startsWith("fd") || /^fe[89ab]/.test(address) || address.startsWith("ff") || address.startsWith("2001:db8:");
+  return true;
+}
+async function validateMkvTarget(raw) {
+  raw = String(raw || "");
+  if (!raw || raw.length > 2200) throw mkvError("bad_url", 400);
+  let url; try { url = new URL(raw); } catch (_) { throw mkvError("bad_url", 400); }
+  if (url.protocol !== "http:" && url.protocol !== "https:") throw mkvError("bad_scheme", 400);
+  if (url.username || url.password) throw mkvError("auth_not_allowed", 400);
+  const host = url.hostname.replace(/^\[|\]$/g, "").toLowerCase();
+  if (!hostMatchesAllowlist(host)) throw mkvError("host_not_allowed", 403);
+  const port = url.port || (url.protocol === "https:" ? "443" : "80");
+  if (!MKV_ALLOWED_PORTS.has(String(port))) throw mkvError("port_not_allowed", 403);
+  let addresses;
+  try { addresses = await dns.lookup(host, { all: true, verbatim: true }); }
+  catch (_) { throw mkvError("dns_failed", 502); }
+  if (!addresses.length) throw mkvError("dns_failed", 502);
+  const unsafe = addresses.filter(entry => blockedIp(entry.address));
+  if (unsafe.length && !(MKV_ALLOW_PRIVATE && explicitlyAllowedHost(host))) throw mkvError("private_address", 403);
+  return { url, address: addresses[0].address, family: addresses[0].family };
+}
+async function openMkvSource(raw, redirects) {
+  redirects = redirects || 0;
+  if (redirects > 3) throw mkvError("too_many_redirects", 502);
+  const target = await validateMkvTarget(raw);
+  const transport = target.url.protocol === "https:" ? https : http;
+  return new Promise((resolve, reject) => {
+    const req = transport.get(target.url, {
+      headers: { "User-Agent": "SameCouch-Video/1.0", Accept: "video/x-matroska,video/*;q=0.9,*/*;q=0.1", "Accept-Encoding": "identity" },
+      lookup: (_hostname, options, callback) => {
+        if (typeof options === "function") { callback = options; options = {}; }
+        if (options && options.all) callback(null, [{ address: target.address, family: target.family }]);
+        else callback(null, target.address, target.family);
+      }
+    }, response => {
+      const status = response.statusCode || 0;
+      if (status >= 300 && status < 400 && response.headers.location) {
+        const next = new URL(response.headers.location, target.url).toString(); response.resume(); resolve(openMkvSource(next, redirects + 1)); return;
+      }
+      if (status < 200 || status >= 300) { response.resume(); reject(mkvError("upstream_" + status, 502)); return; }
+      resolve(response);
+    });
+    req.setTimeout(30000, () => req.destroy(mkvError("upstream_timeout", 504)));
+    req.once("error", error => reject(error && error.code ? error : mkvError("upstream_failed", 502)));
+  });
+}
+function makeMkvToken(url) {
+  const payload = Buffer.from(JSON.stringify({ url, exp: Math.floor(Date.now() / 1000) + MKV_TOKEN_TTL })).toString("base64url");
+  const signature = crypto.createHmac("sha256", MKV_TOKEN_SECRET).update(payload).digest("base64url");
+  return payload + "." + signature;
+}
+function readMkvToken(token) {
+  const parts = String(token || "").split(".");
+  if (parts.length !== 2) throw mkvError("bad_token", 403);
+  const expected = crypto.createHmac("sha256", MKV_TOKEN_SECRET).update(parts[0]).digest();
+  let supplied; try { supplied = Buffer.from(parts[1], "base64url"); } catch (_) { throw mkvError("bad_token", 403); }
+  if (supplied.length !== expected.length || !crypto.timingSafeEqual(supplied, expected)) throw mkvError("bad_token", 403);
+  let payload; try { payload = JSON.parse(Buffer.from(parts[0], "base64url").toString("utf8")); } catch (_) { throw mkvError("bad_token", 403); }
+  if (!payload || typeof payload.url !== "string" || !payload.exp || payload.exp < Math.floor(Date.now() / 1000)) throw mkvError("expired_token", 403);
+  return payload.url;
+}
+function acquireMkvSlot(ip) {
+  const byIp = activeMkvByIp.get(ip) || 0;
+  if (activeMkvStreams >= MKV_MAX_STREAMS || byIp >= MKV_MAX_STREAMS_PER_IP) return false;
+  activeMkvStreams++; activeMkvByIp.set(ip, byIp + 1); return true;
+}
+function releaseMkvSlot(ip) {
+  activeMkvStreams = Math.max(0, activeMkvStreams - 1);
+  const left = Math.max(0, (activeMkvByIp.get(ip) || 1) - 1);
+  if (left) activeMkvByIp.set(ip, left); else activeMkvByIp.delete(ip);
+}
+
 /* ---- daily unique visitors (counted per IP; we only ever store a salted hash, never the raw IP) ---- */
 const VISIT_SALT = process.env.VISIT_SALT || ADMIN_PASSWORD || "samecouch-visit";
 const dailyVisitors = new Map();   // "YYYY-MM-DD" -> Set(ipHash)   (in-memory mirror; DB is the durable source)
@@ -235,12 +363,70 @@ app.get("/config", (req, res) => {
     maxRoom: MAX_ROOM,
     hasTurn: HAS_TURN,
     hasYouTube: !!YT_API_KEY,
+    hasMkv: HAS_FFMPEG,
     hasPush: HAS_PUSH,
     vapidPublic: HAS_PUSH ? VAPID_PUBLIC : "",
     hasWall: store.enabled(),
     freeDays: store.freeDays(),
     stripeLink: process.env.STRIPE_LINK || ""
   });
+});
+
+/* Broad by default: any public HTTP(S) video host is accepted, including
+   redirects and opaque/signed download URLs. MKV_ALLOWED_HOSTS is opt-in. */
+app.get("/mkv-prepare", async (req, res) => {
+  cors(req, res); res.setHeader("Cache-Control", "no-store");
+  if (!HAS_FFMPEG) return res.status(503).json({ error: "mkv_unavailable" });
+  const ip = clientIp(req); if (!mkvPrepareLimiter(ip)) return tooMany(res);
+  try {
+    const target = await validateMkvTarget(req.query.url);
+    const token = makeMkvToken(target.url.toString());
+    res.json({ streamPath: "/mkv-stream?token=" + encodeURIComponent(token), expiresIn: MKV_TOKEN_TTL });
+  } catch (error) { res.status(error.status || 502).json({ error: error.code || "mkv_source_failed" }); }
+});
+
+app.get("/mkv-stream", async (req, res) => {
+  cors(req, res); res.setHeader("Cache-Control", "no-store"); res.setHeader("Cross-Origin-Resource-Policy", "cross-origin");
+  if (!HAS_FFMPEG) return res.status(503).json({ error: "mkv_unavailable" });
+  let sourceUrl;
+  try { sourceUrl = readMkvToken(req.query.token); }
+  catch (error) { return res.status(error.status || 403).json({ error: error.code || "bad_token" }); }
+  const ip = clientIp(req);
+  if (!acquireMkvSlot(ip)) { res.setHeader("Retry-After", "20"); return res.status(503).json({ error: "mkv_busy" }); }
+
+  let source = null, ffmpeg = null, released = false, finished = false;
+  function release() { if (!released) { released = true; releaseMkvSlot(ip); } }
+  function stop() { if (source && !source.destroyed) source.destroy(); if (ffmpeg && !ffmpeg.killed) { try { ffmpeg.kill("SIGKILL"); } catch (_) {} } release(); }
+  res.once("finish", () => { finished = true; release(); });
+  res.once("close", () => { if (!finished) stop(); });
+  try { source = await openMkvSource(sourceUrl); }
+  catch (error) { release(); return res.status(error.status || 502).json({ error: error.code || "mkv_source_failed" }); }
+  if (res.destroyed) { stop(); return; }
+
+  const ffmpegArgs = [
+    "-hide_banner", "-loglevel", "warning", "-fflags", "+genpts",
+    "-probesize", "5M", "-analyzeduration", "5000000", "-i", "pipe:0",
+    "-map", "0:v:0", "-map", "0:a:0?", "-sn",
+    "-c:v", "libx264", "-preset", MKV_PRESET, "-crf", "23", "-pix_fmt", "yuv420p",
+    "-vf", "scale=w='trunc(min(1920,iw)/2)*2':h=-2", "-force_key_frames", "expr:gte(t,n_forced*2)",
+    "-c:a", "aac", "-b:a", "160k", "-ac", "2", "-ar", "48000",
+    "-max_muxing_queue_size", "1024", "-avoid_negative_ts", "make_zero",
+    "-movflags", "+frag_keyframe+empty_moov+default_base_moof", "-frag_duration", "1000000",
+    "-f", "mp4", "pipe:1"
+  ];
+  ffmpeg = spawn(FFMPEG_PATH, ffmpegArgs, { stdio: ["pipe", "pipe", "pipe"] });
+  let ffmpegError = "";
+  ffmpeg.stderr.on("data", chunk => { ffmpegError = (ffmpegError + String(chunk)).slice(-8000); });
+  ffmpeg.stdin.on("error", () => {});
+  source.once("error", () => { if (ffmpeg && !ffmpeg.killed) ffmpeg.kill("SIGKILL"); });
+  ffmpeg.once("error", () => { if (!res.headersSent) res.status(502).json({ error: "mkv_transcoder_failed" }); else if (!res.writableEnded) res.end(); stop(); });
+  ffmpeg.once("close", code => {
+    if (code !== 0 && !res.headersSent) res.status(422).json({ error: "mkv_decode_failed" }); else if (!res.writableEnded) res.end();
+    if (code !== 0 && ffmpegError) console.warn("[MKV] FFmpeg stopped:", ffmpegError.replace(/https?:\/\/\S+/g, "[source]").slice(-1000));
+    release();
+  });
+  res.status(200); res.setHeader("Content-Type", "video/mp4"); res.setHeader("Content-Disposition", "inline; filename=\"samecouch-stream.mp4\""); res.setHeader("Accept-Ranges", "none");
+  source.pipe(ffmpeg.stdin); ffmpeg.stdout.pipe(res);
 });
 
 /* ---- Web Push subscribe: store a reminder to fire at a scheduled time ---- */
@@ -405,7 +591,7 @@ app.use(express.static(PUBLIC, { extensions: ["html"], setHeaders: r => r.setHea
 /* ============================================================================
  * Realtime control plane (/rt)
  * ==========================================================================*/
-const wss = new WebSocketServer({ noServer: true, maxPayload: 256 * 1024 });   // control-plane JSON is tiny; cap oversized frames
+const wss = new WebSocketServer({ noServer: true, maxPayload: 2 * 1024 * 1024 });   // includes room-synced SRT/VTT text (client cap 512 KB)
 const admins = new Set();
 
 /* rooms: Map<roomCode, { members: Map<ws,{peerId,name}>, chat: [], lastActivity }> */
@@ -704,7 +890,7 @@ wss.on("connection", (ws) => {
       const mode = String(m.mode || "").slice(0, 16);
       const url = String(m.url || "").slice(0, 2000);
       const id = String(m.id || "").slice(0, 64);
-      if (!r.media || r.media.url !== url || mode !== "file") r.subtitle = null;
+      if (!r.media || r.media.url !== url || (mode !== "file" && mode !== "mkv")) r.subtitle = null;
       r.media = url ? { mode, url, id } : null;   // remember what's playing → replay to (re)joiners so a missed link never stays blank
       broadcastRoom(r, { type: "video", from: ws._peerId, mode, url, id }, ws);
       return;
@@ -713,7 +899,7 @@ wss.on("connection", (ws) => {
     /* SRT is converted to WebVTT in the browser and kept with the active direct-video URL.
        The text-only payload is capped so a subtitle cannot become a general file-upload route. */
     if (m.type === "subtitle") {
-      if (!r.media || r.media.mode !== "file") return;
+      if (!r.media || (r.media.mode !== "file" && r.media.mode !== "mkv")) return;
       const url = String(m.url || "").slice(0, 2000);
       const vtt = String(m.vtt || "");
       if (url !== r.media.url || vtt.length < 12 || vtt.length > 600 * 1024 || !/^WEBVTT(?:\s|$)/.test(vtt) || !vtt.includes("-->")) return;
