@@ -11,7 +11,7 @@ This repo is a **single Node app** that provides everything:
   talking", and **chat**)
 - an **admin dashboard** at `/admin` (live people-count + **chat monitoring**)
 - **short-lived TURN credentials** at `/turn-credentials`
-- a protected **MKV/opaque-link transcoder** at `/mkv-stream` (FFmpeg → fragmented MP4)
+- a protected, low-CPU **MKV/opaque-link remuxer** at `/mkv-stream` (FFmpeg stream-copy → fragmented MP4)
 
 ## Privacy model — read this first
 
@@ -26,9 +26,11 @@ This repo is a **single Node app** that provides everything:
   controller of that data — see `SECURITY.md` and disclose it in your privacy
   policy. The app already shows users an in-room notice that chat messages may
   be reviewed.
-- **Remote MKV and opaque direct-video links are converted by the Node server.**
-  Those film bytes temporarily pass through FFmpeg, are not stored, and are not
-  end-to-end encrypted from the source host to the viewer. Disclose this too.
+- **Remote MKV and opaque direct-video links first try the browser directly.** If
+  that is unsupported, the Node server remuxes the original video packets into
+  fragmented MP4 without re-encoding them. Film bytes then temporarily pass
+  through FFmpeg, are not stored, and are not end-to-end encrypted from source
+  host to viewer. Disclose this too.
 
 ## Architecture at a glance
 
@@ -44,8 +46,9 @@ Browser  ──(audio/video, P2P, E2E encrypted)──  Browser     ← never hi
 ```
 
 The diagram's P2P media path refers to calls and files shared from a device.
-A pasted MKV/opaque direct-video source follows `source → Node/FFmpeg → viewer`
-instead, as described below.
+A pasted MKV/opaque direct-video source follows `source → viewer` when the
+browser supports it, or `source → Node/FFmpeg stream-copy → viewer` otherwise,
+as described below.
 
 Multi-party uses a **mesh** (everyone connects to everyone). This is good for
 small groups (roughly up to 6–8 people). Beyond that you'd move to an **SFU**
@@ -78,8 +81,9 @@ brief noises don't cause false switches). You still **hear** everyone.
    The included Vercel configuration redirects `www` to the apex after TLS is valid.
 
 Free tier sleeps when idle (cold start on first visit). Use a paid instance to
-avoid that. Live MKV conversion is CPU-intensive; a paid/dedicated instance is
-strongly recommended for a real film night.
+avoid that. MKV video is stream-copied instead of encoded, so CPU use is low;
+bandwidth still runs through the app whenever direct browser playback is not
+available.
 
 ### Option B — Railway / Fly
 
@@ -195,8 +199,12 @@ never reach your server, so the admin dashboard cannot see them (see
 
 ## Streaming MKV and opaque direct-video links
 
-Paste a public URL containing `.mkv` and SameCouch automatically asks the Node
-server to convert it live to browser-compatible fragmented MP4 (H.264 + AAC).
+Paste a public URL containing `.mkv` and SameCouch first tries native browser
+playback. If the browser does not advertise MKV support, the Node server remuxes
+the existing video packets unchanged into browser-compatible fragmented MP4.
+This avoids video decoding, video encoding, quality loss and the associated CPU
+load. Audio is converted to AAC by default because many MKVs use an audio codec
+that browsers cannot decode; this is much lighter than video encoding.
 For signed download endpoints or links without a visible extension, open the
 content picker, choose **Video URL**, and paste the link there. FFmpeg inspects
 the actual bytes, so the source does not need a perfect content type or filename.
@@ -213,12 +221,20 @@ Source compatibility is deliberately broad:
   still need a valid certificate.
 
 `npm install` installs `ffmpeg-static`; alternatively set `FFMPEG_PATH` to a
-system FFmpeg binary. Each viewer currently uses one conversion process, so two
-people watching means two FFmpeg processes. Set `MKV_MAX_STREAMS` to match the
-CPU available. Live converted streams support play/pause synchronization, but
-arbitrary seeking and late-join catch-up are less reliable than with a normal
-range-enabled MP4. FFmpeg's fragmented MP4 mode is what lets playback begin
-before the entire source is received.
+system FFmpeg binary. Each viewer currently uses one lightweight remux process,
+so two people watching means two FFmpeg processes and two source streams. Set
+`MKV_MAX_STREAMS` to match available bandwidth. Remuxed streams support
+play/pause synchronization, but arbitrary seeking and late-join catch-up are
+less reliable than with a normal range-enabled MP4. Fragmented MP4 lets playback
+begin before the entire source is received.
+
+Stream-copy preserves the source video codec. H.264 in MKV is the most broadly
+compatible case. HEVC/H.265 depends on the viewer's OS and browser, while AV1
+requires a sufficiently new device. SameCouch intentionally does not fall back
+to CPU-heavy video encoding; for an incompatible codec, create an H.264 version
+once at the source instead. Set `MKV_COPY_AUDIO=1` only when you know the MKV's
+audio codec is already accepted in MP4; this removes the small remaining audio
+encode cost but reduces compatibility.
 
 `ffmpeg-static` is distributed under GPL-3.0-or-later. Anyone operating or
 redistributing this build is responsible for complying with that licence.
@@ -230,7 +246,7 @@ Paste a direct video link ending in `.mp4`, `.webm`, `.ogg`, `.m4v`, `.mov` or
 `.vtt`) file of up to 512 KB; the browser converts SRT to WebVTT and enables it
 in the native video player. UTF-8, UTF-16 and common Windows-1252 SRT files are
 accepted. Subtitle text is relayed to the room and remembered for late joiners.
-For regular files the video comes directly from its URL; converted MKV streams
+For regular files the video comes directly from its URL; remuxed MKV streams
 pass temporarily through the Node server as described above.
 
 After a subtitle file is loaded, click **CC** again to turn subtitles off for
@@ -238,7 +254,7 @@ your own screen; click once more to turn them back on. The compact timing contro
 next to CC moves every cue **0.5 seconds earlier or later**. The displayed offset
 resets to `0.0s` when clicked, and **SRT** lets you replace the subtitle file.
 Enable/disable and timing offsets are local per viewer, which is useful when two
-devices buffer a converted stream slightly differently.
+devices buffer a remuxed stream slightly differently.
 
 The remote host must allow browser playback and byte-range requests. H.264 MP4
 is the most compatible choice. Subtitle support here intentionally applies to
@@ -273,10 +289,11 @@ enabled.
 | `FFMPEG_PATH` | optional path to a system FFmpeg binary; otherwise `ffmpeg-static` is used | bundled binary |
 | `MKV_TOKEN_SECRET` | shared secret for short-lived stream tickets; set the same value on every app instance | random per process |
 | `MKV_TOKEN_TTL` | stream-ticket lifetime in seconds | `300` |
-| `MKV_MAX_STREAMS` | maximum simultaneous FFmpeg conversions per app instance | `4` |
-| `MKV_MAX_STREAMS_PER_IP` | simultaneous conversions per viewer IP | `2` |
-| `MKV_PRESET` | FFmpeg x264 preset (`ultrafast`, `veryfast`, etc.) | `veryfast` |
+| `MKV_MAX_STREAMS` | maximum simultaneous lightweight FFmpeg remux streams per app instance | `4` |
+| `MKV_MAX_STREAMS_PER_IP` | simultaneous remux streams per viewer IP | `2` |
+| `MKV_COPY_AUDIO` | copy audio too (lowest CPU, but only browser-compatible audio works) | `0` |
 | `MKV_ALLOWED_HOSTS` | optional comma-separated exact/`*.suffix` allowlist; empty deliberately permits all public hosts | *(all public hosts)* |
+| `MKV_TRUSTED_PRIVATE_HOSTS` | exact source hosts you own that may resolve privately, without restricting other public hosts | *(none)* |
 | `MKV_ALLOWED_PORTS` | source ports allowed by the fetcher | `80,443,8080,8443` |
 | `MKV_ALLOW_PRIVATE` | test/private-infrastructure escape hatch; also requires an explicit host allowlist | `0` |
 

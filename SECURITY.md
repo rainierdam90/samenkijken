@@ -9,9 +9,11 @@ in the admin dashboard.
 Selected SRT/VTT text is also relayed and held in the active room's memory so
 late joiners receive the same subtitles. It is not shown in the admin dashboard.
 
-Remote MKV and opaque direct-video links are fetched and transcoded by the app
-server. Their source URL and film bytes are visible to the server process while
-the stream is active, but are not stored by the application.
+Remote MKV and opaque direct-video links are tried directly by the browser first.
+When that is not supported, they are fetched and remuxed by the app server using
+video stream-copy; audio is converted to AAC by default. Their source URL and
+film bytes are visible to the server process while the stream is active, but are
+not stored by the application.
 
 **Consequence:** chat and selected subtitle text are **not end-to-end encrypted**.
 Anyone with server access can technically read those in-memory room payloads;
@@ -26,7 +28,7 @@ What is and isn't visible to you/the server:
 | Shared photos/videos (📷 Share) | peer-to-peer (data channel) | **No** — never reach the server |
 | Chat messages | relayed via `/rt` | **Yes** — stored + shown in `/admin` |
 | Selected SRT/VTT subtitle text | relayed via `/rt` | **Yes** — active-room memory, not shown in `/admin` |
-| Remote MKV/opaque direct-video bytes | source → `/mkv-stream` → viewer | **Yes while streaming** — converted, not stored |
+| Remote MKV/opaque direct-video bytes | direct source → viewer, or source → `/mkv-stream` → viewer | **Only while remuxing** — not stored |
 | Room code | sent to `/rt` to group people | Yes |
 | Which video is loaded | relayed via `/rt` | Yes |
 
@@ -37,15 +39,18 @@ explicitly server-routed room data above.
 
 ## Remote video fetcher
 
-The transcoder accepts all public HTTP/HTTPS hosts by default so signed links,
+The remuxer accepts all public HTTP/HTTPS hosts by default so signed links,
 redirects and less consistently configured video hosts remain usable. It pins
 validated DNS results, revalidates redirects, rejects URL credentials, blocks
 private/reserved addresses, limits source ports, signs short-lived stream
 tickets and caps concurrent FFmpeg processes. Do not disable TLS certificate
-verification or the private-address checks merely to make a source work.
+verification or the private-address checks merely to make a source work. If a
+source host you own resolves to an internal address from the app environment,
+list only that exact hostname in `MKV_TRUSTED_PRIVATE_HOSTS`; this keeps other
+private destinations blocked without narrowing normal public-source support.
 
-This is a converter for direct media bytes, not a DRM/login bypass or webpage
-extractor. Keep FFmpeg and `ffmpeg-static` patched, monitor CPU/bandwidth abuse,
+This is a remuxer for direct media bytes, not a DRM/login bypass or webpage
+extractor. Keep FFmpeg and `ffmpeg-static` patched, monitor bandwidth abuse,
 and review GPL-3.0-or-later compliance before redistribution.
 
 ## Your obligations as the operator (you have a compliance background — this is the short version)

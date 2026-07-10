@@ -28,5 +28,9 @@ services:
         value: "2"
       - key: MKV_MAX_STREAMS_PER_IP
         value: "2"
-      - key: MKV_PRESET
-        value: "ultrafast"
+      - key: MKV_ALLOWED_PORTS
+        value: "80,443,8080,8443"
+      - key: MKV_TRUSTED_PRIVATE_HOSTS
+        value: "turn.watchmovietogether.com"
+      - key: MKV_COPY_AUDIO
+        value: "0"
