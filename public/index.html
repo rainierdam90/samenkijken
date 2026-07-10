@@ -99,7 +99,7 @@
   .ph-room b{color:var(--amber-2); letter-spacing:.5px}
   .ph-note{margin:14px 0 0; font-size:12.5px; color:var(--muted); line-height:1.5}
 
-  .floatctrls{position:absolute; left:18px; bottom:18px; z-index:55; display:flex; gap:10px; opacity:.92; flex-wrap:wrap; max-width:60vw}
+  .floatctrls{position:absolute; left:18px; bottom:18px; z-index:55; display:flex; gap:10px; opacity:.92; flex-wrap:wrap; max-width:60vw; transition:opacity .22s ease,transform .22s ease}
   .floatctrls:hover{opacity:1}
   .fbtn{position:relative; width:46px; height:46px; border-radius:50%; display:grid; place-items:center; cursor:pointer; background:rgba(20,16,24,.72); color:var(--txt); border:1px solid var(--line); backdrop-filter:blur(8px); transition:transform .12s, background .15s, color .15s, border-color .15s}
   .fbtn:hover{transform:translateY(-2px); background:rgba(34,28,40,.9); border-color:rgba(255,255,255,.22)}
@@ -638,7 +638,11 @@
      neat translucent pill so the video's own play button is never hidden behind our icons */
   .stage.file-mode .floatctrls{ bottom:calc(70px + env(safe-area-inset-bottom)); background:rgba(12,10,15,.66); border:1px solid var(--line); border-radius:14px; padding:5px 7px; backdrop-filter:blur(8px); opacity:1 }
   .stage:fullscreen .floatctrls,
-  .stage:-webkit-full-screen .floatctrls{display:none!important}
+  .stage:-webkit-full-screen .floatctrls{display:flex!important; opacity:1; transform:translateY(0); pointer-events:auto}
+  .stage.fs-controls-idle:fullscreen .floatctrls,
+  .stage.fs-controls-idle:-webkit-full-screen .floatctrls{opacity:0; transform:translateY(12px); pointer-events:none}
+  .stage.fs-controls-idle:fullscreen,
+  .stage.fs-controls-idle:-webkit-full-screen{cursor:none}
   @media (max-width:760px){ .stage.file-mode .floatctrls{ bottom:calc(62px + env(safe-area-inset-bottom)); border-radius:16px } }
 
   /* mobile: collapse the action controls behind a menu toggle so content gets the screen */
@@ -1279,11 +1283,11 @@
     };
     Object.keys(PLAYBACKCOPY).forEach(function(k){ if(I18N[k]) Object.keys(PLAYBACKCOPY[k]).forEach(function(j){ I18N[k][j]=PLAYBACKCOPY[k][j]; }); });
     var MKVCOPY = {
-      en:{url_ph:"Paste a video file (.mp4/.webm/.mkv), a YouTube link, or another video page…",ph_videourl:"Paste a direct video link (.mp4 / .webm / .mkv), including a signed download link…",foot:"Calls and device-shared media are peer-to-peer. Chat, selected subtitle text, and converted remote MKV streams pass through the room server.",mkv_preparing:"Preparing a browser-compatible video stream…",mkv_ready:"Video stream ready — press play when you are ready.",mkv_unavailable:"MKV streaming is not active on this server yet.",mkv_busy:"All video converters are busy. Try again in a moment.",mkv_blocked:"This address cannot be fetched safely. Public video links are supported; private network addresses are not.",mkv_failed:"This source could not be opened or decoded as a video. Check the link and try again.",mkv_direct:"Trying this opaque link as a direct video stream…"},
-      nl:{url_ph:"Plak een filmbestand (.mp4/.webm/.mkv), een YouTube-link of een andere videopagina…",ph_videourl:"Plak een directe videolink (.mp4 / .webm / .mkv), ook een ondertekende downloadlink…",foot:"Gesprekken en media vanaf je apparaat zijn peer-to-peer. Chat, gekozen ondertitelingstekst en geconverteerde externe MKV-streams lopen via de kamerserver.",mkv_preparing:"Browsergeschikte videostream voorbereiden…",mkv_ready:"Videostream gereed — druk op play wanneer je klaar bent.",mkv_unavailable:"MKV-streaming is nog niet actief op deze server.",mkv_busy:"Alle videoconverters zijn bezet. Probeer het zo opnieuw.",mkv_blocked:"Dit adres kan niet veilig worden opgehaald. Publieke videolinks werken wel; interne netwerkadressen niet.",mkv_failed:"Deze bron kon niet als video worden geopend of gedecodeerd. Controleer de link en probeer opnieuw.",mkv_direct:"Deze ondoorzichtige link als directe videostream proberen…"}
+      en:{url_ph:"Paste a video file (.mp4/.webm/.mkv), a YouTube link, or another video page…",ph_videourl:"Paste a direct video link (.mp4 / .webm / .mkv), including a signed download link…",foot:"Calls and device-shared media are peer-to-peer. Chat, selected subtitle text, and remuxed remote MKV streams pass through the room server.",mkv_preparing:"Opening a low-CPU browser-compatible stream…",mkv_ready:"Video stream ready — press play when you are ready.",mkv_direct_probe:"Trying to play this MKV directly in your browser…",mkv_direct_ready:"Your browser can play this MKV directly — no server conversion is being used.",mkv_unavailable:"This browser cannot play the MKV directly and lightweight MKV streaming is not active on the server.",mkv_busy:"All lightweight video streams are busy. Try again in a moment.",mkv_blocked:"This link points to a private or protected network address and was blocked for safety.",mkv_port:"This video link uses a network port that the server does not allow. Add it to MKV_ALLOWED_PORTS and restart the server.",mkv_failed:"This source could not be opened, or its video codec is not supported by your browser. Check the link and try again.",mkv_direct:"Trying this opaque link as a direct video stream…"},
+      nl:{url_ph:"Plak een filmbestand (.mp4/.webm/.mkv), een YouTube-link of een andere videopagina…",ph_videourl:"Plak een directe videolink (.mp4 / .webm / .mkv), ook een ondertekende downloadlink…",foot:"Gesprekken en media vanaf je apparaat zijn peer-to-peer. Chat, gekozen ondertitelingstekst en omgepakte externe MKV-streams lopen via de kamerserver.",mkv_preparing:"Lichte browsergeschikte stream openen…",mkv_ready:"Videostream gereed — druk op play wanneer je klaar bent.",mkv_direct_probe:"Proberen deze MKV rechtstreeks in je browser af te spelen…",mkv_direct_ready:"Je browser speelt deze MKV rechtstreeks af — er wordt geen serverconversie gebruikt.",mkv_unavailable:"Deze browser kan de MKV niet rechtstreeks afspelen en lichte MKV-streaming is niet actief op de server.",mkv_busy:"Alle lichte videostreams zijn bezet. Probeer het zo opnieuw.",mkv_blocked:"Deze link verwijst naar een privé- of afgeschermd netwerkadres en is daarom geblokkeerd.",mkv_port:"Deze videolink gebruikt een netwerkpoort die de server niet toestaat. Voeg die toe aan MKV_ALLOWED_PORTS en herstart de server.",mkv_failed:"Deze bron kon niet worden geopend, of de videocodec wordt niet door je browser ondersteund. Controleer de link en probeer opnieuw.",mkv_direct:"Deze ondoorzichtige link als directe videostream proberen…"}
     };
-    MKVCOPY.en.fq4_a="Your room is private-by-link and can have a password. Calls and files shared from a device are peer-to-peer encrypted; converted remote MKV streams temporarily pass through our server.";
-    MKVCOPY.nl.fq4_a="Jullie kamer is privé via de link en kan een wachtwoord hebben. Gesprekken en bestanden vanaf een apparaat zijn peer-to-peer versleuteld; geconverteerde externe MKV-streams lopen tijdelijk via onze server.";
+    MKVCOPY.en.fq4_a="Your room is private-by-link and can have a password. Calls and files shared from a device are peer-to-peer encrypted; remuxed remote MKV streams temporarily pass through our server.";
+    MKVCOPY.nl.fq4_a="Jullie kamer is privé via de link en kan een wachtwoord hebben. Gesprekken en bestanden vanaf een apparaat zijn peer-to-peer versleuteld; omgepakte externe MKV-streams lopen tijdelijk via onze server.";
     Object.keys(MKVCOPY).forEach(function(k){ if(I18N[k]) Object.keys(MKVCOPY[k]).forEach(function(j){ I18N[k][j]=MKVCOPY[k][j]; }); });
     var SUBTIMECOPY = {
       en:{sub_turn_off:"Turn subtitles off",sub_turn_on:"Turn subtitles on",sub_disabled:"Subtitles off",sub_enabled:"Subtitles on",sub_earlier:"Show subtitles 0.5 seconds earlier",sub_later:"Show subtitles 0.5 seconds later",sub_reset:"Reset subtitle timing",sub_offset:"Subtitle delay {n}",sub_timing:"Subtitle timing",sub_replace_short:"Replace subtitle file"},
@@ -1339,7 +1343,7 @@
     var urlInput=$("urlInput"), loadBtn=$("loadBtn"), copyBtn=$("copyBtn"), linkText=$("linkText"), browseBtn=$("browseBtn");
     var subtitleBtn=$("subtitleBtn"), subtitleInput=$("subtitleInput"), subtitleSync=$("subtitleSync"), subtitleEarlier=$("subtitleEarlier"), subtitleOffsetEl=$("subtitleOffset"), subtitleLater=$("subtitleLater"), subtitleReplace=$("subtitleReplace");
     var statusDot=$("statusDot"), statusText=$("statusText");
-    var micBtn=$("micBtn"), camBtn=$("camBtn"), chatBtn=$("chatBtn"), fsBtn=$("fsBtn");
+    var micBtn=$("micBtn"), camBtn=$("camBtn"), chatBtn=$("chatBtn"), fsBtn=$("fsBtn"), floatctrls=$("floatctrls");
     var volBtn=$("volBtn"), volpop=$("volpop"), movieVol=$("movieVol"), duckChk=$("duckChk");
     var cdwidget=$("cdwidget"), cdNum=$("cdNum"), cdBtn=$("cdBtn"), openTab=$("openTab"), cdClose=$("cdClose");
     var chat=$("chat"), chatLog=$("chatLog"), chatEmpty=$("chatEmpty"), chatText=$("chatText"), chatSend=$("chatSend"), chatClose=$("chatClose");
@@ -1821,12 +1825,19 @@
       if(announce) rtSend({type:"subtitle",url:currentSubtitle.url,name:currentSubtitle.name,lang:currentSubtitle.lang,vtt:currentSubtitle.vtt});
       return true;
     }
-    var mkvAbort=null, mkvLoadId=0;
-    function clearMkvPreparation(){ mkvLoadId++; if(mkvAbort){ try{ mkvAbort.abort(); }catch(e){} mkvAbort=null; } if(mode==="mkv"&&typeof hideXfer==="function") hideXfer(); }
-    function mkvErrorText(code){ if(code==="mkv_unavailable") return tr("mkv_unavailable"); if(code==="mkv_busy"||code==="rate_limited") return tr("mkv_busy"); if(code==="private_address"||code==="host_not_allowed"||code==="port_not_allowed"||code==="auth_not_allowed") return tr("mkv_blocked"); return tr("mkv_failed"); }
-    function prepareMkv(url){
-      if(hasMkv===false){ movieErrored=true; toast(tr("mkv_unavailable"),8000); return; }
-      var id=++mkvLoadId, controller=(typeof AbortController!=="undefined")?new AbortController():null; mkvAbort=controller;
+    var mkvAbort=null, mkvLoadId=0, mkvDirectCleanup=null, mkvDirectTrying=false;
+    function clearMkvPreparation(){ mkvLoadId++; if(mkvDirectCleanup){ mkvDirectCleanup(); mkvDirectCleanup=null; } mkvDirectTrying=false; if(mkvAbort){ try{ mkvAbort.abort(); }catch(e){} mkvAbort=null; } if(mode==="mkv"&&typeof hideXfer==="function") hideXfer(); }
+    function mkvErrorText(code){ if(code==="mkv_unavailable") return tr("mkv_unavailable"); if(code==="mkv_busy"||code==="rate_limited") return tr("mkv_busy"); if(code==="port_not_allowed") return tr("mkv_port"); if(code==="private_address"||code==="host_not_allowed"||code==="auth_not_allowed") return tr("mkv_blocked"); return tr("mkv_failed"); }
+    function browserCanPlayMkv(url){
+      /* Chrome can sometimes render the video track from MKV while silently
+         dropping DTS/AC-3/etc. Explicit MKVs therefore use the AAC remux path. */
+      if(/\.mkv(?:$|[?#&/\s])/i.test(mediaNames(url))) return false;
+      try{ return (movie.canPlayType("video/x-matroska")||movie.canPlayType("video/mkv"))==="probably"; }catch(e){ return false; }
+    }
+    function requestMkvRemux(url,id){
+      if(id!==mkvLoadId||mode!=="mkv") return;
+      if(hasMkv===false){ movieErrored=true; if(typeof hideXfer==="function") hideXfer(); toast(tr("mkv_unavailable"),8000); return; }
+      var controller=(typeof AbortController!=="undefined")?new AbortController():null; mkvAbort=controller;
       if(typeof showXfer==="function") showXfer(tr("mkv_preparing"),18,"",{});
       var opts={headers:{Accept:"application/json"}}; if(controller) opts.signal=controller.signal;
       fetch(httpBase()+"/mkv-prepare?url="+encodeURIComponent(url),opts).then(function(r){ return r.json().catch(function(){ return {}; }).then(function(body){ if(!r.ok) throw new Error(body.error||"mkv_failed"); return body; }); }).then(function(body){
@@ -1834,6 +1845,19 @@
         if(!body.streamPath||String(body.streamPath).indexOf("/mkv-stream?")!==0) throw new Error("mkv_failed");
         mkvAbort=null; movie.src=httpBase()+body.streamPath; movie.load(); if(typeof hideXfer==="function") hideXfer(); toast(tr("mkv_ready"),4500);
       }).catch(function(error){ if(controller&&controller.signal.aborted) return; if(id!==mkvLoadId||mode!=="mkv") return; mkvAbort=null; movieErrored=true; if(typeof hideXfer==="function") hideXfer(); toast(mkvErrorText(error&&error.message),9000); });
+    }
+    function prepareMkv(url){
+      var id=++mkvLoadId;
+      if(!browserCanPlayMkv(url)){ requestMkvRemux(url,id); return; }
+      var settled=false, timer=null;
+      mkvDirectTrying=true; movieErrored=false;
+      if(typeof showXfer==="function") showXfer(tr("mkv_direct_probe"),8,"",{});
+      function detach(){ clearTimeout(timer); movie.removeEventListener("canplay",directReady); movie.removeEventListener("error",fallback); }
+      function directReady(){ if(settled||id!==mkvLoadId||mode!=="mkv") return; settled=true; detach(); mkvDirectCleanup=null; mkvDirectTrying=false; if(typeof hideXfer==="function") hideXfer(); toast(tr("mkv_direct_ready"),5000); }
+      function fallback(){ if(settled) return; settled=true; detach(); mkvDirectCleanup=null; if(id!==mkvLoadId||mode!=="mkv"){ mkvDirectTrying=false; return; } try{ movie.pause(); movie.removeAttribute("src"); movie.load(); }catch(e){} mkvDirectTrying=false; requestMkvRemux(url,id); }
+      mkvDirectCleanup=function(){ if(settled) return; settled=true; detach(); mkvDirectTrying=false; };
+      movie.addEventListener("canplay",directReady); movie.addEventListener("error",fallback); timer=setTimeout(fallback,8000);
+      movie.src=url; movie.load();
     }
     function clearPlayers(){ clearMkvPreparation(); try{ movie.pause(); }catch(e){} clearSubtitleLocal(); try{ movie.removeAttribute("src"); movie.load(); }catch(e){} movie.style.display="none"; if(galleryImg) galleryImg.style.display="none"; if(typeof screenVideo!=="undefined"&&screenVideo) screenVideo.style.display="none"; if(ytPlayer){ try{ ytPlayer.destroy(); }catch(e){} ytPlayer=null; } if(vimPlayer){ try{ vimPlayer.destroy(); }catch(e){} vimPlayer=null; vimReady=false; } ytwrap.style.display="none"; ytwrap.innerHTML=""; try{ frame.src="about:blank"; }catch(e){} framewrap.style.display="none"; clearTimeout(gateCheckTimer); clearTimeout(gateFallbackTimer); gateDismissed=false; playgate.hidden=true; pending=null; movieErrored=false; updateStageChrome(); updateWakeLock(); }
     function setEmbedUI(on){ cdwidget.hidden=!on; if(!on){ clearInterval(cdTimer); cdNum.textContent="\u25B6"; cdNum.classList.remove("go"); cdBtn.disabled=false; cdBusy=false; } }
@@ -1914,7 +1938,7 @@
       reader.onerror=function(){ toast(tr("sub_read_fail"),6500); };
       reader.readAsArrayBuffer(f);
     });
-    movie.addEventListener("error", function(){ if(!nativeMode()||!movie.src) return; movieErrored=true; try{ playgate.hidden=true; }catch(e){} toast(mode==="mkv"?tr("mkv_failed"):tr("vid_fail"),10000); });
+    movie.addEventListener("error", function(){ if(mkvDirectTrying||!nativeMode()||!movie.src) return; movieErrored=true; try{ playgate.hidden=true; }catch(e){} toast(mode==="mkv"?tr("mkv_failed"):tr("vid_fail"),10000); });
 
     var ytApiReady=false, ytApiLoading=false, ytPlayer=null, ytPending=null;
     function ensureYTApi(cb){ if(ytApiReady){ cb(); return; } ytPending=cb; if(ytApiLoading) return; ytApiLoading=true; window.onYouTubeIframeAPIReady=function(){ ytApiReady=true; if(ytPending){ var f=ytPending; ytPending=null; f(); } }; var s=document.createElement("script"); s.src="https://www.youtube.com/iframe_api"; document.head.appendChild(s); }
@@ -2104,7 +2128,32 @@
     if(dbgBtn) dbgBtn.addEventListener("click", function(){ dbgPanel.hidden=!dbgPanel.hidden; dbg(); });
     if(dbgClose) dbgClose.addEventListener("click", function(){ dbgPanel.hidden=true; });
     if(dbgCopy) dbgCopy.addEventListener("click", function(){ var t=dbgCopy.textContent; if(navigator.clipboard&&navigator.clipboard.writeText){ navigator.clipboard.writeText(dbgText.textContent).then(function(){ dbgCopy.textContent="Copied!"; setTimeout(function(){ dbgCopy.textContent=t; },1500); }).catch(function(){}); } });
-    fsBtn.addEventListener("click", function(){ if(!document.fullscreenElement){ (stage.requestFullscreen||stage.webkitRequestFullscreen||function(){}).call(stage); } else { (document.exitFullscreen||document.webkitExitFullscreen||function(){}).call(document); } });
+    var fullscreenControlsTimer=null;
+    function stageIsFullscreen(){ return (document.fullscreenElement||document.webkitFullscreenElement)===stage; }
+    function fullscreenControlsEngaged(){
+      var hovered=false; try{ hovered=!!(floatctrls&&floatctrls.matches(":hover")); }catch(e){}
+      return hovered||!!(floatctrls&&floatctrls.contains(document.activeElement));
+    }
+    function hideFullscreenControls(){
+      clearTimeout(fullscreenControlsTimer); fullscreenControlsTimer=null;
+      if(!stageIsFullscreen()) return;
+      if(fullscreenControlsEngaged()){ fullscreenControlsTimer=setTimeout(hideFullscreenControls,1000); return; }
+      stage.classList.add("fs-controls-idle");
+    }
+    function showFullscreenControls(){
+      stage.classList.remove("fs-controls-idle"); clearTimeout(fullscreenControlsTimer); fullscreenControlsTimer=null;
+      if(stageIsFullscreen()) fullscreenControlsTimer=setTimeout(hideFullscreenControls,2500);
+    }
+    function fullscreenStateChanged(){
+      if(stageIsFullscreen()) showFullscreenControls();
+      else{ clearTimeout(fullscreenControlsTimer); fullscreenControlsTimer=null; stage.classList.remove("fs-controls-idle"); }
+    }
+    ["mousemove","pointerdown","touchstart"].forEach(function(ev){ stage.addEventListener(ev,showFullscreenControls,{passive:true}); });
+    document.addEventListener("keydown",showFullscreenControls);
+    document.addEventListener("fullscreenchange",fullscreenStateChanged);
+    document.addEventListener("webkitfullscreenchange",fullscreenStateChanged);
+    if(floatctrls){ floatctrls.addEventListener("focusin",showFullscreenControls); floatctrls.addEventListener("focusout",showFullscreenControls); }
+    fsBtn.addEventListener("click", function(){ if(!stageIsFullscreen()){ (stage.requestFullscreen||stage.webkitRequestFullscreen||function(){}).call(stage); } else { (document.exitFullscreen||document.webkitExitFullscreen||function(){}).call(document); } });
     copyBtn.addEventListener("click", function(){
       function ok(){ copyBusy=true; copyBtn.textContent=tr("copied"); copyBtn.classList.add("ok"); setTimeout(function(){ copyBusy=false; copyBtn.textContent=tr("copy"); copyBtn.classList.remove("ok"); },1500); }
       function fb(){ try{ var r=document.createRange(); r.selectNode(linkText); var sel=window.getSelection(); sel.removeAllRanges(); sel.addRange(r); document.execCommand("copy"); sel.removeAllRanges(); ok(); }catch(e){ toast("Copy failed — select the link and copy it manually."); } }

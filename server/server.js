@@ -59,18 +59,20 @@ const TURN2_TTL = parseInt(process.env.TURN2_TTL || "3600", 10);
 const HAS_TURN = !!((TURN_URLS.length && (TURN_SECRET || (TURN_USERNAME && TURN_CREDENTIAL))) ||
                     (TURN2_URLS.length && (TURN2_SECRET || (TURN2_USERNAME && TURN2_CREDENTIAL))));
 
-/* ---- browser-compatible MKV and opaque video-link streaming ----
-   Browsers do not consistently decode Matroska containers. A short-lived,
-   signed stream URL feeds a validated remote source into FFmpeg and returns a
-   fragmented MP4 (H.264 + AAC) that regular <video> elements can play. */
+/* ---- low-CPU MKV and opaque video-link streaming ----
+   Browsers do not consistently understand the Matroska container. A short-lived,
+   signed stream URL feeds a validated remote source into FFmpeg, copies the video
+   packets unchanged into fragmented MP4, and only converts audio to AAC when the
+   compatibility-first default is active. No video frames are decoded or encoded. */
 const MKV_TOKEN_TTL = Math.max(30, parseInt(process.env.MKV_TOKEN_TTL || "300", 10));
 const MKV_TOKEN_SECRET = process.env.MKV_TOKEN_SECRET || crypto.randomBytes(32).toString("hex");
 const MKV_ALLOWED_HOSTS = (process.env.MKV_ALLOWED_HOSTS || "").split(",").map(s => s.trim().toLowerCase()).filter(Boolean);
+const MKV_TRUSTED_PRIVATE_HOSTS = (process.env.MKV_TRUSTED_PRIVATE_HOSTS || "").split(",").map(s => s.trim().toLowerCase()).filter(Boolean);
 const MKV_ALLOWED_PORTS = new Set((process.env.MKV_ALLOWED_PORTS || "80,443,8080,8443").split(",").map(s => s.trim()).filter(Boolean));
 const MKV_ALLOW_PRIVATE = process.env.MKV_ALLOW_PRIVATE === "1";
 const MKV_MAX_STREAMS = Math.max(1, parseInt(process.env.MKV_MAX_STREAMS || "4", 10));
 const MKV_MAX_STREAMS_PER_IP = Math.max(1, parseInt(process.env.MKV_MAX_STREAMS_PER_IP || "2", 10));
-const MKV_PRESET = /^[a-z0-9-]+$/i.test(process.env.MKV_PRESET || "") ? process.env.MKV_PRESET : "veryfast";
+const MKV_COPY_AUDIO = process.env.MKV_COPY_AUDIO === "1";
 function resolveFfmpeg() {
   if (process.env.FFMPEG_PATH) return process.env.FFMPEG_PATH;
   try { return require("ffmpeg-static"); } catch (_) { return "ffmpeg"; }
@@ -200,17 +202,18 @@ const activeMkvByIp = new Map();
 function mkvError(code, status, message) {
   const error = new Error(message || code); error.code = code; error.status = status; return error;
 }
-function hostMatchesAllowlist(host) {
+function hostMatchesRules(host, rules) {
   host = String(host || "").replace(/^\[|\]$/g, "").toLowerCase();
-  if (!MKV_ALLOWED_HOSTS.length) return true;
-  return MKV_ALLOWED_HOSTS.some(rule => {
+  return rules.some(rule => {
     if (rule === host) return true;
     if (!rule.startsWith("*.")) return false;
     const suffix = rule.slice(1);
     return host.endsWith(suffix) && host !== suffix.slice(1);
   });
 }
+function hostMatchesAllowlist(host) { return !MKV_ALLOWED_HOSTS.length || hostMatchesRules(host, MKV_ALLOWED_HOSTS); }
 function explicitlyAllowedHost(host) { return MKV_ALLOWED_HOSTS.length > 0 && hostMatchesAllowlist(host); }
+function trustedPrivateHost(host) { return MKV_TRUSTED_PRIVATE_HOSTS.includes(String(host || "").replace(/^\[|\]$/g, "").toLowerCase()); }
 function blockedIp(address) {
   address = String(address || "").toLowerCase().split("%")[0];
   if (address.startsWith("::ffff:")) return blockedIp(address.slice(7));
@@ -242,7 +245,7 @@ async function validateMkvTarget(raw) {
   catch (_) { throw mkvError("dns_failed", 502); }
   if (!addresses.length) throw mkvError("dns_failed", 502);
   const unsafe = addresses.filter(entry => blockedIp(entry.address));
-  if (unsafe.length && !(MKV_ALLOW_PRIVATE && explicitlyAllowedHost(host))) throw mkvError("private_address", 403);
+  if (unsafe.length && !trustedPrivateHost(host) && !(MKV_ALLOW_PRIVATE && explicitlyAllowedHost(host))) throw mkvError("private_address", 403);
   return { url, address: addresses[0].address, family: addresses[0].family };
 }
 async function openMkvSource(raw, redirects) {
@@ -364,6 +367,7 @@ app.get("/config", (req, res) => {
     hasTurn: HAS_TURN,
     hasYouTube: !!YT_API_KEY,
     hasMkv: HAS_FFMPEG,
+    mkvMode: MKV_COPY_AUDIO ? "remux-copy" : "remux-aac",
     hasPush: HAS_PUSH,
     vapidPublic: HAS_PUSH ? VAPID_PUBLIC : "",
     hasWall: store.enabled(),
@@ -403,13 +407,14 @@ app.get("/mkv-stream", async (req, res) => {
   catch (error) { release(); return res.status(error.status || 502).json({ error: error.code || "mkv_source_failed" }); }
   if (res.destroyed) { stop(); return; }
 
+  const audioArgs = MKV_COPY_AUDIO
+    ? ["-c:a", "copy"]
+    : ["-c:a", "aac", "-b:a", "192k", "-ac", "2", "-ar", "48000", "-af", "aresample=async=1000:first_pts=0"];
   const ffmpegArgs = [
     "-hide_banner", "-loglevel", "warning", "-fflags", "+genpts",
     "-probesize", "5M", "-analyzeduration", "5000000", "-i", "pipe:0",
     "-map", "0:v:0", "-map", "0:a:0?", "-sn",
-    "-c:v", "libx264", "-preset", MKV_PRESET, "-crf", "23", "-pix_fmt", "yuv420p",
-    "-vf", "scale=w='trunc(min(1920,iw)/2)*2':h=-2", "-force_key_frames", "expr:gte(t,n_forced*2)",
-    "-c:a", "aac", "-b:a", "160k", "-ac", "2", "-ar", "48000",
+    "-c:v", "copy", ...audioArgs,
     "-max_muxing_queue_size", "1024", "-avoid_negative_ts", "make_zero",
     "-movflags", "+frag_keyframe+empty_moov+default_base_moof", "-frag_duration", "1000000",
     "-f", "mp4", "pipe:1"
@@ -419,7 +424,7 @@ app.get("/mkv-stream", async (req, res) => {
   ffmpeg.stderr.on("data", chunk => { ffmpegError = (ffmpegError + String(chunk)).slice(-8000); });
   ffmpeg.stdin.on("error", () => {});
   source.once("error", () => { if (ffmpeg && !ffmpeg.killed) ffmpeg.kill("SIGKILL"); });
-  ffmpeg.once("error", () => { if (!res.headersSent) res.status(502).json({ error: "mkv_transcoder_failed" }); else if (!res.writableEnded) res.end(); stop(); });
+  ffmpeg.once("error", () => { if (!res.headersSent) res.status(502).json({ error: "mkv_remux_failed" }); else if (!res.writableEnded) res.end(); stop(); });
   ffmpeg.once("close", code => {
     if (code !== 0 && !res.headersSent) res.status(422).json({ error: "mkv_decode_failed" }); else if (!res.writableEnded) res.end();
     if (code !== 0 && ffmpegError) console.warn("[MKV] FFmpeg stopped:", ffmpegError.replace(/https?:\/\/\S+/g, "[source]").slice(-1000));

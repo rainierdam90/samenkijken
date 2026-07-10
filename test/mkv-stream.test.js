@@ -54,7 +54,7 @@ function startApp(port, env) {
   });
 }
 
-test("opaque and redirected MKV sources become a fragmented browser MP4", { skip: !FFMPEG_OK }, async t => {
+test("opaque and redirected MKV sources are remuxed to fragmented browser MP4", { skip: !FFMPEG_OK }, async t => {
   const temp = fs.mkdtempSync(path.join(os.tmpdir(), "samecouch-mkv-"));
   const fixture = path.join(temp, "fixture.mkv");
   const dbPath = path.join(temp, "qa.db");
@@ -65,7 +65,7 @@ test("opaque and redirected MKV sources become a fragmented browser MP4", { skip
     "-f", "lavfi", "-i", "color=c=blue:s=160x90:r=12",
     "-f", "lavfi", "-i", "sine=frequency=440:sample_rate=48000",
     "-t", "1.2", "-shortest", "-c:v", "libx264", "-preset", "ultrafast",
-    "-pix_fmt", "yuv420p", "-c:a", "aac", "-f", "matroska", fixture
+    "-pix_fmt", "yuv420p", "-c:a", "ac3", "-b:a", "192k", "-f", "matroska", fixture
   ], { encoding: "utf8" });
   assert.equal(made.status, 0, made.stderr || "could not create MKV fixture");
 
@@ -84,10 +84,8 @@ test("opaque and redirected MKV sources become a fragmented browser MP4", { skip
   const app = await startApp(appPort, {
     DB_PATH: dbPath,
     FFMPEG_PATH: FFMPEG,
-    MKV_ALLOWED_HOSTS: "127.0.0.1",
     MKV_ALLOWED_PORTS: String(sourcePort),
-    MKV_ALLOW_PRIVATE: "1",
-    MKV_PRESET: "ultrafast"
+    MKV_TRUSTED_PRIVATE_HOSTS: "127.0.0.1"
   });
   t.after(async () => {
     if (app.exitCode === null) { app.kill("SIGTERM"); await once(app, "exit").catch(() => {}); }
@@ -96,6 +94,7 @@ test("opaque and redirected MKV sources become a fragmented browser MP4", { skip
   const base = "http://127.0.0.1:" + appPort;
   const config = await (await fetch(base + "/config")).json();
   assert.equal(config.hasMkv, true);
+  assert.equal(config.mkvMode, "remux-aac");
 
   const opaqueSource = "http://127.0.0.1:" + sourcePort + "/redirect";
   const preparedResponse = await fetch(base + "/mkv-prepare?url=" + encodeURIComponent(opaqueSource));
@@ -108,12 +107,21 @@ test("opaque and redirected MKV sources become a fragmented browser MP4", { skip
   assert.equal(streamResponse.status, 200);
   assert.match(streamResponse.headers.get("content-type") || "", /video\/mp4/);
   const mp4 = Buffer.from(await streamResponse.arrayBuffer());
-  assert.ok(mp4.length > 2000, "transcoded stream is unexpectedly small");
+  assert.ok(mp4.length > 2000, "remuxed stream is unexpectedly small");
   assert.ok(mp4.includes(Buffer.from("ftyp")), "MP4 ftyp box is missing");
   assert.ok(mp4.includes(Buffer.from("moov")), "MP4 moov box is missing");
   assert.ok(mp4.includes(Buffer.from("moof")), "fragmented MP4 moof box is missing");
   assert.ok(mp4.includes(Buffer.from("avc1")), "H.264 video track is missing");
   assert.ok(mp4.includes(Buffer.from("mp4a")), "AAC audio track is missing");
+  const remuxed = path.join(temp, "remuxed.mp4");
+  fs.writeFileSync(remuxed, mp4);
+  const audible = spawnSync(FFMPEG, [
+    "-hide_banner", "-i", remuxed, "-map", "0:a:0", "-t", "0.5",
+    "-af", "volumedetect", "-f", "null", "-"
+  ], { encoding: "utf8" });
+  assert.equal(audible.status, 0, audible.stderr || "could not decode remuxed audio");
+  const volume = (audible.stderr || "").match(/mean_volume:\s*(-?[\d.]+) dB/);
+  assert.ok(volume && Number(volume[1]) > -80, "remuxed AAC audio is silent");
 
   const token = streamUrl.searchParams.get("token");
   const tokenParts = token.split("."), signature = tokenParts[1];
