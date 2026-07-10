@@ -6,7 +6,8 @@
   "main": "server/server.js",
   "type": "commonjs",
   "scripts": {
-    "start": "node server/server.js"
+    "start": "node server/server.js",
+    "test": "node --test test/*.test.js"
   },
   "engines": {
     "node": ">=18"

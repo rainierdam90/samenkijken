@@ -17,19 +17,21 @@ This repo is a **single Node app** that provides everything:
 - **Video and audio are peer-to-peer and end-to-end encrypted** (WebRTC,
   DTLS-SRTP). They never touch the server. Even you, the operator, cannot watch
   or listen.
-- **Chat is different.** So that you can moderate it (e.g. spot illegal use),
-  chat messages are **relayed and stored on the server** and shown in the admin
-  dashboard. Chat is therefore **not** end-to-end encrypted. You become the
-  controller of that chat data — see `SECURITY.md` and disclose it in your
-  privacy policy. The app already shows users an in-room notice that messages
-  may be reviewed.
+- **Chat and selected subtitle text are different.** Chat is relayed and stored
+  temporarily so that you can moderate it (e.g. spot illegal use). Subtitle
+  text for a direct video URL is relayed and held in the active room's memory
+  so late joiners receive it, but is not shown in the admin dashboard.
+  Neither chat nor subtitle text is end-to-end encrypted. You become the
+  controller of that data — see `SECURITY.md` and disclose it in your privacy
+  policy. The app already shows users an in-room notice that chat messages may
+  be reviewed.
 
 ## Architecture at a glance
 
 ```
 Browser  ──(audio/video, P2P, E2E encrypted)──  Browser     ← never hits the server
    │                                               │
-   └────────────── /rt (chat, sync, talking) ──────┘
+   └───────── /rt (chat, subtitles, sync, talking) ───────┘
                          │
                     Node server  ── /peerjs (signaling)   ── /admin (monitor)
                          │         ── /turn-credentials
@@ -61,8 +63,11 @@ brief noises don't cause false switches). You still **hear** everyone.
    - `TURN_SECRET` — shared secret with your coturn (see below)
    - `TURN_URLS` — e.g. `turn:turn.watchmovietogether.com:3478,turns:turn.watchmovietogether.com:5349`
 4. Deploy. Your app is at `https://<name>.onrender.com`, admin at `/admin`.
-5. Add your domain (`www.watchmovietogether.com`) under the service's **Custom
-   Domains** and point DNS as Render instructs.
+5. Add both `samecouch.com` **and** `www.samecouch.com` under the service's
+   **Custom Domains** and point DNS as Render instructs. Do not rely on an HTTP
+   redirect alone: the hosting platform must first issue a valid TLS certificate
+   for `www.samecouch.com`, otherwise browsers fail before the redirect can run.
+   The included Vercel configuration redirects `www` to the apex after TLS is valid.
 
 Free tier sleeps when idle (cold start on first visit). Use a paid instance to
 avoid that.
@@ -78,6 +83,9 @@ start command. Fly: `fly launch` then `fly deploy` (it reads `package.json`).
 npm install
 ADMIN_PASSWORD=secret123 npm start
 # open http://localhost:8080  (admin at http://localhost:8080/admin)
+
+# regression checks (includes a two-user realtime room test)
+npm test
 ```
 
 Camera/mic need **https** (or `localhost`). On a deployed host you're on https
@@ -140,10 +148,17 @@ everyone in the room sees it. For videos, the existing play/pause/seek stays in
 sync.
 
 **How it works (so you understand the limits):** the bytes travel peer-to-peer.
-Photos are small and sent whole. **Videos stream on demand** — a Service Worker
-(`public/sw.js`) plays the video from a virtual URL and pulls only the chunks
-currently being watched from the presenter's device, so long films work without
-filling anyone's memory and seeking works. The server never sees these files.
+Photos are sent whole. A video becomes playable after a **4 MB start buffer**;
+the receiver sees live speed, remaining time and controls to pause/resume or
+retry the transfer. Files up to 256 MB continue into a smooth local copy in the
+background. Larger movies use a Service Worker (`public/sw.js`) and pull the
+ranges currently being watched, so multi-gigabyte files do not have to fit in
+memory and seeking still works. The server never sees these files.
+
+On supported mobile browsers, SameCouch requests a screen wake lock while a
+film is playing or a transfer is active. The lock is released when playback and
+transfers stop, and reacquired after returning to the tab. This is best effort:
+older iOS/browser versions without the Screen Wake Lock API can still sleep.
 
 **Deployment requirement:** `sw.js` must be served from the **root of the
 front-end origin** (same site as the page), as JavaScript. If you host the
@@ -163,11 +178,23 @@ site on `watchmovietogether.com`), make sure `sw.js` is deployed at
 - **iOS as a viewer of streamed video is the least reliable** (Safari + Service
   Worker media quirks). Photos are fine on iOS; desktop/Android are the most
   reliable for streamed video. Test your exact devices.
-- **The presenter must stay in the room.** If they leave, sharing stops for
-  everyone.
+- **The presenter must stay in the room while a large movie is streaming.** A
+  smaller file that finished transferring can keep playing after they leave.
 - **Not moderatable.** Like the webcams, these files are pure peer-to-peer and
   never reach your server, so the admin dashboard cannot see them (see
   `SECURITY.md`).
+
+## Subtitles for a pasted video URL
+
+Paste a direct HTTPS video link ending in `.mp4`, `.webm`, `.ogg`, `.m4v` or
+`.mov` and load it. The in-room controls then show **CC+**. Pick an `.srt` (or
+`.vtt`) file of up to 512 KB; the browser converts SRT to WebVTT and enables it
+in the native video player. Subtitle text is relayed to the room and remembered
+for late joiners, but the video itself still comes directly from its URL.
+
+The remote host must allow browser playback and byte-range requests. H.264 MP4
+is the most compatible choice. Subtitle support here intentionally applies to
+direct video URLs, not YouTube/Vimeo embeds or the photo/video gallery.
 
 ## Split hosting (static front-end elsewhere)
 

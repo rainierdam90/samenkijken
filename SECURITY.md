@@ -1,13 +1,17 @@
 # Security & privacy
 
-## The core trade-off you chose: chat is monitorable
+## The core trade-off: chat and subtitle text are server-relayed
 
 To let you detect misuse (e.g. illegal coordination), this app routes chat
 **through your server**, stores it (in memory, capped per room), and exposes it
 in the admin dashboard.
 
-**Consequence:** chat is **not end-to-end encrypted**. Anyone with server access
-or the admin password can read room chat.
+Selected SRT/VTT text is also relayed and held in the active room's memory so
+late joiners receive the same subtitles. It is not shown in the admin dashboard.
+
+**Consequence:** chat and selected subtitle text are **not end-to-end encrypted**.
+Anyone with server access can technically read those in-memory room payloads;
+the admin dashboard exposes chat only.
 
 What is and isn't visible to you/the server:
 
@@ -17,16 +21,18 @@ What is and isn't visible to you/the server:
 | Microphone audio | peer-to-peer (WebRTC) | **No** — end-to-end encrypted |
 | Shared photos/videos (📷 Share) | peer-to-peer (data channel) | **No** — never reach the server |
 | Chat messages | relayed via `/rt` | **Yes** — stored + shown in `/admin` |
+| Selected SRT/VTT subtitle text | relayed via `/rt` | **Yes** — active-room memory, not shown in `/admin` |
 | Room code | sent to `/rt` to group people | Yes |
 | Which video is loaded | relayed via `/rt` | Yes |
 
 Video/audio are still private even from you. That's a feature — it limits your
 liability for the most sensitive content — but it also means you **cannot**
-monitor calls, only chat.
+monitor calls, only the explicitly relayed room data above.
 
 ## Your obligations as the operator (you have a compliance background — this is the short version)
 
-Because you can read and store chat, you are a **data controller** for it.
+Because you can read and store chat and relay subtitle text, you are a **data
+controller** for that data.
 Before launch:
 
 1. **Disclose it.** Your privacy policy must state that chat is relayed, stored,

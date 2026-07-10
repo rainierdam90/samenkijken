@@ -24,12 +24,13 @@
   <p class="upd">Last updated: June 2026</p>
 
   <h2>The short version</h2>
-  <p>Your video and audio go directly between you and the people in your room, end-to-end encrypted — they never touch our servers and we cannot see or record them. We store only what's needed to make your room work: relayed chat, your shared memories wall, and anonymous usage counts.</p>
+  <p>Your video and audio go directly between you and the people in your room, end-to-end encrypted — they never touch our servers and we cannot see or record them. We store only what's needed to make your room work: relayed chat, subtitle text selected for a direct video URL, your shared memories wall, and anonymous usage counts.</p>
 
   <h2>What we process</h2>
   <ul>
     <li><b>Video &amp; audio calls</b> — peer-to-peer and end-to-end encrypted (WebRTC/DTLS-SRTP). When a direct connection isn't possible, our relay server (TURN) forwards the <i>encrypted</i> stream without being able to read it. Nothing is recorded by us.</li>
     <li><b>Chat messages</b> — relayed through our server and kept temporarily so they can be moderated for safety. They are not used for advertising.</li>
+    <li><b>Subtitle files</b> — when someone selects an SRT/VTT file for a direct video URL, its text is relayed through the room server and held in the active room's memory so current and late-joining participants see the same subtitles. It is not shown in the admin dashboard or used for advertising.</li>
     <li><b>Memories wall</b> — notes and photos you choose to post are stored so everyone in your room can see them later. Free walls are automatically deleted about 10 days after creation (extended walls stay as long as the extension runs).</li>
     <li><b>Room settings</b> — room code, an irreversibly hashed password (if the host sets one) and the host identifier.</li>
     <li><b>Display name</b> — whatever name you type; it's only shown to people in your room.</li>

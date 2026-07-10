@@ -12,8 +12,9 @@
  *
  * IMPORTANT — privacy model:
  *   Video and audio stay peer-to-peer and end-to-end encrypted (WebRTC). They
- *   never pass through this server. CHAT, by design, DOES pass through this
- *   server so it can be moderated. Disclose this in your privacy policy.
+ *   never pass through this server. CHAT and selected subtitle text, by design,
+ *   DO pass through this server. Chat can be moderated; subtitle text is kept
+ *   only with the active room for synchronization. Disclose both in privacy.
  *
  * Deploy on a host with persistent WebSocket support (Render / Railway / Fly /
  * a VPS). It does NOT run on Vercel's serverless functions.
@@ -105,7 +106,7 @@ const CSP = [
   "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
   "font-src 'self' https://fonts.gstatic.com data:",
   "img-src 'self' data: blob: https:",
-  "media-src 'self' blob: data: mediastream:",
+  "media-src 'self' blob: data: mediastream: https:",
   "connect-src 'self' https://watchmovietogether-j59u.onrender.com wss://watchmovietogether-j59u.onrender.com",
   "frame-src 'self' https:",
   "worker-src 'self' blob:",
@@ -115,7 +116,7 @@ app.use((req, res, next) => {
   res.setHeader("X-Content-Type-Options", "nosniff");
   res.setHeader("X-Frame-Options", "SAMEORIGIN");
   res.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
-  res.setHeader("Permissions-Policy", "camera=(self), microphone=(self), geolocation=(), browsing-topics=()");
+  res.setHeader("Permissions-Policy", "camera=(self), microphone=(self), screen-wake-lock=(self), geolocation=(), browsing-topics=()");
   res.setHeader("Cross-Origin-Opener-Policy", "same-origin");
   res.setHeader("X-Permitted-Cross-Domain-Policies", "none");
   if ((req.headers["x-forwarded-proto"] || req.protocol) === "https")
@@ -564,7 +565,10 @@ wss.on("connection", (ws) => {
       sendJSON(ws, { type: "roster", you: { peerId: ws._peerId, name: ws._name }, peers: rosterArr(r), host: r.host === ws._peerId, hasPass: !!r.pass, expiresAt: PAYWALL_ON ? (r._expiresAt || 0) : 0, theme: r.theme || "", decor: Array.isArray(r.decor) ? r.decor : [], wallKey: wallTokenFor(code) });
       broadcastRoom(r, { type: "peer-joined", peerId: ws._peerId, name: ws._name }, ws);
       if (r.gallery && r.gallery.items.length) sendJSON(ws, { type: "gallery", presenter: r.gallery.presenter, items: r.gallery.items, current: r.gallery.current });
-      else if (r.media && r.media.url) sendJSON(ws, { type: "video", from: "", mode: r.media.mode, url: r.media.url, id: r.media.id });   // replay the active link to (re)joiners
+      else if (r.media && r.media.url) {
+        sendJSON(ws, { type: "video", from: "", mode: r.media.mode, url: r.media.url, id: r.media.id });   // replay the active link to (re)joiners
+        if (r.subtitle && r.subtitle.url === r.media.url) sendJSON(ws, { type: "subtitle", ...r.subtitle });
+      }
       pushStats();
       return;
     }
@@ -653,8 +657,13 @@ wss.on("connection", (ws) => {
       broadcastRoom(r, { type: m.type, from: ws._peerId }, ws);
       return;
     }
-    if (m.type === "gallery-prog" || m.type === "gallery-done") {   // transfer-then-reveal: viewers report share-download progress to the presenter
-      broadcastRoom(r, { type: m.type, from: ws._peerId, pct: Math.max(0, Math.min(100, Math.round(+m.pct || 0))) }, ws);
+    if (m.type === "gallery-prog" || m.type === "gallery-ready" || m.type === "gallery-done" || m.type === "gallery-fail") {   // progressive transfer status goes back to the presenter
+      broadcastRoom(r, { type: m.type, from: ws._peerId,
+        pct: Math.max(0, Math.min(100, Math.round(+m.pct || 0))),
+        speed: Math.max(0, Math.min(1024 * 1024 * 1024, Math.round(+m.speed || 0))),
+        eta: Math.max(0, Math.min(7 * 24 * 3600, Math.round(+m.eta || 0))),
+        paused: !!m.paused, streaming: !!m.streaming,
+        fileId: String(m.fileId || "").slice(0, 64) }, ws);
       return;
     }
     if (m.type === "set-theme") {                   // room ambiance — host picks, everyone follows
@@ -695,8 +704,21 @@ wss.on("connection", (ws) => {
       const mode = String(m.mode || "").slice(0, 16);
       const url = String(m.url || "").slice(0, 2000);
       const id = String(m.id || "").slice(0, 64);
+      if (!r.media || r.media.url !== url || mode !== "file") r.subtitle = null;
       r.media = url ? { mode, url, id } : null;   // remember what's playing → replay to (re)joiners so a missed link never stays blank
       broadcastRoom(r, { type: "video", from: ws._peerId, mode, url, id }, ws);
+      return;
+    }
+
+    /* SRT is converted to WebVTT in the browser and kept with the active direct-video URL.
+       The text-only payload is capped so a subtitle cannot become a general file-upload route. */
+    if (m.type === "subtitle") {
+      if (!r.media || r.media.mode !== "file") return;
+      const url = String(m.url || "").slice(0, 2000);
+      const vtt = String(m.vtt || "");
+      if (url !== r.media.url || vtt.length < 12 || vtt.length > 600 * 1024 || !/^WEBVTT(?:\s|$)/.test(vtt) || !vtt.includes("-->")) return;
+      r.subtitle = { url, name: String(m.name || "subtitles.srt").slice(0, 120), lang: String(m.lang || "und").replace(/[^a-zA-Z0-9-]/g, "").slice(0, 12) || "und", vtt };
+      broadcastRoom(r, { type: "subtitle", ...r.subtitle }, ws);
       return;
     }
 
@@ -704,6 +726,7 @@ wss.on("connection", (ws) => {
     if (m.type === "gallery") {
       const items = cleanGalleryItems(m.items);
       r.media = null;   // a gallery share replaces a pasted link
+      r.subtitle = null;
       r.gallery = { presenter: ws._peerId, items, current: String(m.current || "").slice(0, 64) || null };
       // hold is relayed but NOT stored: live viewers wait for the synchronized reveal, late joiners reveal for themselves
       broadcastRoom(r, { type: "gallery", presenter: ws._peerId, items: r.gallery.items, current: r.gallery.current, hold: !!m.hold }, ws);

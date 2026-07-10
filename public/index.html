@@ -106,6 +106,9 @@
   .fbtn.off{color:var(--bad); border-color:rgba(232,115,107,.5)}
   .fbtn.off::after{content:""; position:absolute; left:8px; right:8px; top:50%; height:2px; background:var(--bad); transform:rotate(-32deg); border-radius:2px}
   .fbtn[disabled]{opacity:.4; cursor:not-allowed}
+  .fbtn[hidden]{display:none}
+  .fbtn.cc{font-size:12px; font-weight:800; letter-spacing:.4px}
+  .fbtn.cc.on{color:var(--amber-2); border-color:rgba(244,177,74,.7); background:rgba(66,47,21,.82)}
   .fbtn.has-unread::before{content:attr(data-unread); position:absolute; top:-4px; right:-4px; min-width:16px; height:16px; padding:0 4px; border-radius:9px; background:var(--bad); color:#fff; font-size:10px; font-weight:700; display:grid; place-items:center; box-shadow:0 0 0 2px var(--bg)}
 
   .mediabar{position:absolute; left:50%; bottom:18px; transform:translateX(-50%); z-index:54; display:none; align-items:center; gap:11px; padding:9px 15px; border-radius:999px; background:rgba(20,16,24,.78); border:1px solid var(--line); backdrop-filter:blur(8px); box-shadow:var(--shadow)}
@@ -145,7 +148,7 @@
   .cams.grid[data-count="4"]{grid-template-columns:repeat(2,calc(var(--camw) * 0.76))}
   .cams.grid[data-count="5"], .cams.grid[data-count="6"]{grid-template-columns:repeat(2,calc(var(--camw) * 0.67))}
   .cams.grid[data-count="7"], .cams.grid[data-count="8"]{grid-template-columns:repeat(2,calc(var(--camw) * 0.58))}
-  .ctool{width:24px; height:24px; border-radius:7px; border:1px solid var(--line); background:rgba(8,7,10,.7); color:#fff; font-size:15px; line-height:1; cursor:pointer; display:grid; place-items:center}
+  .ctool{width:36px; height:36px; border-radius:9px; border:1px solid var(--line); background:rgba(8,7,10,.7); color:#fff; font-size:17px; line-height:1; cursor:pointer; display:grid; place-items:center}
   .ctool:hover{background:rgba(40,32,48,.9)}
 
   .playgate{position:absolute; inset:0; z-index:50; display:flex; align-items:center; justify-content:center; background:rgba(0,0,0,.45); backdrop-filter:blur(3px)}
@@ -157,7 +160,7 @@
   .cdwidget[hidden]{display:none}
   .cd-head{display:flex; align-items:center; justify-content:space-between; gap:8px}
   .cd-title{font-family:'Bebas Neue',sans-serif; letter-spacing:1.5px; font-size:21px; color:var(--amber-2)}
-  .cd-x{background:none; border:none; color:var(--muted); font-size:22px; line-height:1; cursor:pointer; padding:0 2px}
+  .cd-x{background:none; border:none; color:var(--muted); font-size:22px; line-height:1; cursor:pointer; width:36px; height:36px; padding:0; border-radius:50%}
   .cd-x:hover{color:var(--txt)}
   .cd-num{font-family:'Bebas Neue',sans-serif; font-size:62px; line-height:1; text-align:center; color:#fff; padding:2px 0}
   .cd-num.go{color:var(--good); animation:pop .4s ease}
@@ -172,7 +175,7 @@
   @keyframes slideup{from{transform:translateY(100%)}to{transform:none}}
   .sheet-grip{display:none}
   .chat-head{display:flex; align-items:center; justify-content:space-between; padding:14px 16px; border-bottom:1px solid var(--line); font-family:'Bebas Neue',sans-serif; letter-spacing:1.5px; font-size:19px}
-  .chat-x{background:none; border:none; color:var(--muted); font-size:26px; cursor:pointer; line-height:1}
+  .chat-x{background:none; border:none; color:var(--muted); font-size:26px; cursor:pointer; line-height:1; width:40px; height:40px; border-radius:50%}
   .chat-x:hover{color:var(--txt)}
   .chat-log{flex:1; overflow-y:auto; padding:14px; display:flex; flex-direction:column; gap:10px}
   .chat-empty{margin:auto; color:#6f655c; font-size:13px; text-align:center; line-height:1.5}
@@ -206,6 +209,7 @@
   .yt-card:hover{transform:translateY(-3px); border-color:rgba(244,177,74,.5)}
   .yt-card:focus-visible{outline:2px solid var(--amber); outline-offset:2px}
   .yt-card img{width:100%; aspect-ratio:16/9; object-fit:cover; display:block; background:#000}
+  .yt-thumb-fallback{width:100%; aspect-ratio:16/9; display:none; place-items:center; background:radial-gradient(circle at 50% 45%,rgba(244,177,74,.22),rgba(12,10,15,.95) 68%); color:var(--amber-2); font-size:34px}
   .yt-card .t{padding:9px 11px; font-size:13px; line-height:1.35; color:#e7ddd3; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden}
   .ytb-msg{margin:auto; max-width:420px; text-align:center; color:var(--muted); font-size:14px; line-height:1.6; padding:20px}
 
@@ -284,6 +288,8 @@
   .l-name{margin:2px auto 20px; max-width:300px; width:100%}
   .l-name input{width:100%; background:var(--panel); border:1px solid var(--line); color:var(--txt); border-radius:11px; padding:12px 14px; font-size:15px; font-family:inherit; text-align:center}
   .l-name input:focus{outline:none; border-color:rgba(244,177,74,.7)}
+  .l-name input[aria-invalid="true"]{border-color:var(--bad); box-shadow:0 0 0 3px rgba(232,115,107,.13)}
+  .field-error{min-height:18px; margin:7px 4px 0; color:#ffb3ac; font-size:12px; line-height:1.35; text-align:center}
   .l-join{margin:2px auto 0; max-width:300px; width:100%}
   .l-or{display:block; font-size:12.5px; color:var(--muted); margin:2px 0 10px}
   .l-joinrow{display:flex; gap:8px}
@@ -318,7 +324,7 @@
   .gamewrap.drawer #gameCanvas{cursor:crosshair}
   .g-tools{display:none; align-items:center; gap:7px; padding:8px 14px; border-top:1px solid var(--line); flex-wrap:wrap}
   .gamewrap.drawer .g-tools{display:flex}
-  .g-color{width:26px; height:26px; border-radius:50%; border:2px solid transparent; cursor:pointer; padding:0}
+  .g-color{width:36px; height:36px; border-radius:50%; border:2px solid transparent; cursor:pointer; padding:0}
   .g-color.cur{border-color:#fff; box-shadow:0 0 0 2px var(--amber)}
   .g-guess{display:flex; gap:8px; padding:8px 14px; border-top:1px solid var(--line)}
   .gamewrap.drawer .g-guess{display:none}
@@ -376,7 +382,7 @@
   /* delete your own wall items (side panel): tap once to arm, again to confirm */
   .msg{position:relative}
   .msg .who{padding-right:44px}   /* keep the author name clear of the trash button */
-  .wdel{position:absolute; top:2px; right:0; background:rgba(20,16,24,.85); border:1px solid var(--line); color:var(--muted); border-radius:8px; font-size:12px; padding:3px 8px; cursor:pointer; opacity:.75; font-family:inherit}
+  .wdel{position:absolute; top:2px; right:0; background:rgba(20,16,24,.85); border:1px solid var(--line); color:var(--muted); border-radius:8px; font-size:13px; padding:6px 10px; cursor:pointer; opacity:.75; font-family:inherit; min-height:30px}
   .wdel:hover{opacity:1; color:#fff}
   .wdel.arm{background:rgba(232,115,107,.25); border-color:rgba(232,115,107,.7); color:#ffb3ac; opacity:1}
 
@@ -387,11 +393,24 @@
   .wvidwrap .wplay span{width:44px; height:44px; border-radius:50%; display:grid; place-items:center; background:rgba(10,8,12,.62); border:1px solid rgba(255,255,255,.35); color:#fff; font-size:17px; padding-left:3px; backdrop-filter:blur(3px)}
   #lightboxVid{max-width:92vw; max-height:86vh; border-radius:12px; display:none; background:#000; box-shadow:var(--shadow)}
 
-  /* transfer pill: sharing waits until everyone has 100%, then reveals for all at once */
-  .xferpill{position:absolute; left:50%; transform:translateX(-50%); bottom:140px; z-index:41; display:flex; align-items:center; gap:9px; padding:9px 16px; border-radius:999px; background:rgba(20,16,24,.94); border:1px solid var(--line); box-shadow:var(--shadow); font-size:13.5px; color:var(--txt); backdrop-filter:blur(8px)}
+  /* progressive P2P transfer: video becomes playable after a small buffer while the rest continues */
+  .xferpill{position:absolute; left:50%; transform:translateX(-50%); bottom:140px; z-index:57; display:flex; flex-direction:column; gap:8px; width:min(430px,calc(100vw - 28px)); padding:12px 14px; border-radius:15px; background:rgba(20,16,24,.96); border:1px solid var(--line); box-shadow:var(--shadow); font-size:13.5px; color:var(--txt); backdrop-filter:blur(10px)}
   .xferpill[hidden]{display:none}
+  .xferhead{display:flex; align-items:center; gap:9px; min-width:0}
+  .xfercopy{min-width:0; flex:1; display:flex; flex-direction:column; gap:2px}
+  .xfercopy strong{font-size:13.5px; font-weight:650; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+  .xfermeta{font-size:11.5px; color:var(--muted); min-height:16px}
+  .xfertrack{height:5px; overflow:hidden; border-radius:999px; background:rgba(255,255,255,.12)}
+  .xferbar{display:block; width:0; height:100%; border-radius:inherit; background:linear-gradient(90deg,var(--amber),var(--amber-2)); transition:width .25s ease}
+  .xferactions{display:flex; justify-content:flex-end; gap:7px}
+  .xferaction{min-height:44px; padding:7px 14px; border-radius:9px; border:1px solid var(--line); background:var(--panel-2); color:var(--txt); font:inherit; font-size:12.5px; font-weight:650; cursor:pointer}
+  .xferaction:hover{border-color:rgba(244,177,74,.55)}
+  .xferaction[hidden]{display:none}
   .xspin{width:13px; height:13px; border-radius:50%; border:2px solid rgba(244,177,74,.25); border-top-color:var(--amber); animation:xspin 1s linear infinite}
+  .xferpill.paused .xspin,.xferpill.failed .xspin{animation:none; border-color:rgba(255,255,255,.3); border-top-color:rgba(255,255,255,.3)}
+  .xferpill.failed{border-color:rgba(232,115,107,.55)}
   @keyframes xspin{to{transform:rotate(360deg)}}
+  @media (max-width:760px){.xferpill{bottom:calc(126px + env(safe-area-inset-bottom)); width:calc(100vw - 20px)} .stage.xfer-open .cams{top:12px; bottom:auto}}
 
   /* intro: the couch flies at you — dark shield with a couch-shaped hole that zooms until you're "inside" */
   #introZoom{position:fixed; inset:0; z-index:420; background:#0b0a0c; pointer-events:none; display:none;
@@ -405,12 +424,13 @@
   .sharebar{position:absolute; left:50%; transform:translateX(-50%); bottom:84px; z-index:40; display:none; align-items:center; gap:8px; max-width:94vw; padding:8px 10px; border-radius:14px; background:rgba(20,16,24,.92); border:1px solid var(--line); backdrop-filter:blur(10px); box-shadow:var(--shadow)}
   .sharebar.show{display:flex}
   .gstrip{display:flex; gap:6px; overflow-x:auto; max-width:58vw; padding:2px}
-  .gthumb{flex:0 0 auto; display:flex; align-items:center; gap:6px; padding:6px 9px; border-radius:9px; border:1px solid var(--line); background:var(--panel-2); color:var(--txt); font-size:12px; cursor:default; white-space:nowrap; max-width:170px; overflow:hidden; text-overflow:ellipsis}
-  .sharebar.presenter .gthumb{cursor:pointer}
+  .gthumb{flex:0 0 auto; display:flex; align-items:center; gap:6px; min-height:38px; padding:7px 10px; border-radius:9px; border:1px solid var(--line); background:var(--panel-2); color:var(--txt); font:inherit; font-size:12px; cursor:pointer; white-space:nowrap; max-width:190px; overflow:hidden; text-overflow:ellipsis; text-align:left}
+  .gthumb:hover{border-color:rgba(244,177,74,.55)}
+  .gthumb:focus-visible{outline:2px solid var(--amber); outline-offset:2px}
   .gthumb.cur{border-color:var(--amber); color:var(--amber-2)}
   .gthumb .gi{opacity:.85; flex:0 0 auto}
   .gnav{display:flex; gap:6px}
-  .gbtn{cursor:pointer; font-family:inherit; font-weight:700; font-size:16px; line-height:1; border-radius:9px; padding:7px 11px; border:1px solid var(--line); background:var(--panel-2); color:var(--txt)}
+  .gbtn{cursor:pointer; font-family:inherit; font-weight:700; font-size:18px; line-height:1; min-width:40px; min-height:40px; border-radius:9px; padding:7px 11px; border:1px solid var(--line); background:var(--panel-2); color:var(--txt)}
   .sharebar .btn{padding:8px 12px; font-size:13px}
   @media (max-width:760px){ .sharebar{bottom:74px; left:10px; right:10px; transform:none; max-width:none} .gstrip{max-width:none; flex:1} }
 
@@ -424,8 +444,9 @@
     .linkpill{flex:1 1 auto; max-width:none}
     select.lang{padding:8px}
     /* controls: one tidy row across the bottom — diagnostics moves out of the way so the 8 everyday buttons get real tap targets */
-    .floatctrls{left:6px; right:6px; bottom:calc(9px + env(safe-area-inset-bottom)); gap:4px; max-width:none; justify-content:space-between; flex-wrap:nowrap}
-    .fbtn{width:42px; height:42px; flex:0 0 auto}
+    .floatctrls{left:6px; right:6px; bottom:calc(9px + env(safe-area-inset-bottom)); gap:6px; max-width:none; justify-content:flex-start; flex-wrap:nowrap; overflow-x:auto; padding:2px 2px 5px; scrollbar-width:none; overscroll-behavior-x:contain}
+    .floatctrls::-webkit-scrollbar{display:none}
+    .fbtn{width:44px; height:44px; flex:0 0 auto}
     .fbtn svg{width:19px; height:19px}
     #dbgBtn{display:none}
     /* faces: small PiP tiles bottom-right, sitting just above the controls row */
@@ -447,8 +468,7 @@
     .ph-card h2{font-size:27px}
     .landing .l-actions .btn{width:100%; max-width:300px}
   }
-  @media (max-width:380px){ .fbtn{width:40px; height:40px} .fbtn svg{width:18px; height:18px} .floatctrls{gap:4px} .cam{width:78px} }
-  @media (max-width:350px){ .fbtn{width:36px; height:36px} .fbtn svg{width:17px; height:17px} }
+  @media (max-width:380px){ .fbtn{width:44px; height:44px} .fbtn svg{width:18px; height:18px} .cam{width:78px} }
 
   /* ===================== Emoji reactions ===================== */
   .reactions-layer{position:absolute; inset:0; z-index:58; pointer-events:none; overflow:hidden}
@@ -489,7 +509,7 @@
 
   /* ===================== Scheduled watch party ===================== */
   .l-secondary{margin-top:14px}
-  .l-link-btn{background:none; border:none; color:var(--amber-2); font-family:inherit; font-size:14px; cursor:pointer; text-decoration:underline; text-underline-offset:3px}
+  .l-link-btn{background:none; border:none; color:var(--amber-2); font-family:inherit; font-size:14px; cursor:pointer; text-decoration:underline; text-underline-offset:3px; min-height:40px; padding:8px 6px}
   .l-link-btn:hover{color:var(--amber)}
   .waitroom{position:fixed; inset:0; z-index:210; display:none; align-items:center; justify-content:center; padding:24px;
     background:radial-gradient(900px 600px at 50% -80px, rgba(244,177,74,.16), transparent 60%), #0b0a0c; text-align:center}
@@ -530,10 +550,12 @@
   .l-rooms{margin-top:24px; max-width:440px; width:100%}
   .l-rooms-title{font-size:12px; letter-spacing:1.5px; text-transform:uppercase; color:var(--muted); margin:0 0 10px}
   .l-rooms-list{display:flex; gap:8px; flex-wrap:wrap; justify-content:center}
-  .l-room-chip{display:inline-flex; align-items:center; gap:9px; padding:8px 12px; border-radius:999px; border:1px solid var(--line); background:var(--panel-2); color:var(--txt); font-size:13px; cursor:pointer; transition:border-color .15s}
+  .l-room-chip{display:inline-flex; align-items:center; gap:2px; padding:2px 4px 2px 6px; border-radius:999px; border:1px solid var(--line); background:var(--panel-2); transition:border-color .15s}
   .l-room-chip:hover{border-color:rgba(244,177,74,.55)}
-  .l-room-chip .rm{opacity:.5; font-size:15px; line-height:1}
+  .l-room-chip .rc-open{background:none; border:none; color:var(--txt); font:inherit; font-size:13px; cursor:pointer; padding:8px 6px; border-radius:999px}
+  .l-room-chip .rm{background:none; border:none; color:var(--txt); opacity:.5; font-size:18px; line-height:1; cursor:pointer; min-width:34px; min-height:34px; border-radius:50%; display:grid; place-items:center}
   .l-room-chip .rm:hover{opacity:1; color:var(--bad)}
+  .l-room-chip .rc-open:focus-visible,.l-room-chip .rm:focus-visible{outline:2px solid var(--amber); outline-offset:1px}
 
   /* landing use-case cards */
   .l-usecases{display:flex; gap:12px; flex-wrap:wrap; justify-content:center; margin:28px auto 0; max-width:700px}
@@ -553,7 +575,7 @@
   /* peer moderation actions (block / host-remove) on the peer tile */
   .peer-actions{position:absolute; left:6px; top:6px; z-index:6; display:flex; gap:5px; opacity:0; pointer-events:none; transition:opacity .15s}
   .cam.peer:hover .peer-actions, .cam.peer.tools-open .peer-actions{opacity:1; pointer-events:auto}
-  .pa-btn{width:26px; height:26px; border-radius:7px; border:1px solid var(--line); background:rgba(8,7,10,.72); color:#fff; font-size:13px; line-height:1; cursor:pointer; display:grid; place-items:center; backdrop-filter:blur(4px)}
+  .pa-btn{width:34px; height:34px; border-radius:8px; border:1px solid var(--line); background:rgba(8,7,10,.72); color:#fff; font-size:14px; line-height:1; cursor:pointer; display:grid; place-items:center; backdrop-filter:blur(4px)}
   .pa-btn:hover{background:rgba(40,32,48,.95)}
   .pa-kick{color:var(--bad); border-color:rgba(232,115,107,.5)}
 
@@ -632,21 +654,24 @@
     <div class="l-brand"><svg class="couchmark" viewBox="0 0 48 48" aria-hidden="true"><rect x="10" y="13" width="28" height="13" rx="5" fill="#ffcf86"/><rect x="6" y="20" width="8" height="13" rx="4" fill="#f4b14a"/><rect x="34" y="20" width="8" height="13" rx="4" fill="#f4b14a"/><rect x="10" y="22" width="28" height="11" rx="4" fill="#f4b14a"/><rect x="11" y="33" width="4" height="5" rx="2" fill="#b9792a"/><rect x="33" y="33" width="4" height="5" rx="2" fill="#b9792a"/></svg><b>Same<i>Couch</i></b></div>
     <h1 id="ld_tagline">Watch any movie together — in sync, face to face.</h1>
     <p class="sub" id="ld_sub">Create a private room, share the link, and press play in perfect sync — while you see and hear each other.</p>
-    <div class="l-fast" aria-label="Quick benefits">
+    <div class="l-fast" role="group" aria-label="Quick benefits">
       <span id="fast_noapp">No app or account</span>
       <span id="fast_private">Private link room</span>
       <span id="fast_sync">Synced play, pause and seek</span>
     </div>
-    <div class="l-name"><input id="ld_name" type="text" maxlength="40" placeholder="Your name" /></div>
+    <div class="l-name">
+      <input id="ld_name" type="text" maxlength="40" placeholder="Your name" autocomplete="name" required aria-describedby="ld_name_error" />
+      <p class="field-error" id="ld_name_error" role="alert" aria-live="polite"></p>
+    </div>
     <div class="l-actions">
-      <button class="btn primary" id="ld_create">Create a room</button>
-      <button class="btn primary" id="ld_joinbtn" style="display:none">Join room</button>
+      <button type="button" class="btn primary" id="ld_create">Create a room</button>
+      <button type="button" class="btn primary" id="ld_joinbtn" style="display:none">Join room</button>
     </div>
     <div class="l-join" id="ld_join_block">
-      <button class="l-link-btn l-or" id="ld_or">or join / name your own room</button>
-      <div class="l-joinrow" id="ld_joinrow" style="display:none"><input id="ld_code" type="text" maxlength="40" placeholder="Room name or code" /><button class="btn" id="ld_join">Go</button></div>
+      <button type="button" class="l-link-btn l-or" id="ld_or">or join / name your own room</button>
+      <div class="l-joinrow" id="ld_joinrow" style="display:none"><input id="ld_code" type="text" maxlength="40" placeholder="Room name or code" /><button type="button" class="btn" id="ld_join">Go</button></div>
     </div>
-    <div class="l-secondary" id="ld_secondary"><button class="l-link-btn" id="ld_schedule">📅 Schedule a watch party</button></div>
+    <div class="l-secondary" id="ld_secondary"><button type="button" class="l-link-btn" id="ld_schedule">📅 Schedule a watch party</button></div>
     <div class="l-rooms" id="ld_rooms" style="display:none">
       <div class="l-rooms-title" id="ld_rooms_title">Your rooms</div>
       <div class="l-rooms-list" id="ld_rooms_list"></div>
@@ -680,32 +705,32 @@
 
   <header class="topbar">
     <div class="brand"><svg class="couchmark" viewBox="0 0 48 48" aria-hidden="true"><rect x="10" y="13" width="28" height="13" rx="5" fill="#ffcf86"/><rect x="6" y="20" width="8" height="13" rx="4" fill="#f4b14a"/><rect x="34" y="20" width="8" height="13" rx="4" fill="#f4b14a"/><rect x="10" y="22" width="28" height="11" rx="4" fill="#f4b14a"/><rect x="11" y="33" width="4" height="5" rx="2" fill="#b9792a"/><rect x="33" y="33" width="4" height="5" rx="2" fill="#b9792a"/></svg><b>Same<i>Couch</i></b></div>
-    <div class="status"><span class="dot waiting" id="statusDot"></span><span id="statusText">Waiting for the other person…</span></div>
-    <button class="btn ghost bar-toggle" id="barToggle" aria-label="Menu" aria-expanded="false"><svg id="barToggleIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg></button>
+    <div class="status" role="status" aria-live="polite"><span class="dot waiting" id="statusDot"></span><span id="statusText">Waiting for the other person…</span></div>
+    <button type="button" class="btn ghost bar-toggle" id="barToggle" aria-label="Menu" aria-expanded="false"><svg id="barToggleIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg></button>
     <div class="grow">
       <div class="urlrow">
         <input class="url" id="urlInput" type="text" inputmode="url" spellcheck="false" placeholder="Paste a video file (.mp4/.webm), a YouTube link, or another video page…" />
-        <button class="btn primary" id="loadBtn">Load</button>
+        <button type="button" class="btn primary" id="loadBtn">Load</button>
       </div>
     </div>
-    <button class="btn ghost" id="browseBtn">&#9654; YouTube</button>
-    <button class="btn ghost" id="shareMediaBtn">&#128247; Share</button>
-    <button class="btn ghost" id="screenBtn">&#128421; <span id="screenBtnTxt">Browse together</span></button>
+    <button type="button" class="btn ghost" id="browseBtn">&#9654; YouTube</button>
+    <button type="button" class="btn ghost" id="shareMediaBtn">&#128247; Share</button>
+    <button type="button" class="btn ghost" id="screenBtn">&#128421; <span id="screenBtnTxt">Browse together</span></button>
     <input id="fileInput" type="file" accept="image/*,video/*" multiple style="display:none" />
     <select class="lang" id="langSel"></select>
     <div class="share">
       <div class="linkpill"><span class="lbl" id="shareLbl">Share link</span><span class="val" id="linkText">…</span></div>
-      <button class="btn" id="copyBtn">Copy link</button>
+      <button type="button" class="btn" id="copyBtn">Copy link</button>
     </div>
   </header>
 
   <main class="stage" id="stage">
     <div id="decorLayer" aria-hidden="true"></div>
-    <video id="movie" playsinline controls controlsList="nofullscreen nodownload noremoteplayback" preload="metadata"></video>
+    <video id="movie" playsinline controls controlslist="nofullscreen nodownload noremoteplayback" preload="metadata"></video>
     <video id="screenVideo" autoplay playsinline></video>
     <img id="galleryImg" alt="" />
     <div id="ytwrap"></div>
-    <div id="framewrap"><iframe id="frame" allow="fullscreen; encrypted-media; picture-in-picture" allowfullscreen referrerpolicy="no-referrer-when-downgrade" sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox allow-presentation"></iframe></div>
+    <div id="framewrap"><iframe id="frame" title="Shared website" allow="fullscreen; encrypted-media; picture-in-picture" allowfullscreen referrerpolicy="no-referrer-when-downgrade" sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox allow-presentation"></iframe></div>
 
     <div class="placeholder" id="placeholder">
       <div class="ph-card">
@@ -716,48 +741,52 @@
         <div class="share-row">
           <a class="share-btn wa" id="shareWa" target="_blank" rel="noopener noreferrer"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M.057 24l1.687-6.163a11.867 11.867 0 0 1-1.587-5.946C.16 5.335 5.495 0 12.05 0a11.817 11.817 0 0 1 8.413 3.488 11.824 11.824 0 0 1 3.48 8.414c-.003 6.557-5.338 11.892-11.893 11.892a11.9 11.9 0 0 1-5.688-1.448L.057 24zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.884a9.86 9.86 0 0 0 1.51 5.26l-.999 3.648 3.978-1.607zm11.387-5.464c-.074-.124-.272-.198-.57-.347-.297-.149-1.758-.868-2.031-.967-.272-.099-.47-.149-.669.149-.198.297-.768.967-.941 1.165-.173.198-.347.223-.644.074-.297-.149-1.255-.462-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.297-.347.446-.521.151-.172.2-.296.3-.495.099-.198.05-.372-.025-.521-.075-.148-.669-1.611-.916-2.206-.242-.579-.487-.501-.669-.51l-.57-.01c-.198 0-.52.074-.792.372s-1.04 1.016-1.04 2.479 1.065 2.876 1.213 3.074c.149.198 2.095 3.2 5.076 4.487.709.306 1.263.489 1.694.626.712.226 1.36.194 1.872.118.571-.085 1.758-.719 2.006-1.413.248-.695.248-1.29.173-1.414z"/></svg><span id="shareWaTxt">WhatsApp</span></a>
           <a class="share-btn mail" id="shareMail"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 7-10 6L2 7"/></svg><span id="shareMailTxt">Email</span></a>
-          <button class="share-btn" id="shareCopy"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg><span id="shareCopyTxt">Copy</span></button>
+          <button type="button" class="share-btn" id="shareCopy"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg><span id="shareCopyTxt">Copy</span></button>
         </div>
         <p class="ph-note" id="ph_note">Paste a video file or YouTube link above, or use “▶ YouTube” to search together. Tip: use headphones to avoid echo.</p>
-        <button class="btn primary" id="pickOpenBtn" style="margin-top:16px">🎬 <span id="pickOpenTxt">Choose something to watch</span></button>
-        <button class="btn" id="notifyMeBtn" style="display:none;margin-top:10px">🔔 <span id="notifyMeTxt">Tell me when someone's here</span></button>
-        <button class="btn" id="roomLockBtn" style="display:none;margin-top:10px">⚙️ <span id="roomLockTxt">Room settings</span></button>
+        <button type="button" class="btn primary" id="pickOpenBtn" style="margin-top:16px">🎬 <span id="pickOpenTxt">Choose something to watch</span></button>
+        <button type="button" class="btn" id="notifyMeBtn" style="display:none;margin-top:10px">🔔 <span id="notifyMeTxt">Tell me when someone's here</span></button>
+        <button type="button" class="btn" id="roomLockBtn" style="display:none;margin-top:10px">⚙️ <span id="roomLockTxt">Room settings</span></button>
       </div>
     </div>
 
     <div class="wall-stage" id="wallStage">
       <div class="wtitle" id="wallStageTitle">Your living room</div>
       <div class="wall-actions" id="wallActions">
-        <button class="btn primary" id="wallWatchBtn">🎬 <span id="wallWatchTxt">Choose something to watch</span></button>
-        <button class="btn" id="wallInviteBtn">📤 <span id="wallInviteTxt">Invite</span></button>
-        <button class="btn" id="wallLockBtn" style="display:none">⚙️ <span id="wallLockTxt">Room settings</span></button>
+        <button type="button" class="btn primary" id="wallWatchBtn">🎬 <span id="wallWatchTxt">Choose something to watch</span></button>
+        <button type="button" class="btn" id="wallInviteBtn">📤 <span id="wallInviteTxt">Invite</span></button>
+        <button type="button" class="btn" id="wallLockBtn" style="display:none">⚙️ <span id="wallLockTxt">Room settings</span></button>
       </div>
     </div>
     <div class="wall-add-hint" id="wallAddHint">Tap 📌 to add a memory</div>
 
-    <div class="lightbox" id="lightbox"><button class="lb-x" id="lightboxX" aria-label="Close">×</button><img id="lightboxImg" alt="" /><video id="lightboxVid" playsinline controls></video></div>
+    <div class="lightbox" id="lightbox"><button type="button" class="lb-x" id="lightboxX" aria-label="Close">×</button><img id="lightboxImg" alt="" /><video id="lightboxVid" playsinline controls></video></div>
 
-    <div class="xferpill" id="xferPill" hidden><span class="xspin"></span><span id="xferTxt">…</span></div>
+    <div class="xferpill" id="xferPill" hidden role="region" aria-labelledby="xferTxt">
+      <div class="xferhead"><span class="xspin" aria-hidden="true"></span><div class="xfercopy" role="status" aria-live="polite"><strong id="xferTxt">…</strong><span class="xfermeta" id="xferMeta"></span></div></div>
+      <div class="xfertrack" aria-hidden="true"><span class="xferbar" id="xferBar"></span></div>
+      <div class="xferactions"><button type="button" class="xferaction" id="xferPause" hidden>Pauzeren</button><button type="button" class="xferaction" id="xferRetry" hidden>Opnieuw proberen</button></div>
+    </div>
 
     <div id="introZoom" aria-hidden="true"></div>
 
-    <div class="playgate" id="playgate" hidden>
-      <button id="playgateBtn"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg> <span id="playgateTxt">Click to watch along</span></button>
+    <div class="playgate" id="playgate" hidden role="status" aria-live="polite">
+      <button type="button" id="playgateBtn"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg> <span id="playgateTxt">Click to watch along</span></button>
     </div>
 
     <div class="cdwidget" id="cdwidget" hidden>
-      <div class="cd-head"><span class="cd-title" id="cdTitle">Start together</span><button class="cd-x" id="cdClose" aria-label="Close">×</button></div>
+      <div class="cd-head"><span class="cd-title" id="cdTitle">Start together</span><button type="button" class="cd-x" id="cdClose" aria-label="Close">×</button></div>
       <div class="cd-num" id="cdNum">▶</div>
       <div class="cd-hint" id="cdHint">One of you taps Count down. On NOW, you both press play in the player.</div>
-      <button class="btn primary" id="cdBtn">3 · 2 · 1 — Count down</button>
+      <button type="button" class="btn primary" id="cdBtn">3 · 2 · 1 — Count down</button>
       <a class="btn" id="openTab" target="_blank" rel="noopener noreferrer">Open in new tab ↗</a>
     </div>
 
     <div class="floatctrls" id="floatctrls">
-      <button class="fbtn" id="micBtn" title="Microphone on/off"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg></button>
-      <button class="fbtn" id="camBtn" title="Camera on/off"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg></button>
+      <button type="button" class="fbtn" id="micBtn" title="Microphone on/off"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg></button>
+      <button type="button" class="fbtn" id="camBtn" title="Camera on/off"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg></button>
       <div style="position:relative">
-        <button class="fbtn" id="volBtn" title="Volume"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/><path d="M19 5a9 9 0 0 1 0 14"/></svg></button>
+        <button type="button" class="fbtn" id="volBtn" title="Volume"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/><path d="M19 5a9 9 0 0 1 0 14"/></svg></button>
         <div class="volpop" id="volpop">
           <div class="row"><span class="lbl" id="volLbl">Volume</span><input type="range" class="vol" id="movieVol" min="0" max="100" value="100" /></div>
           <label class="switch"><input type="checkbox" id="duckChk" checked /><span class="track"></span><span id="duckLbl">Auto-lower when talking</span></label>
@@ -765,21 +794,23 @@
         </div>
       </div>
       <div style="position:relative">
-        <button class="fbtn" id="reactBtn" title="Send a reaction"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 1 0-7.78 7.78L12 21.23l8.84-8.84a5.5 5.5 0 0 0 0-7.78z"/></svg></button>
+        <button type="button" class="fbtn" id="reactBtn" title="Send a reaction"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 1 0-7.78 7.78L12 21.23l8.84-8.84a5.5 5.5 0 0 0 0-7.78z"/></svg></button>
         <div class="emojibar" id="emojibar"></div>
       </div>
-      <button class="fbtn" id="clipBtn" title="Capture a clip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/><circle cx="8.5" cy="12" r="2.6" fill="currentColor" stroke="none"/></svg></button>
-      <button class="fbtn" id="gameBtn" title="Game night" style="font-size:19px;line-height:1">🎲</button>
-      <button class="fbtn" id="wallBtn" title="Memories wall" style="display:none"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.8"/><path d="M21 15l-5-5L5 21"/></svg></button>
-      <button class="fbtn" id="chatBtn" title="Show/hide chat"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg></button>
-      <button class="fbtn" id="fsBtn" title="Fullscreen"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M21 8V5a2 2 0 0 0-2-2h-3"/><path d="M3 16v3a2 2 0 0 0 2 2h3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/></svg></button>
-      <button class="fbtn" id="dbgBtn" title="Connection diagnostics"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><line x1="12" y1="11" x2="12" y2="16"/><circle cx="12" cy="7.6" r="0.8" fill="currentColor" stroke="none"/></svg></button>
+      <button type="button" class="fbtn" id="clipBtn" title="Capture a clip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/><circle cx="8.5" cy="12" r="2.6" fill="currentColor" stroke="none"/></svg></button>
+      <button type="button" class="fbtn" id="gameBtn" title="Game night" style="font-size:19px;line-height:1">🎲</button>
+      <button type="button" class="fbtn" id="wallBtn" title="Memories wall" style="display:none"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.8"/><path d="M21 15l-5-5L5 21"/></svg></button>
+      <button type="button" class="fbtn cc" id="subtitleBtn" title="Add subtitles" hidden>CC+</button>
+      <input id="subtitleInput" type="file" accept=".srt,.vtt,application/x-subrip,text/plain,text/vtt" hidden />
+      <button type="button" class="fbtn" id="chatBtn" title="Show/hide chat"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg></button>
+      <button type="button" class="fbtn" id="fsBtn" title="Fullscreen"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M21 8V5a2 2 0 0 0-2-2h-3"/><path d="M3 16v3a2 2 0 0 0 2 2h3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/></svg></button>
+      <button type="button" class="fbtn" id="dbgBtn" title="Connection diagnostics"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><line x1="12" y1="11" x2="12" y2="16"/><circle cx="12" cy="7.6" r="0.8" fill="currentColor" stroke="none"/></svg></button>
     </div>
 
     <div class="sharebar" id="sharebar">
-      <div class="gnav" id="gnav" style="display:none"><button class="gbtn" id="gPrev" title="Previous">&#8249;</button><button class="gbtn" id="gNext" title="Next">&#8250;</button></div>
+      <div class="gnav" id="gnav" style="display:none"><button type="button" class="gbtn" id="gPrev" title="Previous">&#8249;</button><button type="button" class="gbtn" id="gNext" title="Next">&#8250;</button></div>
       <div class="gstrip" id="gstrip"></div>
-      <button class="btn" id="gStop" style="display:none">Stop</button>
+      <button type="button" class="btn" id="gStop" style="display:none">Stop</button>
     </div>
 
     <div class="gamewrap" id="gamewrap">
@@ -789,30 +820,30 @@
         <span class="g-word" id="gWordEl"></span>
         <span class="g-timer" id="gTimerEl">–</span>
         <div class="g-scores" id="gScores"></div>
-        <button class="btn" id="gQuit">Stop</button>
+        <button type="button" class="btn" id="gQuit">Stop</button>
       </div>
       <div class="g-canvas-wrap">
         <canvas id="gameCanvas" width="880" height="550"></canvas>
         <div class="g-pick" id="gPick"><div id="gPickTitle" style="font-size:16px;color:var(--muted)">Choose a word to draw</div><div style="display:flex;gap:12px;flex-wrap:wrap;justify-content:center" id="gPickBtns"></div></div>
       </div>
       <div class="g-tools" id="gTools"></div>
-      <div class="g-guess"><input id="gGuessInput" maxlength="60" autocomplete="off" placeholder="Type your guess…" /><button class="btn primary" id="gGuessBtn">Guess</button></div>
+      <div class="g-guess"><input type="text" id="gGuessInput" maxlength="60" autocomplete="off" placeholder="Type your guess…" /><button type="button" class="btn primary" id="gGuessBtn">Guess</button></div>
     </div>
 
     <div class="decorbar" id="decorBar"></div>
 
     <div class="reactions-layer" id="reactionsLayer" aria-hidden="true"></div>
-    <div class="rec-pill" id="recPill"><span class="rdot"></span><span id="recText">Recording…</span><button class="rstop" id="recStop">Stop</button></div>
+    <div class="rec-pill" id="recPill"><span class="rdot"></span><span id="recText">Recording…</span><button type="button" class="rstop" id="recStop">Stop</button></div>
 
     <div class="cams" id="cams">
       <div class="cam peer" id="peerCam">
         <video id="peerVideo" autoplay playsinline muted></video>
         <span class="who-badge" id="peerWho"></span>
         <div class="peer-actions" id="peerActions">
-          <button class="pa-btn" id="peerBlock" title="Block">🔇</button>
-          <button class="pa-btn pa-kick" id="peerKick" title="Remove (host)" style="display:none">✕</button>
+          <button type="button" class="pa-btn" id="peerBlock" title="Block">🔇</button>
+          <button type="button" class="pa-btn pa-kick" id="peerKick" title="Remove (host)" style="display:none">✕</button>
         </div>
-        <div class="cam-state" id="camState"><span id="camStateText">Waiting for others to join…</span></div>
+        <div class="cam-state" id="camState" role="status" aria-live="polite"><span id="camStateText">Waiting for others to join…</span></div>
         <div class="pvol" id="pvol">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/></svg>
           <span class="pv-lbl" id="pvLbl">Their volume</span>
@@ -822,46 +853,46 @@
       </div>
       <div class="cam self" id="selfCam">
         <video id="selfVideo" autoplay playsinline muted></video>
-        <div class="cam-tools"><button class="ctool" id="camMinus" title="Smaller">−</button><button class="ctool" id="camPlus" title="Larger">+</button></div>
+        <div class="cam-tools"><button type="button" class="ctool" id="camMinus" title="Smaller">−</button><button type="button" class="ctool" id="camPlus" title="Larger">+</button></div>
         <span class="camlabel" id="selfLabel">You</span>
       </div>
     </div>
 
-    <aside class="chat" id="chat" hidden>
+    <aside class="chat" id="chat" aria-labelledby="chatTitle" hidden>
       <div class="sheet-grip" aria-hidden="true"></div>
-      <div class="chat-head"><span id="chatTitle">Chat</span><button class="chat-x" id="chatClose" aria-label="Close">×</button></div>
+      <div class="chat-head"><span id="chatTitle">Chat</span><button type="button" class="chat-x" id="chatClose" aria-label="Close">×</button></div>
       <div class="chat-notice" id="chatNotice">Messages may be reviewed to keep everyone safe.</div>
       <div class="chat-log" id="chatLog"><div class="chat-empty" id="chatEmpty">No messages yet. Say hi 👋</div></div>
-      <div class="chat-input"><input id="chatText" placeholder="Type a message…" maxlength="2000" /><button class="btn primary" id="chatSend">Send</button></div>
+      <div class="chat-input"><input type="text" id="chatText" placeholder="Type a message…" maxlength="2000" /><button type="button" class="btn primary" id="chatSend">Send</button></div>
     </aside>
 
-    <aside class="chat" id="wallPanel" hidden>
+    <aside class="chat" id="wallPanel" aria-labelledby="wallTitle" hidden>
       <div class="sheet-grip" aria-hidden="true"></div>
-      <div class="chat-head"><span id="wallTitle">Memories</span><button class="chat-x" id="wallClose" aria-label="Close">×</button></div>
+      <div class="chat-head"><span id="wallTitle">Memories</span><button type="button" class="chat-x" id="wallClose" aria-label="Close">×</button></div>
       <div class="chat-notice" id="wallNotice">These stay here for everyone — even when you're offline.</div>
       <div class="chat-log" id="wallLog"><div class="chat-empty" id="wallEmpty">No memories yet. Leave a note or a photo 💛</div></div>
       <div class="chat-input">
-        <input id="wallText" placeholder="Leave a note…" maxlength="1000" />
-        <button class="fbtn" id="wallPhotoBtn" title="Add a photo" style="width:42px;height:42px;flex:0 0 auto;border-radius:11px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.8"/><path d="M21 15l-5-5L5 21"/></svg></button>
-        <button class="fbtn" id="wallMicBtn" title="Voice message" style="width:42px;height:42px;flex:0 0 auto;border-radius:11px;font-size:17px;line-height:1">🎙️</button>
-        <button class="fbtn" id="wallCamBtn" title="Video message" style="width:42px;height:42px;flex:0 0 auto;border-radius:11px;font-size:17px;line-height:1">🎥</button>
-        <button class="btn primary" id="wallSend">Send</button>
+        <input type="text" id="wallText" placeholder="Leave a note…" maxlength="1000" />
+        <button type="button" class="fbtn" id="wallPhotoBtn" title="Add a photo" style="width:42px;height:42px;flex:0 0 auto;border-radius:11px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.8"/><path d="M21 15l-5-5L5 21"/></svg></button>
+        <button type="button" class="fbtn" id="wallMicBtn" title="Voice message" style="width:42px;height:42px;flex:0 0 auto;border-radius:11px;font-size:17px;line-height:1">🎙️</button>
+        <button type="button" class="fbtn" id="wallCamBtn" title="Video message" style="width:42px;height:42px;flex:0 0 auto;border-radius:11px;font-size:17px;line-height:1">🎥</button>
+        <button type="button" class="btn primary" id="wallSend">Send</button>
       </div>
       <input id="wallFileInput" type="file" accept="image/*,video/*" style="display:none" />
     </aside>
 
     <div class="dbg" id="dbgPanel" hidden>
-      <div class="dbg-head"><b>Diagnostics</b><button class="cd-x" id="dbgClose" aria-label="Close">×</button></div>
+      <div class="dbg-head"><b>Diagnostics</b><button type="button" class="cd-x" id="dbgClose" aria-label="Close">×</button></div>
       <pre id="dbgText">…</pre>
-      <button class="btn" id="dbgCopy">Copy (to share)</button>
+      <button type="button" class="btn" id="dbgCopy">Copy (to share)</button>
     </div>
 
     <div class="ytb" id="ytb">
       <div class="ytb-head">
         <h3 id="ytbTitle">Browse YouTube together</h3>
-        <div class="ytsearch"><input id="ytQuery" placeholder="Search YouTube…" /><button class="btn primary" id="ytSearchBtn">Search</button></div>
-        <button class="btn ghost" id="ytOpen">Open YouTube ↗</button>
-        <button class="btn" id="ytbClose">✕</button>
+        <div class="ytsearch"><input type="text" id="ytQuery" placeholder="Search YouTube…" /><button type="button" class="btn primary" id="ytSearchBtn">Search</button></div>
+        <button type="button" class="btn ghost" id="ytOpen">Open YouTube ↗</button>
+        <button type="button" class="btn" id="ytbClose">✕</button>
       </div>
       <div class="ytb-grid" id="ytbGrid"><div class="ytb-msg" id="ytbMsg">Search above to find a video to watch together.</div></div>
     </div>
@@ -870,12 +901,12 @@
   <!-- Reaction clip result -->
   <div class="modal" id="clipModal">
     <div class="modal-card">
-      <button class="modal-x" id="clipModalX" aria-label="Close">×</button>
+      <button type="button" class="modal-x" id="clipModalX" aria-label="Close">×</button>
       <h3 id="clipTitle">Your moment 🎬</h3>
       <p class="m-sub" id="clipSub">Share the laugh — tag your friends.</p>
       <video id="clipVideo" controls playsinline></video>
       <div class="modal-row">
-        <button class="btn primary" id="clipShare">Share</button>
+        <button type="button" class="btn primary" id="clipShare">Share</button>
         <a class="btn" id="clipSave" download="watch-party-moment.webm">Save</a>
       </div>
       <p class="m-watermark">Made on SameCouch</p>
@@ -885,19 +916,19 @@
   <!-- Schedule a watch party -->
   <div class="modal" id="schedModal">
     <div class="modal-card">
-      <button class="modal-x" id="schedX" aria-label="Close">×</button>
+      <button type="button" class="modal-x" id="schedX" aria-label="Close">×</button>
       <h3 id="schedTitle">Schedule a watch party</h3>
       <p class="m-sub" id="schedSub">Pick a time, get an invite link, and add it to your calendar so nobody forgets.</p>
       <div class="m-field"><label id="schWhenLbl" for="schWhen">When</label><input id="schWhen" type="datetime-local" /></div>
       <div class="m-field"><label id="schWhatLbl" for="schWhat">What are you watching? (optional)</label><input id="schWhat" type="text" maxlength="80" placeholder="Movie night 🍿" /></div>
       <div class="modal-row" id="schStep1">
-        <button class="btn primary" id="schCreate">Create invite</button>
+        <button type="button" class="btn primary" id="schCreate">Create invite</button>
       </div>
       <div id="schStep2" style="display:none">
         <div class="m-field"><label id="schLinkLbl">Invite link</label><input id="schLink" type="text" readonly /></div>
         <div class="modal-row">
-          <button class="btn primary" id="schCopy">Copy invite link</button>
-          <button class="btn" id="schGoNow">Open room now</button>
+          <button type="button" class="btn primary" id="schCopy">Copy invite link</button>
+          <button type="button" class="btn" id="schGoNow">Open room now</button>
         </div>
         <div class="wr-cal" style="margin-top:12px">
           <a class="share-btn wa" id="schWa" target="_blank" rel="noopener noreferrer"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M.057 24l1.687-6.163a11.867 11.867 0 0 1-1.587-5.946C.16 5.335 5.495 0 12.05 0a11.817 11.817 0 0 1 8.413 3.488 11.824 11.824 0 0 1 3.48 8.414c-.003 6.557-5.338 11.892-11.893 11.892a11.9 11.9 0 0 1-5.688-1.448L.057 24zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.884a9.86 9.86 0 0 0 1.51 5.26l-.999 3.648 3.978-1.607zm11.387-5.464c-.074-.124-.272-.198-.57-.347-.297-.149-1.758-.868-2.031-.967-.272-.099-.47-.149-.669.149-.198.297-.768.967-.941 1.165-.173.198-.347.223-.644.074-.297-.149-1.255-.462-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.297-.347.446-.521.151-.172.2-.296.3-.495.099-.198.05-.372-.025-.521-.075-.148-.669-1.611-.916-2.206-.242-.579-.487-.501-.669-.51l-.57-.01c-.198 0-.52.074-.792.372s-1.04 1.016-1.04 2.479 1.065 2.876 1.213 3.074c.149.198 2.095 3.2 5.076 4.487.709.306 1.263.489 1.694.626.712.226 1.36.194 1.872.118.571-.085 1.758-.719 2.006-1.413.248-.695.248-1.29.173-1.414z"/></svg><span id="schWaTxt">WhatsApp</span></a>
@@ -905,8 +936,8 @@
         </div>
         <div class="wr-cal" style="margin-top:10px">
           <a class="share-btn" id="schGcal" target="_blank" rel="noopener noreferrer">📅 <span id="schGcalTxt">Google Calendar</span></a>
-          <button class="share-btn" id="schIcs">📥 <span id="schIcsTxt">Apple/Outlook (.ics)</span></button>
-          <button class="share-btn" id="schRemind" style="display:none">🔔 <span id="schRemindTxt">Remind me</span></button>
+          <button type="button" class="share-btn" id="schIcs">📥 <span id="schIcsTxt">Apple/Outlook (.ics)</span></button>
+          <button type="button" class="share-btn" id="schRemind" style="display:none">🔔 <span id="schRemindTxt">Remind me</span></button>
         </div>
       </div>
     </div>
@@ -920,15 +951,15 @@
       <p class="wr-what" id="wrWhen">Starts soon</p>
       <div class="wr-clock" id="wrClock">--:--:--</div>
       <div class="wr-actions">
-        <button class="btn primary" id="wrJoin">Join now</button>
-        <button class="btn" id="wrCopy">Copy invite</button>
+        <button type="button" class="btn primary" id="wrJoin">Join now</button>
+        <button type="button" class="btn" id="wrCopy">Copy invite</button>
       </div>
       <div class="wr-cal">
         <a class="share-btn wa" id="wrWa" target="_blank" rel="noopener noreferrer"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M.057 24l1.687-6.163a11.867 11.867 0 0 1-1.587-5.946C.16 5.335 5.495 0 12.05 0a11.817 11.817 0 0 1 8.413 3.488 11.824 11.824 0 0 1 3.48 8.414c-.003 6.557-5.338 11.892-11.893 11.892a11.9 11.9 0 0 1-5.688-1.448L.057 24zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.884a9.86 9.86 0 0 0 1.51 5.26l-.999 3.648 3.978-1.607zm11.387-5.464c-.074-.124-.272-.198-.57-.347-.297-.149-1.758-.868-2.031-.967-.272-.099-.47-.149-.669.149-.198.297-.768.967-.941 1.165-.173.198-.347.223-.644.074-.297-.149-1.255-.462-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.297-.347.446-.521.151-.172.2-.296.3-.495.099-.198.05-.372-.025-.521-.075-.148-.669-1.611-.916-2.206-.242-.579-.487-.501-.669-.51l-.57-.01c-.198 0-.52.074-.792.372s-1.04 1.016-1.04 2.479 1.065 2.876 1.213 3.074c.149.198 2.095 3.2 5.076 4.487.709.306 1.263.489 1.694.626.712.226 1.36.194 1.872.118.571-.085 1.758-.719 2.006-1.413.248-.695.248-1.29.173-1.414z"/></svg><span>WhatsApp</span></a>
         <a class="share-btn mail" id="wrMail"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 7-10 6L2 7"/></svg><span>Email</span></a>
         <a class="share-btn" id="wrGcal" target="_blank" rel="noopener noreferrer">📅 <span>Google Calendar</span></a>
-        <button class="share-btn" id="wrIcs">📥 <span>.ics</span></button>
-        <button class="share-btn" id="wrRemind" style="display:none">🔔 <span id="wrRemindTxt">Remind me</span></button>
+        <button type="button" class="share-btn" id="wrIcs">📥 <span>.ics</span></button>
+        <button type="button" class="share-btn" id="wrRemind" style="display:none">🔔 <span id="wrRemindTxt">Remind me</span></button>
       </div>
     </div>
   </div>
@@ -936,14 +967,14 @@
   <!-- Desktop: share via this computer OR scan a QR to add from your phone -->
   <div class="modal" id="shareModal">
     <div class="modal-card">
-      <button class="modal-x" id="shareModalX" aria-label="Close">×</button>
+      <button type="button" class="modal-x" id="shareModalX" aria-label="Close">×</button>
       <h3 id="shareModalTitle">Share photos &amp; videos</h3>
       <p class="m-sub" id="shareModalSub">Only share photos and videos you own or have the right to share.</p>
       <div class="share-opts">
         <div class="share-opt">
           <h4 id="shareOptPcTitle">From this computer</h4>
           <p id="shareOptPcSub">Pick files saved on this device.</p>
-          <button class="btn primary" id="shareFromPc">📁 <span id="shareFromPcTxt">Choose files</span></button>
+          <button type="button" class="btn primary" id="shareFromPc">📁 <span id="shareFromPcTxt">Choose files</span></button>
         </div>
         <div class="share-or">or</div>
         <div class="share-opt">
@@ -960,7 +991,7 @@
     <div class="c-emoji">📷</div>
     <h1 id="compTitle">Share your photos &amp; videos</h1>
     <p id="compSub">Everyone in the room will see them on the big screen.</p>
-    <button class="btn primary" id="compChoose">📷 <span id="compChooseTxt">Choose from your phone</span></button>
+    <button type="button" class="btn primary" id="compChoose">📷 <span id="compChooseTxt">Choose from your phone</span></button>
     <div class="c-status" id="compStatus"></div>
     <div class="c-grid" id="compGrid"></div>
   </div>
@@ -968,17 +999,17 @@
   <!-- Room settings (host: rename + password) / password prompt (guest) -->
   <div class="modal" id="passModal">
     <div class="modal-card">
-      <button class="modal-x" id="passX" aria-label="Close">×</button>
+      <button type="button" class="modal-x" id="passX" aria-label="Close">×</button>
       <h3 id="passTitle">Room settings</h3>
       <p class="m-sub" id="passSub">Only people with the password can join.</p>
 
       <div id="passNameField" style="display:none">
         <div style="font-size:12px;letter-spacing:1px;text-transform:uppercase;color:var(--muted);margin:4px 0 7px" id="passNameLbl">Room name</div>
-        <div class="pick-row"><input id="passNameInput" type="text" maxlength="40" autocomplete="off" placeholder="our-living-room" /><button class="btn primary" id="passNameSave">Save</button></div>
+        <div class="pick-row"><input id="passNameInput" type="text" maxlength="40" autocomplete="off" placeholder="our-living-room" /><button type="button" class="btn primary" id="passNameSave">Save</button></div>
         <div id="passNameMsg" style="font-size:13px;min-height:18px;margin:6px 0 2px;color:var(--muted)"></div>
         <div style="font-size:12px;letter-spacing:1px;text-transform:uppercase;color:var(--muted);margin:2px 0 7px" id="themeLbl">Ambiance</div>
         <div class="theme-row" id="themeRow"></div>
-        <button class="btn" id="decorEditBtn" style="width:100%;margin:2px 0 6px">🛋️ Decorate the room</button>
+        <button type="button" class="btn" id="decorEditBtn" style="width:100%;margin:2px 0 6px">🛋️ Decorate the room</button>
         <hr style="border:none;border-top:1px solid var(--line);margin:12px 0 14px" />
         <div style="font-size:12px;letter-spacing:1px;text-transform:uppercase;color:var(--muted);margin:0 0 7px" id="passPassLbl">Password</div>
       </div>
@@ -986,8 +1017,8 @@
       <div class="m-field"><input id="passInput" type="password" autocomplete="off" placeholder="••••••" /></div>
       <div id="passErr" style="color:var(--bad);font-size:13px;min-height:18px;margin:-6px 0 10px"></div>
       <div class="modal-row">
-        <button class="btn primary" id="passSubmit">OK</button>
-        <button class="btn" id="passRemove" style="display:none">Remove password</button>
+        <button type="button" class="btn primary" id="passSubmit">OK</button>
+        <button type="button" class="btn" id="passRemove" style="display:none">Remove password</button>
       </div>
     </div>
   </div>
@@ -995,27 +1026,27 @@
   <!-- Content picker (tabs: YouTube / Vimeo / Video URL / Local file / Photos) -->
   <div class="modal" id="picker">
     <div class="modal-card">
-      <button class="modal-x" id="pickX" aria-label="Close">×</button>
+      <button type="button" class="modal-x" id="pickX" aria-label="Close">×</button>
       <h3 id="pickTitle">What shall we watch?</h3>
       <div class="pick-tabs">
-        <button class="pick-tab active" data-k="youtube" id="pkt_youtube">YouTube</button>
-        <button class="pick-tab" data-k="vimeo" id="pkt_vimeo">Vimeo</button>
-        <button class="pick-tab" data-k="url" id="pkt_url">Video URL</button>
-        <button class="pick-tab" data-k="device" id="pkt_device">This device</button>
-        <button class="pick-tab" data-k="phone" id="pkt_phone">Your phone</button>
+        <button type="button" class="pick-tab active" data-k="youtube" id="pkt_youtube">YouTube</button>
+        <button type="button" class="pick-tab" data-k="vimeo" id="pkt_vimeo">Vimeo</button>
+        <button type="button" class="pick-tab" data-k="url" id="pkt_url">Video URL</button>
+        <button type="button" class="pick-tab" data-k="device" id="pkt_device">This device</button>
+        <button type="button" class="pick-tab" data-k="phone" id="pkt_phone">Your phone</button>
       </div>
-      <div id="pickUrlRow" class="pick-row"><input id="pickUrl" type="text" inputmode="url" spellcheck="false" placeholder="Paste a YouTube link…" /><button class="btn primary" id="pickLoad">Load</button></div>
-      <p class="m-sub" id="pickHint" style="margin-top:12px"><button class="l-link-btn" id="pickSearch">Search YouTube ↗</button></p>
-      <div id="pickFileRow" style="display:none"><button class="btn primary" id="pickFileBtn" style="width:100%">📁 <span id="pickChooseTxt">Choose photos &amp; videos</span></button></div>
+      <div id="pickUrlRow" class="pick-row"><input id="pickUrl" type="text" inputmode="url" spellcheck="false" placeholder="Paste a YouTube link…" /><button type="button" class="btn primary" id="pickLoad">Load</button></div>
+      <p class="m-sub" id="pickHint" style="margin-top:12px"><button type="button" class="l-link-btn" id="pickSearch">Search YouTube ↗</button></p>
+      <div id="pickFileRow" style="display:none"><button type="button" class="btn primary" id="pickFileBtn" style="width:100%">📁 <span id="pickChooseTxt">Choose photos &amp; videos</span></button></div>
       <div id="pickQrWrap" style="display:none; text-align:center"><div class="qrbox" id="pickQr" style="margin:0 auto 12px"></div><p class="m-sub" id="pickQrSub" style="margin:0">Scan to add photos &amp; videos from your phone — no camera needed.</p></div>
     </div>
   </div>
 
-  <div class="expiry-bar" id="expiryBar"><span id="expiryMsg"></span><a class="btn primary" id="expiryExtend" target="_blank" rel="noopener noreferrer">Extend</a><button class="x" id="expiryDismiss" aria-label="Dismiss">×</button></div>
+  <div class="expiry-bar" id="expiryBar"><span id="expiryMsg"></span><a class="btn primary" id="expiryExtend" target="_blank" rel="noopener noreferrer">Extend</a><button type="button" class="x" id="expiryDismiss" aria-label="Dismiss">×</button></div>
 
   <div class="connecting" id="connecting"><div class="spin"></div><div class="ctxt" id="connectingTxt">Connecting…</div></div>
 
-  <div class="toast" id="toast"></div>
+  <div class="toast" id="toast" role="status" aria-live="polite" aria-atomic="true"></div>
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/peerjs/1.5.5/peerjs.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
@@ -1045,8 +1076,8 @@
 
     /* ===================== i18n (base) ===================== */
     var I18N = {
-      en:{lang:"English",tagline:"Be together, even when you're apart.",sub:"A private living room for you and the people back home. Watch something together, share the kids' photos and videos, and see each other live — no app, no sign-up. Just send a link.",create:"Create a room",browse:"Browse YouTube",got:"Already have a link? Just open it to join.",foot:"End-to-end encrypted peer-to-peer video and audio. Chat is relayed so it can be moderated.",load:"Load",url_ph:"Paste a video file (.mp4/.webm), a YouTube link, or another video page…",share:"Share link",copy:"Copy link",copied:"Copied!",st_wait:"Waiting for the other person…",st_conn:"Connecting…",st_ok:"Connected",ph_kicker:"Your private cinema",ph_title:"Ready for movie night?",room_code:"Your room name:",same_link:"the other person must see the exact same code. If not, click “Copy link” and send that.",ph_note:"Paste a video file or YouTube link above, or use “▶ YouTube” to search together. Tip: use headphones to avoid echo.",cam_conn:"Connecting to the other person…",cam_fail:"Connection failed — try again",retry:"Try again",you:"You",other:"The other person",chat:"Chat",chat_ph:"Type a message…",send:"Send",chat_empty:"No messages yet. Say hi 👋",cd_title:"Start together",cd_hint:"One of you taps Count down. On NOW, you both press play in the player.",cd_btn:"3 · 2 · 1 — Count down",cd_now:"NOW ▶",open_tab:"Open in new tab ↗",playgate:"Click to watch along",movie_vol:"Movie volume",their_vol:"Their volume",yt_title:"Browse YouTube together",yt_ph:"Search YouTube…",yt_search:"Search",open_yt:"Open YouTube ↗",yt_none:"No results.",yt_nokey:"Search needs a YouTube API key (see README). For now, use “Open YouTube”, find a video and paste its link.",yt_hint:"Search above to find a video to watch together.",full_title:"This room is full",full_body:"This room is full. Create a new room and share that link.",new_room:"Create a new room",t_mic:"Microphone on/off",t_cam:"Camera on/off",t_duck:"Auto-lower movie when talking",t_chat:"Show/hide chat",t_fs:"Fullscreen",t_diag:"Connection diagnostics",t_browse:"Browse YouTube",no_cam:"No camera found — joining with audio only.",media_denied:"No camera/microphone access. You can still watch. Tap the mic or camera icon to try again.",media_retry:"Asking for camera & microphone again…",media_retry_t:"Enable camera/microphone",close_a:"Close",quick_benefits:"Why SameCouch",wall_add_photo:"Add a photo",clip_btn_t:"Save this moment (needs your camera)"},
-      nl:{lang:"Nederlands",tagline:"Samen zijn, ook als je ver weg bent.",sub:"Een privé-huiskamer voor jou en je dierbaren thuis. Kijk samen iets, deel foto's en video's van de kinderen, en zie elkaar live — geen app, geen account. Stuur gewoon een link.",create:"Maak een kamer",browse:"YouTube bladeren",got:"Heb je al een link? Open die om mee te doen.",foot:"End-to-end versleutelde peer-to-peer video en audio. Chat loopt via de server zodat die gemodereerd kan worden.",load:"Laden",url_ph:"Plak een filmbestand (.mp4/.webm), een YouTube-link of een andere video-pagina…",share:"Deel-link",copy:"Kopieer link",copied:"Gekopieerd!",st_wait:"Wachten op de ander…",st_conn:"Verbinden…",st_ok:"Verbonden",ph_kicker:"Jouw privé bioscoop",ph_title:"Klaar voor de filmavond?",room_code:"Jullie kamernaam:",same_link:"de ander moet exact dezelfde code zien. Zo niet, klik op “Kopieer link” en stuur die.",ph_note:"Plak hierboven een filmbestand of YouTube-link, of gebruik “▶ YouTube” om samen te zoeken. Tip: koptelefoon op tegen galm.",cam_conn:"Verbinden met de ander…",cam_fail:"Verbinding mislukt — probeer opnieuw",retry:"Opnieuw proberen",you:"Jij",other:"De ander",chat:"Chat",chat_ph:"Typ een bericht…",send:"Stuur",chat_empty:"Nog geen berichten. Zeg hallo 👋",cd_title:"Samen starten",cd_hint:"Eén van jullie klikt op aftellen. Bij NU drukken jullie allebei op play.",cd_btn:"3 · 2 · 1 — Aftellen",cd_now:"NU ▶",open_tab:"Openen in nieuw tabblad ↗",playgate:"Klik om mee te kijken",movie_vol:"Filmvolume",their_vol:"Hun volume",yt_title:"Samen YouTube bladeren",yt_ph:"Zoek op YouTube…",yt_search:"Zoeken",open_yt:"YouTube openen ↗",yt_none:"Geen resultaten.",yt_nokey:"Zoeken vereist een YouTube API-sleutel (zie README). Gebruik nu “YouTube openen”, zoek een video en plak de link.",yt_hint:"Zoek hierboven een video om samen te kijken.",full_title:"Deze kamer zit vol",full_body:"Deze kamer zit vol. Maak een nieuwe kamer en deel die link.",new_room:"Nieuwe kamer maken",t_mic:"Microfoon aan/uit",t_cam:"Camera aan/uit",t_duck:"Film zachter als je praat",t_chat:"Chat tonen/verbergen",t_fs:"Volledig scherm",t_diag:"Verbindingsdiagnose",t_browse:"YouTube bladeren",no_cam:"Geen camera gevonden — je doet mee met alleen audio.",media_denied:"Geen toegang tot camera/microfoon. Je kunt wel meekijken. Tik op het microfoon- of camera-icoon om opnieuw te proberen.",media_retry:"Opnieuw om camera & microfoon vragen…",media_retry_t:"Camera/microfoon inschakelen",close_a:"Sluiten",quick_benefits:"Waarom SameCouch",wall_add_photo:"Foto toevoegen",clip_btn_t:"Bewaar dit moment (camera nodig)"},
+      en:{lang:"English",tagline:"Be together, even when you're apart.",sub:"A private living room for you and the people back home. Watch something together, share the kids' photos and videos, and see each other live — no app, no sign-up. Just send a link.",create:"Create a room",browse:"Browse YouTube",got:"Already have a link? Just open it to join.",foot:"End-to-end encrypted peer-to-peer video and audio. Chat is relayed so it can be moderated.",load:"Load",url_ph:"Paste a video file (.mp4/.webm), a YouTube link, or another video page…",share:"Share link",copy:"Copy link",copied:"Copied!",st_wait:"Waiting for the other person…",st_conn:"Connecting…",st_ok:"Connected",ph_kicker:"Your private cinema",ph_title:"Ready for movie night?",room_code:"Your room name:",same_link:"the other person must see the exact same code. If not, click “Copy link” and send that.",ph_note:"Paste a video file or YouTube link above, or use “▶ YouTube” to search together. Tip: use headphones to avoid echo.",cam_conn:"Connecting to the other person…",cam_present:"They are in the room — their camera/microphone is off or still connecting.",cam_fail:"Connection failed — try again",retry:"Try again",you:"You",other:"The other person",chat:"Chat",chat_ph:"Type a message…",send:"Send",chat_empty:"No messages yet. Say hi 👋",cd_title:"Start together",cd_hint:"One of you taps Count down. On NOW, you both press play in the player.",cd_btn:"3 · 2 · 1 — Count down",cd_now:"NOW ▶",open_tab:"Open in new tab ↗",playgate:"Click to watch along",yt_manual_play:"Playback is ready. If it does not start, press play once in the YouTube player.",movie_vol:"Movie volume",their_vol:"Their volume",yt_title:"Browse YouTube together",yt_ph:"Search YouTube…",yt_search:"Search",open_yt:"Open YouTube ↗",yt_none:"No results.",yt_nokey:"Search needs a YouTube API key (see README). For now, use “Open YouTube”, find a video and paste its link.",yt_hint:"Search above to find a video to watch together.",full_title:"This room is full",full_body:"This room is full. Create a new room and share that link.",new_room:"Create a new room",t_mic:"Microphone on/off",t_cam:"Camera on/off",t_duck:"Auto-lower movie when talking",t_chat:"Show/hide chat",t_fs:"Fullscreen",t_diag:"Connection diagnostics",t_browse:"Browse YouTube",no_cam:"No camera found — joining with audio only.",media_denied:"No camera/microphone access. You can still watch. Tap the mic or camera icon to try again.",media_retry:"Asking for camera & microphone again…",media_retry_t:"Enable camera/microphone",close_a:"Close",quick_benefits:"Why SameCouch",wall_add_photo:"Add a photo",clip_btn_t:"Save this moment (needs your camera)",open_room_a:"Open your room {c}",rc_remove:"Remove room {c} from this list",shared_item_a:"Show {n}",name_required:"Enter your name so everyone knows who joined.",link_needed:"Paste a link first.",link_http:"The link must start with http:// or https://",frame_title:"Shared website",foot_privacy:"Privacy",foot_terms:"Terms"},
+      nl:{lang:"Nederlands",tagline:"Samen zijn, ook als je ver weg bent.",sub:"Een privé-huiskamer voor jou en je dierbaren thuis. Kijk samen iets, deel foto's en video's van de kinderen, en zie elkaar live — geen app, geen account. Stuur gewoon een link.",create:"Maak een kamer",browse:"YouTube bladeren",got:"Heb je al een link? Open die om mee te doen.",foot:"End-to-end versleutelde peer-to-peer video en audio. Chat loopt via de server zodat die gemodereerd kan worden.",load:"Laden",url_ph:"Plak een filmbestand (.mp4/.webm), een YouTube-link of een andere video-pagina…",share:"Deel-link",copy:"Kopieer link",copied:"Gekopieerd!",st_wait:"Wachten op de ander…",st_conn:"Verbinden…",st_ok:"Verbonden",ph_kicker:"Jouw privé bioscoop",ph_title:"Klaar voor de filmavond?",room_code:"Jullie kamernaam:",same_link:"de ander moet exact dezelfde code zien. Zo niet, klik op “Kopieer link” en stuur die.",ph_note:"Plak hierboven een filmbestand of YouTube-link, of gebruik “▶ YouTube” om samen te zoeken. Tip: koptelefoon op tegen galm.",cam_conn:"Verbinden met de ander…",cam_present:"De ander is in de kamer — camera/microfoon staat uit of maakt nog verbinding.",cam_fail:"Verbinding mislukt — probeer opnieuw",retry:"Opnieuw proberen",you:"Jij",other:"De ander",chat:"Chat",chat_ph:"Typ een bericht…",send:"Stuur",chat_empty:"Nog geen berichten. Zeg hallo 👋",cd_title:"Samen starten",cd_hint:"Eén van jullie klikt op aftellen. Bij NU drukken jullie allebei op play.",cd_btn:"3 · 2 · 1 — Aftellen",cd_now:"NU ▶",open_tab:"Openen in nieuw tabblad ↗",playgate:"Klik om mee te kijken",yt_manual_play:"Het afspelen staat klaar. Start het zo nodig één keer in de YouTube-speler.",movie_vol:"Filmvolume",their_vol:"Hun volume",yt_title:"Samen YouTube bladeren",yt_ph:"Zoek op YouTube…",yt_search:"Zoeken",open_yt:"YouTube openen ↗",yt_none:"Geen resultaten.",yt_nokey:"Zoeken vereist een YouTube API-sleutel (zie README). Gebruik nu “YouTube openen”, zoek een video en plak de link.",yt_hint:"Zoek hierboven een video om samen te kijken.",full_title:"Deze kamer zit vol",full_body:"Deze kamer zit vol. Maak een nieuwe kamer en deel die link.",new_room:"Nieuwe kamer maken",t_mic:"Microfoon aan/uit",t_cam:"Camera aan/uit",t_duck:"Film zachter als je praat",t_chat:"Chat tonen/verbergen",t_fs:"Volledig scherm",t_diag:"Verbindingsdiagnose",t_browse:"YouTube bladeren",no_cam:"Geen camera gevonden — je doet mee met alleen audio.",media_denied:"Geen toegang tot camera/microfoon. Je kunt wel meekijken. Tik op het microfoon- of camera-icoon om opnieuw te proberen.",media_retry:"Opnieuw om camera & microfoon vragen…",media_retry_t:"Camera/microfoon inschakelen",close_a:"Sluiten",quick_benefits:"Waarom SameCouch",wall_add_photo:"Foto toevoegen",clip_btn_t:"Bewaar dit moment (camera nodig)",open_room_a:"Open je kamer {c}",rc_remove:"Kamer {c} uit deze lijst verwijderen",shared_item_a:"Toon {n}",name_required:"Vul je naam in, zodat iedereen weet wie er meedoet.",link_needed:"Plak eerst een link.",link_http:"De link moet beginnen met http:// of https://",frame_title:"Gedeelde website",foot_privacy:"Privacy",foot_terms:"Voorwaarden"},
       de:{lang:"Deutsch",tagline:"Filmabend mit den Menschen, die du vermisst.",sub:"Schaut zusammen YouTube, Heimvideos und Erinnerungen — von Angesicht zu Angesicht, synchron, von überall. Keine App, keine Anmeldung: Link senden und ihr seid in Sekunden zusammen.",create:"Raum erstellen",browse:"YouTube durchsuchen",got:"Schon einen Link? Einfach öffnen zum Beitreten.",foot:"Ende-zu-Ende verschlüsseltes Peer-to-Peer Video und Audio.",load:"Laden",url_ph:"Videodatei (.mp4/.webm), YouTube-Link oder andere Video-Seite einfügen…",share:"Link teilen",copy:"Link kopieren",copied:"Kopiert!",st_wait:"Warten auf die andere Person…",st_conn:"Verbinden…",st_ok:"Verbunden",ph_kicker:"Euer privates Kino",ph_title:"Bereit für den Filmabend?",room_code:"Euer Raumname:",same_link:"die andere Person muss genau denselben Code sehen. Sonst „Link kopieren“ klicken und senden.",ph_note:"Oben eine Videodatei oder YouTube-Link einfügen, oder „▶ YouTube“ zum gemeinsamen Suchen. Tipp: Kopfhörer gegen Echo.",cam_conn:"Verbinden mit der anderen Person…",cam_fail:"Verbindung fehlgeschlagen — erneut versuchen",retry:"Erneut versuchen",you:"Du",other:"Die andere Person",chat:"Chat",chat_ph:"Nachricht schreiben…",send:"Senden",chat_empty:"Noch keine Nachrichten. Sag Hallo 👋",cd_title:"Gemeinsam starten",cd_hint:"Einer tippt auf Countdown. Bei JETZT drückt ihr beide auf Play.",cd_btn:"3 · 2 · 1 — Countdown",cd_now:"JETZT ▶",open_tab:"In neuem Tab öffnen ↗",playgate:"Klicken zum Mitschauen",movie_vol:"Filmlautstärke",their_vol:"Ihre Lautstärke",yt_title:"YouTube gemeinsam durchsuchen",yt_ph:"YouTube durchsuchen…",yt_search:"Suchen",open_yt:"YouTube öffnen ↗",yt_none:"Keine Ergebnisse.",yt_nokey:"Die Suche braucht einen YouTube-API-Schlüssel (siehe README). Nutze vorerst „YouTube öffnen“ und füge einen Link ein.",yt_hint:"Oben suchen, um ein Video gemeinsam zu schauen.",full_title:"Dieser Raum ist voll",full_body:"Dieser Raum ist voll. Erstelle einen neuen Raum und teile den Link.",new_room:"Neuen Raum erstellen",t_mic:"Mikrofon an/aus",t_cam:"Kamera an/aus",t_duck:"Film leiser beim Sprechen",t_chat:"Chat ein/aus",t_fs:"Vollbild",t_diag:"Verbindungsdiagnose",t_browse:"YouTube durchsuchen"},
       zh:{lang:"中文",tagline:"和你想念的人一起看电影。",sub:"一起看 YouTube、家庭录像和回忆 — 面对面、同步、随时随地。无需应用、无需注册：发送链接，几秒内相聚。",create:"创建房间",browse:"浏览 YouTube",got:"已有链接？打开即可加入。",foot:"端到端加密的点对点视频和音频。",load:"加载",url_ph:"粘贴视频文件 (.mp4/.webm)、YouTube 链接或其他视频页面…",share:"分享链接",copy:"复制链接",copied:"已复制！",st_wait:"等待对方…",st_conn:"连接中…",st_ok:"已连接",ph_kicker:"你的私人影院",ph_title:"准备好电影之夜了吗？",room_code:"你们的房间代码：",same_link:"对方必须看到完全相同的代码。如果不同，请点击“复制链接”并发送。",ph_note:"在上方粘贴视频文件或 YouTube 链接，或用“▶ YouTube”一起搜索。提示：戴耳机以避免回声。",cam_conn:"正在连接对方…",cam_fail:"连接失败 — 请重试",retry:"重试",you:"你",other:"对方",chat:"聊天",chat_ph:"输入消息…",send:"发送",chat_empty:"还没有消息，打个招呼吧 👋",cd_title:"一起开始",cd_hint:"一人点击倒计时。到“现在”时，你们一起按播放。",cd_btn:"3 · 2 · 1 — 倒计时",cd_now:"现在 ▶",open_tab:"在新标签页打开 ↗",playgate:"点击一起观看",movie_vol:"影片音量",their_vol:"对方音量",yt_title:"一起浏览 YouTube",yt_ph:"搜索 YouTube…",yt_search:"搜索",open_yt:"打开 YouTube ↗",yt_none:"没有结果。",yt_nokey:"搜索需要 YouTube API 密钥（见 README）。暂时请用“打开 YouTube”找视频并粘贴链接。",yt_hint:"在上方搜索，找到一起观看的视频。",full_title:"房间已满",full_body:"房间已满。请创建新房间并分享链接。",new_room:"创建新房间",t_mic:"麦克风开/关",t_cam:"摄像头开/关",t_duck:"说话时自动降低影片音量",t_chat:"显示/隐藏聊天",t_fs:"全屏",t_diag:"连接诊断",t_browse:"浏览 YouTube"},
       ja:{lang:"日本語",tagline:"会いたい人と、映画ナイトを。",sub:"YouTube、ホームビデオ、思い出を一緒に — 顔を見ながら、同期再生で、どこからでも。アプリ不要・登録不要：リンクを送れば数秒で一緒に。",create:"ルームを作成",browse:"YouTube を見る",got:"リンクをお持ちですか？開くだけで参加できます。",foot:"エンドツーエンド暗号化のP2P映像・音声。",load:"読み込む",url_ph:"動画ファイル(.mp4/.webm)、YouTubeリンク、または動画ページを貼り付け…",share:"リンクを共有",copy:"リンクをコピー",copied:"コピーしました！",st_wait:"相手を待っています…",st_conn:"接続中…",st_ok:"接続済み",ph_kicker:"あなたのプライベートシアター",ph_title:"映画ナイトの準備はいい？",room_code:"ルームコード：",same_link:"相手も全く同じコードを見ている必要があります。違う場合は「リンクをコピー」して送ってください。",ph_note:"上に動画ファイルかYouTubeリンクを貼るか、「▶ YouTube」で一緒に検索。ヒント：エコー防止にヘッドホンを。",cam_conn:"相手に接続しています…",cam_fail:"接続に失敗 — もう一度",retry:"再試行",you:"あなた",other:"相手",chat:"チャット",chat_ph:"メッセージを入力…",send:"送信",chat_empty:"まだメッセージはありません。挨拶しよう 👋",cd_title:"一緒にスタート",cd_hint:"どちらかがカウントダウン。「NOW」で2人同時に再生を押します。",cd_btn:"3 · 2 · 1 — カウントダウン",cd_now:"NOW ▶",open_tab:"新しいタブで開く ↗",playgate:"クリックして一緒に見る",movie_vol:"動画の音量",their_vol:"相手の音量",yt_title:"一緒にYouTubeを見る",yt_ph:"YouTubeを検索…",yt_search:"検索",open_yt:"YouTubeを開く ↗",yt_none:"結果がありません。",yt_nokey:"検索にはYouTube APIキーが必要です（README参照）。今は「YouTubeを開く」で動画を探しリンクを貼ってください。",yt_hint:"上で検索して一緒に見る動画を探そう。",full_title:"このルームは満員です",full_body:"このルームは満員です。新しいルームを作ってリンクを共有してください。",new_room:"新しいルームを作成",t_mic:"マイクのオン/オフ",t_cam:"カメラのオン/オフ",t_duck:"話すと動画を自動で小さく",t_chat:"チャット表示/非表示",t_fs:"全画面",t_diag:"接続診断",t_browse:"YouTube を見る"},
@@ -1222,6 +1253,11 @@
       nl:{fast_noapp:"Geen app of account",fast_private:"Privékamer via link",fast_sync:"Play, pauze en spoelen synchroon"}
     };
     Object.keys(FASTCOPY).forEach(function(k){ if(I18N[k]) Object.keys(FASTCOPY[k]).forEach(function(j){ I18N[k][j]=FASTCOPY[k][j]; }); });
+    var PLAYBACKCOPY = {
+      en:{foot:"Video and audio are end-to-end encrypted peer-to-peer. Chat and selected subtitle text are relayed through the room server.",xfer_buffer:"Buffering video… {p}%",xfer_recv2:"Receiving file… {p}%",xfer_send2:"Sending to the room… {p}%",xfer_left:"{speed} • {eta} left",xfer_speed:"{speed}",xfer_paused:"Transfer paused at {p}%",xfer_pause:"Pause",xfer_resume:"Resume",xfer_retry:"Try again",xfer_ready:"Buffer ready — playback can start",xfer_streaming:"Video started — the rest keeps transferring",xfer_failed_short:"Transfer interrupted",eta_seconds:"{n}s",eta_minutes:"{n} min",sub_add:"Add subtitles (.srt)",sub_replace:"Replace subtitles",sub_loaded:"Subtitles added for everyone ✓",sub_received:"Subtitles added by someone in the room",sub_invalid:"This subtitle file is not a valid SRT/VTT file.",sub_too_big:"That subtitle file is too large (max 512 KB).",sub_read_fail:"Couldn't read that subtitle file.",wake_on:"Your screen will stay awake while the film plays."},
+      nl:{foot:"Video en audio zijn end-to-end versleuteld en peer-to-peer. Chat en gekozen ondertitelingstekst lopen via de kamerserver.",xfer_buffer:"Video bufferen… {p}%",xfer_recv2:"Bestand ontvangen… {p}%",xfer_send2:"Naar de kamer versturen… {p}%",xfer_left:"{speed} • nog {eta}",xfer_speed:"{speed}",xfer_paused:"Overdracht gepauzeerd op {p}%",xfer_pause:"Pauzeren",xfer_resume:"Hervatten",xfer_retry:"Opnieuw proberen",xfer_ready:"Buffer gereed — de film kan starten",xfer_streaming:"Video gestart — de rest komt op de achtergrond binnen",xfer_failed_short:"Overdracht onderbroken",eta_seconds:"{n} sec",eta_minutes:"{n} min",sub_add:"Ondertiteling toevoegen (.srt)",sub_replace:"Ondertiteling vervangen",sub_loaded:"Ondertiteling voor iedereen toegevoegd ✓",sub_received:"Iemand in de kamer heeft ondertiteling toegevoegd",sub_invalid:"Dit is geen geldig SRT/VTT-ondertitelingsbestand.",sub_too_big:"Dit ondertitelingsbestand is te groot (maximaal 512 KB).",sub_read_fail:"Kon dit ondertitelingsbestand niet lezen.",wake_on:"Je scherm blijft wakker zolang de film speelt."}
+    };
+    Object.keys(PLAYBACKCOPY).forEach(function(k){ if(I18N[k]) Object.keys(PLAYBACKCOPY[k]).forEach(function(j){ I18N[k][j]=PLAYBACKCOPY[k][j]; }); });
     var landingMode="home";
 
     var lang = (function(){ try{ return localStorage.getItem("wmt_lang")||"en"; }catch(e){ return "en"; } })();
@@ -1230,13 +1266,14 @@
     var curStatus="waiting", curCam="waiting", copyBusy=false, cdBusy=false, ytbSearched=false;
     function setText(id,v){ var el=$(id); if(el) el.textContent=v; }
     function setPh(id,v){ var el=$(id); if(el) el.placeholder=v; }
-    function setTitle(id,v){ var el=$(id); if(el) el.title=v; }
+    function setTitle(id,v){ var el=$(id); if(el){ el.title=v; el.setAttribute("aria-label",v); } }
     function fillLangSelect(sel){ if(!sel) return; sel.innerHTML=""; LANG_ORDER.forEach(function(c){ var o=document.createElement("option"); o.value=c; o.textContent=I18N[c].lang; sel.appendChild(o); }); sel.value=lang; }
     function applyLang(code){
       if(code){ lang=I18N[code]?code:"en"; try{ localStorage.setItem("wmt_lang",lang); }catch(e){} }
       document.documentElement.lang=lang; document.documentElement.dir=(lang==="ur"||lang==="ar")?"rtl":"ltr";
       if($("langSel")) $("langSel").value=lang; if($("langSelL")) $("langSelL").value=lang;
       setText("ld_tagline",tr("tagline")); setText("ld_sub",tr("sub")); setText("ld_create",tr("create")); setText("ld_joinbtn",tr("join_room")); setText("ld_join",tr("join")); setText("ld_or",tr("or_code")); setPh("ld_code",tr("room_code_ph")); setText("ld_got", landingMode==="join"?tr("joining"):tr("got")); setPh("ld_name",tr("name_ph"));
+      var nameField=$("ld_name"); if(nameField&&nameField.getAttribute("aria-invalid")==="true") setText("ld_name_error",tr("name_required"));
       setText("fast_noapp",tr("fast_noapp")); setText("fast_private",tr("fast_private")); setText("fast_sync",tr("fast_sync"));
       if(typeof updateLoadBtn==="function") updateLoadBtn(); else setText("loadBtn",tr("load"));
       setPh("urlInput",tr("url_ph")); setText("shareLbl",tr("share")); setText("browseBtn","\u25B6 "+tr("browse")); if(!copyBusy) setText("copyBtn",tr("copy"));
@@ -1254,7 +1291,11 @@
       if(typeof updateBadge==="function") updateBadge();   // give the chat button a proper accessible name (not just the unread count)
       ["lightboxX","cdClose","chatClose","wallClose","dbgClose","clipModalX","schedX","shareModalX","passX","pickX"].forEach(function(id){ var e=$(id); if(e) e.setAttribute("aria-label",tr("close_a")); });
       var lf=document.querySelector(".l-fast"); if(lf) lf.setAttribute("aria-label",tr("quick_benefits"));
+      setText("ld_foot",tr("foot")); setText("ld_privacy",tr("foot_privacy")); setText("ld_terms",tr("foot_terms"));   // footer was hardcoded English
+      var sharedFrame=$("frame"); if(sharedFrame) sharedFrame.title=tr("frame_title");
       setTitle("wallPhotoBtn",tr("wall_add_photo"));
+      setText("xferPause",(typeof galleryXfer!=="undefined"&&galleryXfer&&galleryXfer.paused)?tr("xfer_resume"):tr("xfer_pause")); setText("xferRetry",tr("xfer_retry"));
+      if(typeof updateSubtitleUI==="function") updateSubtitleUI();
       if(typeof applyLang4==="function") applyLang4();
       updateShareLinks();
     }
@@ -1264,6 +1305,7 @@
     var placeholder=$("placeholder"), playgate=$("playgate"), playgateBtn=$("playgateBtn");
     var cams=$("cams"), selfVideo=$("selfVideo"), peerVideo=$("peerVideo"), camState=$("camState"), camStateText=$("camStateText"), peerCam=$("peerCam"), selfCam=$("selfCam"), peerWho=$("peerWho");
     var urlInput=$("urlInput"), loadBtn=$("loadBtn"), copyBtn=$("copyBtn"), linkText=$("linkText"), browseBtn=$("browseBtn");
+    var subtitleBtn=$("subtitleBtn"), subtitleInput=$("subtitleInput");
     var statusDot=$("statusDot"), statusText=$("statusText");
     var micBtn=$("micBtn"), camBtn=$("camBtn"), chatBtn=$("chatBtn"), fsBtn=$("fsBtn");
     var volBtn=$("volBtn"), volpop=$("volpop"), movieVol=$("movieVol"), duckChk=$("duckChk");
@@ -1291,9 +1333,10 @@
     }
 
     var toastTimer;
-    function toast(msg,ms){ toastEl.textContent=msg; toastEl.classList.add("show"); clearTimeout(toastTimer); toastTimer=setTimeout(function(){ toastEl.classList.remove("show"); }, ms||4500); }
+    function clearToast(){ clearTimeout(toastTimer); if(!toastEl) return; toastEl.classList.remove("show"); toastEl.textContent=""; }
+    function toast(msg,ms){ if(!toastEl) return; toastEl.textContent=msg; toastEl.classList.add("show"); clearTimeout(toastTimer); toastTimer=setTimeout(clearToast, ms||4500); }
     function setStatus(s){ curStatus=s; statusDot.className="dot "+s; statusText.textContent=s==="waiting"?tr("st_wait"):s==="peer-present"?tr("st_conn"):tr("st_ok"); }
-    function setCamStatus(s){ curCam=s; if(!camState) return; if(s==="ok"){ camState.style.display="none"; } else { camState.style.display="flex"; if(camStateText) camStateText.textContent=(typeof peers!=="undefined"&&Object.keys(peers).length>0)?tr("cam_conn"):tr("waiting_people"); } }   // someone's here but no video yet → "connecting", not "waiting for others"
+    function setCamStatus(s){ curCam=s; if(!camState) return; if(s==="ok"){ camState.style.display="none"; } else { camState.style.display="flex"; if(camStateText) camStateText.textContent=(typeof peers!=="undefined"&&Object.keys(peers).length>0)?tr("cam_present"):tr("waiting_people"); } }   // control connection and camera availability are separate states
 
     /* ===================== Diagnostics ===================== */
     var diag={ role:"-", localV:0, localA:0, relay:false, note:"" };
@@ -1466,6 +1509,30 @@
       try{ if(peer&&!peer.destroyed) peer.destroy(); }catch(e){}
       refreshIce().then(function(){ startPeer(myPeerId); });
     }
+    /* ---- mobile screen wake lock: keep the call and P2P range requests alive while a film
+            is playing or buffering. The browser releases it in a hidden tab; reacquire on return. ---- */
+    var wakeSentinel=null, wakeRequesting=false, wakeNoticeShown=false;
+    function mediaIsPlaying(){
+      if(mode==="file") return !!(movie&&!movie.paused&&!movie.ended);
+      if(mode==="youtube"&&ytPlayer&&ytPlayer.getPlayerState){ try{ var s=ytPlayer.getPlayerState(); return s===1||s===3; }catch(e){} }
+      if(mode==="vimeo") return !!(vimPlayer&&!vimPaused);
+      if(mode==="screen") return !!(screenVideo&&!screenVideo.paused);
+      return false;
+    }
+    function needsWakeLock(){ return !document.hidden&&isMobileDevice()&&(mediaIsPlaying()||!!(galleryXfer&&galleryXfer.active&&!galleryXfer.paused)); }
+    function updateWakeLock(){
+      var want=needsWakeLock();
+      if(!want){ if(wakeSentinel){ var old=wakeSentinel; wakeSentinel=null; try{ old.release(); }catch(e){} } return; }
+      if(wakeSentinel||wakeRequesting||!navigator.wakeLock||!navigator.wakeLock.request) return;
+      wakeRequesting=true;
+      navigator.wakeLock.request("screen").then(function(lock){
+        wakeRequesting=false; wakeSentinel=lock;
+        lock.addEventListener("release",function(){ if(wakeSentinel===lock) wakeSentinel=null; });
+        if(!needsWakeLock()){ try{ lock.release(); }catch(e){} return; }
+        if(!wakeNoticeShown){ wakeNoticeShown=true; toast(tr("wake_on"),3500); }
+      }).catch(function(){ wakeRequesting=false; });
+    }
+    window.addEventListener("pagehide",function(){ if(wakeSentinel){ try{ wakeSentinel.release(); }catch(e){} wakeSentinel=null; } });
     /* ---- wake/online recovery: after sleep, a network switch, or a dropped connection, kick everything
             back to life immediately instead of waiting for timeouts. ---- */
     function kickConnections(){
@@ -1476,7 +1543,7 @@
       refreshIce().then(function(){ try{ meshTick(); }catch(e){} });
     }
     window.addEventListener("online", kickConnections);
-    document.addEventListener("visibilitychange", function(){ if(!document.hidden) kickConnections(); });
+    document.addEventListener("visibilitychange", function(){ if(!document.hidden) kickConnections(); updateWakeLock(); });
     var lastWakeCheck=Date.now();
     setInterval(function(){ var n=Date.now(); if(n-lastWakeCheck>20000) kickConnections(); lastWakeCheck=n; },5000);   // a big clock jump means we were asleep
     /* ---- the camera itself can die during sleep: re-acquire it and swap the fresh tracks into every call ---- */
@@ -1552,7 +1619,7 @@
           if(typeof applyTheme==="function"){ roomDecor=Array.isArray(m.decor)?m.decor:roomDecor; applyTheme(m.theme||"classic"); }
           (m.peers||[]).forEach(function(pp){ if(pp.peerId===myPeerId) return; peers[pp.peerId]=peers[pp.peerId]||{}; peers[pp.peerId].name=pp.name||"Guest"; if(shouldInitiate(myPeerId,pp.peerId)) callPeer(pp.peerId); });
           recomputeAuthority(); updatePresenceStatus(); renderCams();
-          if(currentMedia&&(isAuthority||currentMedia.mine)){ rtSend({ type:"video", mode:currentMedia.mode, url:currentMedia.url, id:currentMedia.id }); }   // after a reconnect the person who pasted the link re-announces it too
+          if(currentMedia&&(isAuthority||currentMedia.mine)){ rtSend({ type:"video", mode:currentMedia.mode, url:currentMedia.url, id:currentMedia.id }); if(currentSubtitle&&currentSubtitle.url===currentMedia.url) rtSend({type:"subtitle",url:currentSubtitle.url,name:currentSubtitle.name,lang:currentSubtitle.lang,vtt:currentSubtitle.vtt}); }   // after a reconnect the person who pasted the link re-announces it too
           break;
         case "need-pass": hideConnecting(); openPassEnter(!!m.wrong); break;
         case "pass-set": if(m.denied){ toast(tr("pass_denied"),5000); } else { roomHasPass=!!m.hasPass; updateHostControls(); toast(m.hasPass?tr("pass_on"):tr("pass_off"),5000); } break;
@@ -1567,7 +1634,7 @@
           if(shouldInitiate(myPeerId,m.peerId)) callPeer(m.peerId);
           if(screenStream) callScreen(m.peerId);   // late joiner → send them the live screen too
           recomputeAuthority(); updatePresenceStatus(); renderCams();
-          if(isAuthority&&currentMedia){ rtSend({ type:"video", mode:currentMedia.mode, url:currentMedia.url, id:currentMedia.id }); if(mode==="file"||mode==="youtube") rtSend({ type:"sync", kind:isPausedMedia()?"pause":"play", time:getTime() }); }
+          if(isAuthority&&currentMedia){ rtSend({ type:"video", mode:currentMedia.mode, url:currentMedia.url, id:currentMedia.id }); if(currentSubtitle&&currentSubtitle.url===currentMedia.url) rtSend({type:"subtitle",url:currentSubtitle.url,name:currentSubtitle.name,lang:currentSubtitle.lang,vtt:currentSubtitle.vtt}); if(mode==="file"||mode==="youtube") rtSend({ type:"sync", kind:isPausedMedia()?"pause":"play", time:getTime() }); }
           break;
         case "peer-left": if(peers[m.peerId]) { if(peers[m.peerId].name) toast(peers[m.peerId].name+" left."); } removePeer(m.peerId); if(typeof gameOnPeerLeft==="function") gameOnPeerLeft(m.peerId); if(typeof presWaitPeerLeft==="function") presWaitPeerLeft(m.peerId); break;
         case "chat": if(typeof m.text==="string"){ receiveChat(m.from||tr("others"), m.text); if(typeof gameChatCheck==="function") gameChatCheck(m.peerId, m.from, m.text); } break;
@@ -1577,6 +1644,7 @@
         case "sync": if(m.kind==="countdown"){ runCountdown(m.time||3); } else { applyRemote(m); } break;
         case "talking": setPeerTalking(m.from, !!m.on); break;
         case "reaction": if(typeof m.emoji==="string") spawnReaction(m.emoji, m.name||""); break;
+        case "subtitle": if(m&&typeof m.vtt==="string"&&typeof m.url==="string"){ if(applySubtitlePayload({url:m.url,name:m.name||"subtitles.srt",lang:m.lang||"und",vtt:m.vtt},false)) toast(tr("sub_received"),4500); } break;
         case "video": if(typeof m.url==="string"){
           if(m.mode==="none"||!m.url){ if(!gallery&&mode!=="none"&&typeof stopWatchingLocal==="function") stopWatchingLocal(); break; }   // someone pressed Stop → whole room back to the living room
           if(currentMedia&&currentMedia.url===m.url&&mode===m.mode) break; /* already showing — replays must not reload */ urlInput.value=m.url; applyMedia(m.mode,m.url,m.id); toast((m.from&&peers[m.from]&&peers[m.from].name?peers[m.from].name:tr("others"))+" loaded a video."); } break;
@@ -1659,11 +1727,46 @@
 
     /* ===================== Media: file / youtube / embed ===================== */
     var mode="none", currentMedia=null, pending=null, closing=false, movieErrored=false;
+    var subtitleTrackEl=null, subtitleObjectUrl="", currentSubtitle=null;
     function detectMedia(url){ var yt=parseYouTube(url); if(yt) return { mode:"youtube", id:yt, url:url }; var vim=parseVimeo(url); if(vim) return { mode:"vimeo", id:vim.id, url:url }; var clean=url.split("#")[0].split("?")[0]; if(/\.(mp4|webm|ogg|ogv|m4v|mov)$/i.test(clean)) return { mode:"file", url:url }; return { mode:"embed", url:url }; }
     function parseVimeo(url){ try{ var u=new URL(url), h=u.hostname.replace(/^www\./,""); if(h!=="vimeo.com"&&h!=="player.vimeo.com") return null; var m=u.pathname.match(/\/(?:video\/)?(\d+)(?:\/(\w+))?/); if(m) return { id:m[1], h:m[2]||u.searchParams.get("h")||"" }; }catch(e){} return null; }
     function parseYouTube(url){ try{ var u=new URL(url), h=u.hostname.replace(/^www\./,""); if(h==="youtu.be") return u.pathname.slice(1).split("/")[0]||null; if(h==="youtube.com"||h==="m.youtube.com"||h==="youtube-nocookie.com"){ if(u.pathname==="/watch") return u.searchParams.get("v"); var m=u.pathname.match(/^\/(embed|shorts|v|live)\/([^\/?#]+)/); if(m) return m[2]; } }catch(e){} return null; }
     function updateStageChrome(){ if(stage) stage.classList.toggle("file-mode", !!(movie && movie.style.display==="block")); }   // lift our controls above the native video bar
-    function clearPlayers(){ try{ movie.pause(); }catch(e){} try{ movie.removeAttribute("src"); movie.load(); }catch(e){} movie.style.display="none"; if(galleryImg) galleryImg.style.display="none"; if(typeof screenVideo!=="undefined"&&screenVideo) screenVideo.style.display="none"; if(ytPlayer){ try{ ytPlayer.destroy(); }catch(e){} ytPlayer=null; } if(vimPlayer){ try{ vimPlayer.destroy(); }catch(e){} vimPlayer=null; vimReady=false; } ytwrap.style.display="none"; ytwrap.innerHTML=""; try{ frame.src="about:blank"; }catch(e){} framewrap.style.display="none"; playgate.hidden=true; pending=null; movieErrored=false; updateStageChrome(); }
+    function subtitleEligible(){ return !!(mode==="file"&&currentMedia&&/^https?:\/\//i.test(currentMedia.url||"")&&!gallery); }
+    function updateSubtitleUI(){ if(!subtitleBtn) return; var ok=subtitleEligible(); subtitleBtn.hidden=!ok; subtitleBtn.classList.toggle("on",!!(ok&&currentSubtitle)); subtitleBtn.textContent=currentSubtitle?"CC":"CC+"; setTitle("subtitleBtn",currentSubtitle?tr("sub_replace"):tr("sub_add")); }
+    function clearSubtitleLocal(){
+      currentSubtitle=null;
+      if(subtitleTrackEl&&subtitleTrackEl.parentNode) try{ subtitleTrackEl.parentNode.removeChild(subtitleTrackEl); }catch(e){}
+      subtitleTrackEl=null;
+      if(subtitleObjectUrl) try{ URL.revokeObjectURL(subtitleObjectUrl); }catch(e){}
+      subtitleObjectUrl="";
+      updateSubtitleUI();
+    }
+    function subtitleLang(name){ var m=String(name||"").toLowerCase().match(/[._-](en|nl|de|fr|es|ar|zh|ja|ko|hi|ur)(?:[._-]|\.srt$|\.vtt$)/); return m?m[1]:"und"; }
+    function srtToVtt(text){
+      text=String(text||"").replace(/^\uFEFF/,"").replace(/\r\n?/g,"\n").trim();
+      if(!text||text.indexOf("-->")<0) return "";
+      if(/^WEBVTT(?:\s|$)/i.test(text)) return text+"\n";
+      text=text.replace(/((?:\d{1,2}:)?\d{2}:\d{2}),(\d{3})(?=\s+-->)/g,"$1.$2")
+        .replace(/(-->(?:\s+)?(?:\d{1,2}:)?\d{2}:\d{2}),(\d{3})/g,"$1.$2");
+      return "WEBVTT\n\n"+text+"\n";
+    }
+    function applySubtitlePayload(payload,announce){
+      if(!payload||!subtitleEligible()||String(payload.url||"")!==String(currentMedia.url||"")) return false;
+      var vtt=String(payload.vtt||""); if(!vtt||vtt.indexOf("-->")<0||vtt.length>600*1024) return false;
+      clearSubtitleLocal();
+      currentSubtitle={url:currentMedia.url,name:String(payload.name||"subtitles.srt").slice(0,120),lang:String(payload.lang||"und").slice(0,12),vtt:vtt};
+      try{
+        subtitleObjectUrl=URL.createObjectURL(new Blob([vtt],{type:"text/vtt"}));
+        var track=document.createElement("track"); track.kind="subtitles"; track.label=currentSubtitle.name; track.srclang=currentSubtitle.lang; track.src=subtitleObjectUrl; track.default=true; track.setAttribute("data-samecouch","1");
+        track.addEventListener("load",function(){ try{ track.track.mode="showing"; }catch(e){} });
+        movie.appendChild(track); subtitleTrackEl=track; try{ track.track.mode="showing"; }catch(e){}
+      }catch(e){ clearSubtitleLocal(); return false; }
+      updateSubtitleUI();
+      if(announce) rtSend({type:"subtitle",url:currentSubtitle.url,name:currentSubtitle.name,lang:currentSubtitle.lang,vtt:currentSubtitle.vtt});
+      return true;
+    }
+    function clearPlayers(){ try{ movie.pause(); }catch(e){} clearSubtitleLocal(); try{ movie.removeAttribute("src"); movie.load(); }catch(e){} movie.style.display="none"; if(galleryImg) galleryImg.style.display="none"; if(typeof screenVideo!=="undefined"&&screenVideo) screenVideo.style.display="none"; if(ytPlayer){ try{ ytPlayer.destroy(); }catch(e){} ytPlayer=null; } if(vimPlayer){ try{ vimPlayer.destroy(); }catch(e){} vimPlayer=null; vimReady=false; } ytwrap.style.display="none"; ytwrap.innerHTML=""; try{ frame.src="about:blank"; }catch(e){} framewrap.style.display="none"; clearTimeout(gateCheckTimer); clearTimeout(gateFallbackTimer); gateDismissed=false; playgate.hidden=true; pending=null; movieErrored=false; updateStageChrome(); updateWakeLock(); }
     function setEmbedUI(on){ cdwidget.hidden=!on; if(!on){ clearInterval(cdTimer); cdNum.textContent="\u25B6"; cdNum.classList.remove("go"); cdBtn.disabled=false; cdBusy=false; } }
     /* only ever hand the player/iframe a safe scheme — a malicious peer could push a "video" with a javascript:/data: url */
     function safeUrl(u){ u=String(u||""); return (/^https?:\/\//i.test(u)||/^blob:/i.test(u))?u:""; }
@@ -1672,15 +1775,26 @@
     function applyMedia(m,url,id){
       url=safeUrl(url); id=String(id||"").replace(/[^a-zA-Z0-9_-]/g,"").slice(0,40);
       if(typeof screenStream!=="undefined"&&screenStream) stopScreenShare();   // a loaded video replaces a live screen share
-      if(gallery){ if(amPresenter()) stopSharing(); else { gallery=null; closeGalleryUI(); } }
+      if(gallery){ if(amPresenter()) stopSharing(); else galleryClearLocal(); }
       clearPlayers(); ducked=false; mode=m; currentMedia={ mode:m, url:url, id:id }; placeholder.style.display="none"; updateLoadBtn();
       if(m==="file"){ setEmbedUI(false); movie.style.display="block"; if(url){ movie.src=url; movie.load(); } }
       else if(m==="youtube"){ setEmbedUI(false); ytwrap.style.display="block"; loadYouTube(id); }
       else if(m==="vimeo"){ setEmbedUI(false); ytwrap.style.display="block"; loadVimeo(url); }
       else { setEmbedUI(true); framewrap.style.display="flex"; try{ frame.src=url||"about:blank"; }catch(e){} openTab.href=url||"#"; }
-      updateStageChrome(); if(typeof updateRoomView==="function") updateRoomView(); renderCams();
+      updateStageChrome(); updateSubtitleUI(); if(typeof updateRoomView==="function") updateRoomView(); renderCams();
     }
-    function loadUrl(url){ url=(url||"").trim(); if(!url){ toast("Paste a link first."); return false; } if(!/^https?:\/\//i.test(url)){ toast("The link must start with http:// or https://"); return false; } var det=detectMedia(url); applyMedia(det.mode,det.url,det.id); if(currentMedia) currentMedia.mine=true; rtSend({ type:"video", mode:det.mode, url:det.url, id:det.id }); if(det.mode==="embed") toast("Loaded — use the countdown on the left to start together.",6000); return true; }
+    function loadUrl(url){
+      url=(url||"").trim();
+      if(!url){ toast(tr("link_needed")); return false; }
+      if(!/^https?:\/\//i.test(url)){ toast(tr("link_http")); return false; }
+      clearToast();
+      var det=detectMedia(url);
+      applyMedia(det.mode,det.url,det.id);
+      if(currentMedia) currentMedia.mine=true;
+      rtSend({ type:"video", mode:det.mode, url:det.url, id:det.id });
+      if(det.mode==="embed") toast("Loaded — use the countdown on the left to start together.",6000);
+      return true;
+    }
     /* once a pasted link plays, the Load button becomes Stop: back to your living room (wall) for the whole room */
     function linkActive(){ return !!(currentMedia && !gallery && (mode==="youtube"||mode==="vimeo"||mode==="file"||mode==="embed")); }
     function updateLoadBtn(){ if(!loadBtn) return; loadBtn.textContent = linkActive() ? tr("stop_watch") : tr("load"); }
@@ -1688,7 +1802,7 @@
       clearPlayers(); setEmbedUI(false); ducked=false;
       mode="none"; currentMedia=null; pending=null;
       placeholder.style.display="";
-      updateStageChrome(); if(typeof updateRoomView==="function") updateRoomView(); renderCams(); updateLoadBtn();
+      updateStageChrome(); updateSubtitleUI(); if(typeof updateRoomView==="function") updateRoomView(); renderCams(); updateLoadBtn();
     }
     function stopWatching(){ stopWatchingLocal(); rtSend({ type:"video", mode:"none", url:"", id:"" }); if(urlInput) urlInput.value=""; }
     loadBtn.addEventListener("click", function(){ if(linkActive()) stopWatching(); else loadUrl(urlInput.value); });
@@ -1715,12 +1829,22 @@
     if($("pickSearch")) $("pickSearch").addEventListener("click", function(){ pickerEl.classList.remove("show"); if(browseBtn) browseBtn.click(); });
     if($("pickFileBtn")) $("pickFileBtn").addEventListener("click", function(){ if(fileInput){ try{ fileInput.accept="video/*,image/*"; }catch(e){} pickerEl.classList.remove("show"); fileInput.click(); } });
     urlInput.addEventListener("keydown", function(e){ if(e.key==="Enter") loadBtn.click(); });
+    if(subtitleBtn) subtitleBtn.addEventListener("click",function(){ if(subtitleEligible()&&subtitleInput) subtitleInput.click(); });
+    if(subtitleInput) subtitleInput.addEventListener("change",function(){
+      var f=subtitleInput.files&&subtitleInput.files[0]; try{ subtitleInput.value=""; }catch(e){}
+      if(!f||!subtitleEligible()) return;
+      if(f.size>512*1024){ toast(tr("sub_too_big"),6500); return; }
+      var reader=new FileReader();
+      reader.onload=function(){ var vtt=srtToVtt(reader.result); if(!vtt){ toast(tr("sub_invalid"),6500); return; } if(applySubtitlePayload({url:currentMedia.url,name:f.name||"subtitles.srt",lang:subtitleLang(f.name),vtt:vtt},true)) toast(tr("sub_loaded"),4500); else toast(tr("sub_invalid"),6500); };
+      reader.onerror=function(){ toast(tr("sub_read_fail"),6500); };
+      reader.readAsText(f);
+    });
     movie.addEventListener("error", function(){ if(mode!=="file"||!movie.src) return; movieErrored=true; try{ playgate.hidden=true; }catch(e){} toast(tr("vid_fail"),10000); });
 
     var ytApiReady=false, ytApiLoading=false, ytPlayer=null, ytPending=null;
     function ensureYTApi(cb){ if(ytApiReady){ cb(); return; } ytPending=cb; if(ytApiLoading) return; ytApiLoading=true; window.onYouTubeIframeAPIReady=function(){ ytApiReady=true; if(ytPending){ var f=ytPending; ytPending=null; f(); } }; var s=document.createElement("script"); s.src="https://www.youtube.com/iframe_api"; document.head.appendChild(s); }
-    function loadYouTube(id){ ensureYTApi(function(){ ytwrap.innerHTML='<div id="ytplayer"></div>'; ytPlayer=new YT.Player("ytplayer",{ videoId:id, playerVars:{ rel:0, modestbranding:1, playsinline:1 }, events:{ onStateChange:onYtState, onReady:function(){ applyUserVolume(); } } }); }); }
-    function onYtState(e){ if(e.data===1||e.data===3){ clearTimeout(gateCheckTimer); playgate.hidden=true; } if(applyingRemote||mode!=="youtube") return; if(e.data===1) broadcast("play"); else if(e.data===2) broadcast("pause"); }
+    function loadYouTube(id){ ensureYTApi(function(){ ytwrap.innerHTML='<div id="ytplayer"></div>'; ytPlayer=new YT.Player("ytplayer",{ videoId:id, playerVars:{ rel:0, modestbranding:1, playsinline:1, enablejsapi:1, origin:location.origin }, events:{ onStateChange:onYtState, onReady:function(){ applyUserVolume(); applyPending(); } } }); }); }
+    function onYtState(e){ if(e.data===1||e.data===3){ clearTimeout(gateCheckTimer); clearTimeout(gateFallbackTimer); playgate.hidden=true; } updateWakeLock(); if(applyingRemote||mode!=="youtube") return; if(e.data===1) broadcast("play"); else if(e.data===2) broadcast("pause"); }
 
     /* ---- Vimeo provider (Player API; same sync events) ---- */
     var vimApiReady=false, vimApiLoading=false, vimPending=null, vimPlayer=null, vimReady=false, vimPaused=true, vimTime=0;
@@ -1736,19 +1860,19 @@
         if(typeof Vimeo==="undefined"){ vimReady=true; return; }   // video still plays; sync just won't be available
         try{ vimPlayer=new Vimeo.Player(ifr); }catch(e){ vimReady=true; return; }
         vimPlayer.on("loaded", function(){ vimReady=true; applyUserVolume(); applyPending(); });
-        vimPlayer.on("play", function(){ vimPaused=false; clearTimeout(gateCheckTimer); playgate.hidden=true; if(!applyingRemote&&mode==="vimeo") broadcast("play"); });
-        vimPlayer.on("pause", function(){ vimPaused=true; if(!applyingRemote&&mode==="vimeo") broadcast("pause"); });
+        vimPlayer.on("play", function(){ vimPaused=false; clearTimeout(gateCheckTimer); clearTimeout(gateFallbackTimer); playgate.hidden=true; updateWakeLock(); if(!applyingRemote&&mode==="vimeo") broadcast("play"); });
+        vimPlayer.on("pause", function(){ vimPaused=true; updateWakeLock(); if(!applyingRemote&&mode==="vimeo") broadcast("pause"); });
         vimPlayer.on("seeked", function(d){ if(d&&typeof d.seconds==="number") vimTime=d.seconds; if(!applyingRemote&&mode==="vimeo") broadcast("seek"); });
         vimPlayer.on("timeupdate", function(d){ if(d&&typeof d.seconds==="number") vimTime=d.seconds; });
     }); }
 
     function getTime(){ if(mode==="file") return movie.currentTime||0; if(mode==="youtube"&&ytPlayer&&ytPlayer.getCurrentTime) return ytPlayer.getCurrentTime()||0; if(mode==="vimeo") return vimTime||0; return 0; }
     function setTime(t){ if(mode==="file"){ try{movie.currentTime=t;}catch(e){} } else if(mode==="youtube"&&ytPlayer&&ytPlayer.seekTo){ try{ytPlayer.seekTo(t,true);}catch(e){} } else if(mode==="vimeo"&&vimPlayer){ try{ vimPlayer.setCurrentTime(t); }catch(e){} } }
-    var gateCheckTimer=null;
+    var gateCheckTimer=null, gateFallbackTimer=null, gateDismissed=false;
     /* YouTube/Vimeo can't autoplay for a guest (no user gesture) → the player silently stays at 0:00.
        After a play attempt, if it didn't actually start, show the "click to watch along" gate. */
-    function scheduleEmbedGate(){ clearTimeout(gateCheckTimer); gateCheckTimer=setTimeout(function(){ if((mode==="youtube"||mode==="vimeo")&&isPausedMedia()){ playgate.hidden=false; } },1000); }
-    function playMedia(){ if(mode==="file") safePlay(); else if(mode==="youtube"&&ytPlayer&&ytPlayer.playVideo){ try{ytPlayer.playVideo();}catch(e){} scheduleEmbedGate(); } else if(mode==="vimeo"&&vimPlayer){ try{ var p=vimPlayer.play(); if(p&&p.catch) p.catch(function(){}); }catch(e){} scheduleEmbedGate(); } }
+    function scheduleEmbedGate(){ clearTimeout(gateCheckTimer); if(gateDismissed) return; gateCheckTimer=setTimeout(function(){ if(!gateDismissed&&(mode==="youtube"||mode==="vimeo")&&isPausedMedia()){ playgate.hidden=false; } },1000); }
+    function playMedia(fromGesture){ if(mode==="file") safePlay(); else if(mode==="youtube"&&ytPlayer&&ytPlayer.playVideo){ try{ytPlayer.playVideo();}catch(e){} if(!fromGesture) scheduleEmbedGate(); } else if(mode==="vimeo"&&vimPlayer){ try{ var p=vimPlayer.play(); if(p&&p.catch) p.catch(function(){}); }catch(e){} if(!fromGesture) scheduleEmbedGate(); } }
     function pauseMedia(){ if(mode==="file") movie.pause(); else if(mode==="youtube"&&ytPlayer&&ytPlayer.pauseVideo){ try{ytPlayer.pauseVideo();}catch(e){} } else if(mode==="vimeo"&&vimPlayer){ try{ vimPlayer.pause(); }catch(e){} } }
     function isPausedMedia(){ if(mode==="file") return movie.paused; if(mode==="youtube"&&ytPlayer&&ytPlayer.getPlayerState){ var s=ytPlayer.getPlayerState(); return !(s===1||s===3); } if(mode==="vimeo") return vimPaused; return true; }
     function mediaReady(){ if(mode==="file") return movie.readyState>=1&&!isNaN(movie.duration); if(mode==="youtube") return !!(ytPlayer&&ytPlayer.getDuration&&ytPlayer.getDuration()>0); if(mode==="vimeo") return vimReady; return false; }
@@ -1758,8 +1882,9 @@
     var applyingRemote=false, applyingTimer, lastActionAt=0;
     function broadcast(kind){ if(applyingRemote) return; if(!isSyncable()) return; lastActionAt=Date.now(); rtSend({ type:"sync", kind:kind, time:getTime(), playing:!isPausedMedia() }); }
     function markApplying(){ applyingRemote=true; clearTimeout(applyingTimer); applyingTimer=setTimeout(function(){ applyingRemote=false; },700); }
-    movie.addEventListener("play", function(){ broadcast("play"); });
-    movie.addEventListener("pause", function(){ broadcast("pause"); });
+    movie.addEventListener("play", function(){ updateWakeLock(); broadcast("play"); });
+    movie.addEventListener("pause", function(){ updateWakeLock(); broadcast("pause"); });
+    movie.addEventListener("ended", updateWakeLock);
     movie.addEventListener("seeked", function(){ broadcast("seek"); });
     movie.addEventListener("loadedmetadata", function(){ applyPending(); applyUserVolume(); });
     function applyPending(){ if(pending&&mediaReady()){ markApplying(); if(typeof pending.time==="number") setTime(pending.time); if(pending.play) playMedia(); pending=null; } }
@@ -1784,7 +1909,16 @@
       if(amPresenter()){ playgate.hidden=true; var pp=movie.play&&movie.play(); if(pp&&pp.catch) pp.catch(function(){}); return; }   // the person sharing owns the file + has native controls — never gate them
       var p=movie.play(); if(p&&typeof p.then==="function"){ p.then(function(){ playgate.hidden=true; }).catch(function(){ playgate.hidden=false; }); }
     }
-    function dismissPlaygate(){ playgate.hidden=true; playMedia(); }   // the user's tap is the gesture that unblocks autoplay — play whatever's loaded (file/YouTube/Vimeo)
+    function dismissPlaygate(){
+      gateDismissed=true; clearTimeout(gateCheckTimer); clearTimeout(gateFallbackTimer); playgate.hidden=true;
+      playMedia(true);   // use the tap as the autoplay gesture
+      gateFallbackTimer=setTimeout(function(){
+        if((mode==="youtube"||mode==="vimeo")&&isPausedMedia()){
+          playgate.hidden=true;   // never trap the native player behind an overlay that keeps returning
+          toast(tr("yt_manual_play"),6500);
+        }
+      },1200);
+    }
     playgateBtn.addEventListener("click", function(e){ e.stopPropagation(); dismissPlaygate(); });
     playgate.addEventListener("click", function(e){ if(e.target===playgate) dismissPlaygate(); });   // tap the backdrop to close too
 
@@ -1959,9 +2093,13 @@
           if(!it.id) return;
           var title=decodeEntities(it.title||it.id);
           var card=document.createElement("button"); card.type="button"; card.className="yt-card"; card.setAttribute("aria-label", tr("yt_play_a11y").replace("{t}",title));
-          var img=document.createElement("img"); img.src=it.thumb||""; img.alt=""; img.loading="lazy"; img.referrerPolicy="no-referrer"; img.decoding="async";
+          var img=document.createElement("img"); img.alt=""; img.loading="lazy"; img.referrerPolicy="no-referrer"; img.decoding="async";
+          var thumbFallback=document.createElement("div"); thumbFallback.className="yt-thumb-fallback"; thumbFallback.textContent="▶"; thumbFallback.setAttribute("aria-hidden","true");
+          function showThumbFallback(){ img.style.display="none"; thumbFallback.style.display="grid"; }
+          img.addEventListener("error",showThumbFallback);
+          if(it.thumb) img.src=it.thumb; else showThumbFallback();
           var t=document.createElement("div"); t.className="t"; t.textContent=title;
-          card.appendChild(img); card.appendChild(t);
+          card.appendChild(img); card.appendChild(thumbFallback); card.appendChild(t);
           card.addEventListener("click", function(){ var vurl="https://www.youtube.com/watch?v="+it.id; urlInput.value=vurl; applyMedia("youtube",vurl,it.id); if(currentMedia) currentMedia.mine=true; rtSend({ type:"video", mode:"youtube", url:vurl, id:it.id }); ytb.classList.remove("show"); });
           ytbGrid.appendChild(card);
         });
@@ -1984,14 +2122,42 @@
 
     function toArrayBuffer(x){ if(!x) return new ArrayBuffer(0); if(x instanceof ArrayBuffer) return x; if(x.buffer && x.byteLength!=null){ return x.buffer.slice(x.byteOffset||0,(x.byteOffset||0)+x.byteLength); } return x; }
 
-    function wireData(conn){
-      dconns[conn.peer]=conn;
-      conn.on("data", function(d){ onData(conn.peer,d); });
-      conn.on("close", function(){ if(dconns[conn.peer]===conn) delete dconns[conn.peer]; });
-      conn.on("error", function(){});
+    function rejectDataPending(pid,reason){
+      Object.keys(dpending).forEach(function(id){ var p=dpending[id]; if(!p||p.pid!==pid) return; clearTimeout(p.to); delete dpending[id]; p.reject(new Error(reason||"data-closed")); });
     }
-    function ensureData(pid){ var c=dconns[pid]; if(!c||c.disconnected){ try{ c=peer.connect(pid,{reliable:true}); }catch(e){ return null; } if(c) wireData(c); } return c; }
-    function dsend(pid,obj){ var c=ensureData(pid); if(!c) return; if(c.open){ try{ c.send(obj); }catch(e){} } else { c.on("open", function(){ try{ c.send(obj); }catch(e){} }); } }
+    function wireData(conn){
+      var pid=conn.peer;
+      conn._wmtCreated=conn._wmtCreated||Date.now();
+      conn._wmtQueue=conn._wmtQueue||[];
+      dconns[pid]=conn;
+      function flush(){
+        if(!conn.open||dconns[pid]!==conn) return;
+        var q=conn._wmtQueue.splice(0);
+        q.forEach(function(obj){ try{ conn.send(obj); }catch(e){} });
+      }
+      function gone(){ if(dconns[pid]!==conn) return; delete dconns[pid]; rejectDataPending(pid,"data-closed"); }
+      conn.on("open", flush);
+      conn.on("data", function(d){ onData(pid,d); });
+      conn.on("close", gone);
+      conn.on("error", gone);
+      if(conn.open) flush();
+    }
+    function ensureData(pid){
+      var c=dconns[pid], now=Date.now();
+      if(c&&c.open) return c;
+      if(c&&(now-(c._wmtCreated||now))<8000) return c;   // a new channel gets a short, bounded handshake window
+      if(c){ try{ c.close(); }catch(e){} if(dconns[pid]===c) delete dconns[pid]; rejectDataPending(pid,"data-stale"); }
+      try{ c=peer.connect(pid,{reliable:true,serialization:"binary"}); }catch(e){ return null; }
+      if(c){ c._wmtCreated=Date.now(); c._wmtQueue=[]; wireData(c); }
+      return c;
+    }
+    function dsend(pid,obj){
+      var c=ensureData(pid); if(!c) return false;
+      if(c.open){ try{ c.send(obj); return true; }catch(e){ return false; } }
+      c._wmtQueue=c._wmtQueue||[];
+      if(c._wmtQueue.length<100) c._wmtQueue.push(obj);   // one open-listener + bounded queue, rather than an ever-growing listener pile
+      return true;
+    }
     function onData(pid,d){
       if(!d||typeof d!=="object") return;
       if(d.t==="draw"||d.t==="draw-clear"){ if(typeof gameData==="function") gameData(pid,d); return; }
@@ -1999,7 +2165,7 @@
         var f=myFiles[d.fileId];
         if(!f){ dsend(pid,{t:"range-data",reqId:d.reqId,err:true}); return; }
         var end=Math.min(d.end, f.size-1); if(end<d.start){ dsend(pid,{t:"range-data",reqId:d.reqId,buf:new ArrayBuffer(0)}); return; }
-        f.slice(d.start,end+1).arrayBuffer().then(function(buf){ var c=dconns[pid]; if(c&&c.open){ try{ c.send({t:"range-data",reqId:d.reqId,buf:buf}); }catch(e){} } });
+        f.slice(d.start,end+1).arrayBuffer().then(function(buf){ dsend(pid,{t:"range-data",reqId:d.reqId,buf:buf}); });
         return;
       }
       if(d.t==="range-data"){ var p=dpending[d.reqId]; if(p){ clearTimeout(p.to); delete dpending[d.reqId]; if(d.err) p.reject(new Error("noent")); else p.resolve(toArrayBuffer(d.buf)); } return; }
@@ -2007,8 +2173,11 @@
     function fetchRange(fileId,start,end){
       return new Promise(function(resolve,reject){
         if(!gallery||!gallery.presenter||gallery.presenter===myPeerId){ reject(new Error("no-presenter")); return; }
-        var reqId=dReqId++; dpending[reqId]={resolve:resolve,reject:reject,to:setTimeout(function(){ delete dpending[reqId]; reject(new Error("timeout")); },25000)};
-        dsend(gallery.presenter,{t:"range-req",reqId:reqId,fileId:fileId,start:start,end:end});
+        var pid=gallery.presenter;
+        if(!ensureData(pid)){ reject(new Error("data-unavailable")); return; }
+        var reqId=dReqId++;
+        dpending[reqId]={pid:pid,resolve:resolve,reject:reject,to:setTimeout(function(){ delete dpending[reqId]; reject(new Error("timeout")); },12000)};
+        if(!dsend(pid,{t:"range-req",reqId:reqId,fileId:fileId,start:start,end:end})){ clearTimeout(dpending[reqId].to); delete dpending[reqId]; reject(new Error("data-unavailable")); }
       });
     }
 
@@ -2017,7 +2186,7 @@
       navigator.serviceWorker.register("/sw.js").then(function(){ swReg=true; return navigator.serviceWorker.ready; }).then(function(){ swControlled=!!navigator.serviceWorker.controller; }).catch(function(){ swReg=false; });
       navigator.serviceWorker.addEventListener("message", function(ev){
         var d=ev.data; if(!d||d.type!=="range") return; var port=ev.ports&&ev.ports[0];
-        fetchRange(d.fileId,d.start,d.end).then(function(buf){ var ab=toArrayBuffer(buf); if(port) port.postMessage({ok:true,buf:ab},[ab]); }).catch(function(){ if(port) port.postMessage({ok:false}); });
+        fetchGalleryRange(d.fileId,d.start,d.end).then(function(buf){ var ab=toArrayBuffer(buf); if(port) port.postMessage({ok:true,buf:ab},[ab]); }).catch(function(){ if(port) port.postMessage({ok:false}); });
       });
       navigator.serviceWorker.addEventListener("controllerchange", function(){ swControlled=!!navigator.serviceWorker.controller; });
     }
@@ -2025,7 +2194,7 @@
 
     function amPresenter(){ return !!(gallery && gallery.presenter===myPeerId); }
     function showImage(url){ clearPlayers(); setEmbedUI(false); mode="gallery-image"; currentMedia=null; placeholder.style.display="none"; if(galleryImg){ galleryImg.src=url; galleryImg.style.display="block"; } updateStageChrome(); if(typeof updateRoomView==="function") updateRoomView(); renderCams(); }
-    function showVideoSrc(url){ clearPlayers(); setEmbedUI(false); mode="file"; currentMedia={mode:"file",url:url}; placeholder.style.display="none"; movie.style.display="block"; try{ movie.src=url; movie.load(); }catch(e){} updateStageChrome(); if(typeof updateRoomView==="function") updateRoomView(); renderCams(); }
+    function showVideoSrc(url){ clearPlayers(); setEmbedUI(false); mode="file"; currentMedia={mode:"file",url:url}; placeholder.style.display="none"; movie.style.display="block"; try{ movie.src=url; movie.load(); }catch(e){} updateStageChrome(); updateSubtitleUI(); if(typeof updateRoomView==="function") updateRoomView(); renderCams(); }
     function showGalleryItem(fileId){
       if(!gallery) return; var it=null, i;
       for(i=0;i<gallery.items.length;i++){ if(gallery.items[i].fileId===fileId){ it=gallery.items[i]; break; } }
@@ -2037,91 +2206,153 @@
       renderStrip();
     }
 
-    /* ---- transfer-then-reveal: files are fully copied to every viewer first (progress pill, chunked with
-            endless retry so a dropped connection simply RESUMES), and only when everyone is at 100% does the
-            presenter's first item appear for the whole room at the same moment. ---- */
+    /* ---- progressive transfer: video is released after a 4 MB start buffer. For files up to
+            256 MB the rest keeps downloading into a local blob; larger movies continue through
+            the range-based P2P stream so a multi-gigabyte file is never held entirely in RAM. ---- */
     var galleryBlobs={};                       // fileId -> blob URL (fully received)
+    var galleryParts={};                       // fileId -> contiguous, retryable chunk cache
     var galleryXfer=null;                      // receiver-side transfer state
-    var presWait=null;                         // presenter-side "who is at 100%?" state
-    var XFER_CHUNK=262144, PREFETCH_MAX=200*1024*1024;
-    var xferPillEl=$("xferPill");
-    function showXfer(txt){ if(!xferPillEl) return; setText("xferTxt",txt); xferPillEl.hidden=false; }
-    function hideXfer(){ if(xferPillEl) xferPillEl.hidden=true; }
-    function prefetchGallery(hold){
+    var presWait=null;                         // presenter-side readiness/progress state
+    var XFER_CHUNK=512*1024, PREFETCH_MAX=256*1024*1024, START_BUFFER=4*1024*1024;
+    var xferPillEl=$("xferPill"), xferBarEl=$("xferBar"), xferPauseEl=$("xferPause"), xferRetryEl=$("xferRetry");
+    function fmtRate(n){ n=Math.max(0,+n||0); if(n>=1024*1024) return (n/1024/1024).toFixed(n>=10*1024*1024?1:2)+" MB/s"; if(n>=1024) return Math.round(n/1024)+" KB/s"; return Math.round(n)+" B/s"; }
+    function fmtEta(sec){ sec=Math.max(0,Math.round(+sec||0)); if(sec<60) return tr("eta_seconds").replace("{n}",String(Math.max(1,sec))); return tr("eta_minutes").replace("{n}",String(Math.ceil(sec/60))); }
+    function showXfer(txt,pct,meta,opts){
+      if(!xferPillEl) return; opts=opts||{}; pct=Math.max(0,Math.min(100,+pct||0));
+      setText("xferTxt",txt); setText("xferMeta",meta||""); if(xferBarEl) xferBarEl.style.width=pct+"%";
+      xferPillEl.classList.toggle("paused",!!opts.paused); xferPillEl.classList.toggle("failed",!!opts.failed);
+      if(xferPauseEl){ xferPauseEl.hidden=!opts.pause; xferPauseEl.textContent=opts.paused?tr("xfer_resume"):tr("xfer_pause"); }
+      if(xferRetryEl) xferRetryEl.hidden=!opts.retry;
+      xferPillEl.hidden=false; if(stage) stage.classList.add("xfer-open"); if(typeof updateWakeLock==="function") updateWakeLock();
+    }
+    function hideXfer(){ if(xferPillEl) xferPillEl.hidden=true; if(stage) stage.classList.remove("xfer-open"); if(typeof updateWakeLock==="function") updateWakeLock(); }
+    function galleryItem(fileId){ if(!gallery) return null; for(var i=0;i<gallery.items.length;i++) if(gallery.items[i].fileId===fileId) return gallery.items[i]; return null; }
+    function transferLimit(it){ return (it.type==="video"&&it.size>PREFETCH_MAX)?Math.min(it.size,START_BUFFER):it.size; }
+    function partState(it){ var s=galleryParts[it.fileId]; if(!s) s=galleryParts[it.fileId]={parts:[],received:0,size:it.size,mime:it.mime||"",complete:false}; return s; }
+    function cachedGalleryRange(fileId,start,end){
+      var s=galleryParts[fileId]; start=Math.max(0,+start||0); end=Math.max(start,+end||start);
+      if(!s||end>=s.received) return null;
+      try{
+        var out=new Uint8Array(end-start+1), write=0, pos=start;
+        while(pos<=end){ var idx=Math.floor(pos/XFER_CHUNK), chunk=s.parts[idx]; if(!chunk) return null; var u=new Uint8Array(chunk), chunkStart=idx*XFER_CHUNK, off=pos-chunkStart, take=Math.min(u.byteLength-off,end-pos+1); if(take<=0) return null; out.set(u.subarray(off,off+take),write); write+=take; pos+=take; }
+        return out.buffer;
+      }catch(e){ return null; }
+    }
+    function waitTransferResume(){
+      var run=galleryXfer; if(!run||!run.paused) return Promise.resolve();
+      return new Promise(function(resolve,reject){ run.pauseWaiters.push({resolve:resolve,reject:reject}); });
+    }
+    function fetchGalleryRange(fileId,start,end,attempt){
+      var hit=cachedGalleryRange(fileId,start,end); if(hit) return Promise.resolve(hit);
+      return waitTransferResume().then(function(){ var again=cachedGalleryRange(fileId,start,end); return again||fetchRange(fileId,start,end); }).catch(function(err){
+        attempt=(attempt||0)+1; if(attempt>=3||!gallery) throw err;
+        return new Promise(function(resolve){ setTimeout(resolve,1200); }).then(function(){ try{ ensureData(gallery.presenter); }catch(e){} return fetchGalleryRange(fileId,start,end,attempt); });
+      });
+    }
+    function galleryPlayable(fileId){
+      var it=galleryItem(fileId); if(!it) return false; if(amPresenter()||galleryBlobs[fileId]) return true;
+      var s=galleryParts[fileId]; if(!s) return false; if(it.type==="image") return s.received>=it.size;
+      return swControlled ? s.received>=Math.min(it.size,START_BUFFER) : s.received>=it.size;
+    }
+    function transferGot(items){ var n=0; items.forEach(function(it){ var s=galleryParts[it.fileId]; n+=Math.min(transferLimit(it),s?s.received:0); }); return n; }
+    function releasePauseWaiters(run,err){ var w=run.pauseWaiters.splice(0); w.forEach(function(p){ if(err) p.reject(err); else p.resolve(); }); }
+    function failGalleryTransfer(run){
+      if(!run||run.failed) return; run.failed=true; run.active=false; run.cancelled=true; if(run.watch) clearInterval(run.watch); releasePauseWaiters(run,new Error("transfer-failed"));
+      if(!run.failedNotified){ run.failedNotified=true; rtSend({type:"gallery-fail"}); }
+      showXfer(tr("xfer_failed_short"),run.lastPct||0,tr("xfer_fail"),{retry:true,failed:true}); toast(tr("xfer_fail"),8000);
+    }
+    function prefetchGallery(hold,pendingShow){
       if(!gallery||amPresenter()) return;
-      if(galleryXfer){ galleryXfer.cancelled=true; if(galleryXfer.watch) clearInterval(galleryXfer.watch); }
-      var run={ cancelled:false, active:true, hold:!!hold, pendingShow:null, lastProgress:Date.now() };
+      if(galleryXfer){ galleryXfer.cancelled=true; if(galleryXfer.watch) clearInterval(galleryXfer.watch); releasePauseWaiters(galleryXfer,new Error("transfer-restarted")); }
+      var run={cancelled:false,active:true,failed:false,paused:false,pauseWaiters:[],hold:!!hold,pendingShow:pendingShow||null,lastProgress:Date.now(),failedNotified:false,readySent:false,lastSent:0,samples:[],lastPct:0,streamOnly:false};
       galleryXfer=run;
-      run.watch=setInterval(function(){   // no bytes for 40s → the transfer is dead, tell the user instead of a stuck 0%
-        if(run.cancelled||!run.active){ clearInterval(run.watch); return; }
-        if(Date.now()-run.lastProgress>40000){ clearInterval(run.watch); run.cancelled=true; run.active=false; hideXfer(); toast(tr("xfer_fail"),8000); }
-      },5000);
-      var items=gallery.items.filter(function(it){ return it.size>0 && it.size<=PREFETCH_MAX && !galleryBlobs[it.fileId]; });
-      var total=0; items.forEach(function(it){ total+=it.size; });
-      var got=0, lastSent=0;
-      function pct(){ return total?Math.min(100,Math.round(got/total*100)):100; }
-      function report(){
-        showXfer(tr("xfer_recv").replace("{p}",String(pct())));
-        var now=Date.now();
-        if(now-lastSent>900){ lastSent=now; rtSend({ type:"gallery-prog", pct:pct() }); }
+      var items=gallery.items.filter(function(it){ return it.size>0&&!galleryBlobs[it.fileId]; });
+      var total=0; items.forEach(function(it){ total+=transferLimit(it); if(it.type==="video"&&it.size>PREFETCH_MAX) run.streamOnly=true; });
+      function maybeReady(){
+        if(run.readySent||!gallery) return;
+        var fid=gallery.current||((gallery.items[0]||{}).fileId); if(!fid||!galleryPlayable(fid)) return;
+        run.readySent=true; rtSend({type:"gallery-ready",fileId:fid});
+        if(!run.hold) showGalleryItem(run.pendingShow||fid);   // late joiner does not wait for a presenter round-trip
       }
-      function fetchChunkRetry(fid,start,end){
-        return fetchRange(fid,start,end).catch(function(err){
-          if(run.cancelled||!gallery) throw err;
-          return new Promise(function(res){ setTimeout(res,2500); }).then(function(){
-            if(run.cancelled||!gallery) throw err;
-            try{ ensureData(gallery.presenter); }catch(e){}       // reconnect heals → transfer resumes where it was
-            return fetchChunkRetry(fid,start,end);
-          });
+      function report(force){
+        var got=transferGot(items), pct=total?Math.min(100,Math.round(got/total*100)):100, now=Date.now(); run.lastPct=pct;
+        run.samples.push({t:now,b:got}); while(run.samples.length>2&&now-run.samples[0].t>8000) run.samples.shift();
+        var first=run.samples[0], speed=(first&&now>first.t)?Math.max(0,(got-first.b)/((now-first.t)/1000)):0, eta=(speed>1)?Math.max(0,(total-got)/speed):0;
+        var cur=galleryItem(gallery.current), buffering=cur&&cur.type==="video"&&!galleryPlayable(cur.fileId), label=(buffering?tr("xfer_buffer"):tr("xfer_recv2")).replace("{p}",String(pct));
+        var meta=speed>1?(eta>0?tr("xfer_left").replace("{speed}",fmtRate(speed)).replace("{eta}",fmtEta(eta)):tr("xfer_speed").replace("{speed}",fmtRate(speed))):"";
+        if(run.paused){ label=tr("xfer_paused").replace("{p}",String(pct)); meta=""; }
+        showXfer(label,pct,meta,{pause:true,paused:run.paused});
+        if(force||now-run.lastSent>900){ run.lastSent=now; rtSend({type:"gallery-prog",pct:pct,speed:Math.round(speed),eta:Math.round(eta),paused:run.paused}); }
+        maybeReady();
+      }
+      function waitIfPaused(){ if(!run.paused) return Promise.resolve(); return new Promise(function(resolve,reject){ run.pauseWaiters.push({resolve:resolve,reject:reject}); }); }
+      function fetchChunk(fid,start,end,attempt){
+        return waitIfPaused().then(function(){ if(run.cancelled||!gallery) throw new Error("cancelled"); return fetchRange(fid,start,end); }).catch(function(err){
+          if(run.cancelled||!gallery) throw err; attempt=(attempt||0)+1; if(attempt>=3) throw err;
+          return new Promise(function(resolve){ setTimeout(resolve,1800); }).then(function(){ try{ ensureData(gallery.presenter); }catch(e){} return fetchChunk(fid,start,end,attempt); });
         });
       }
+      run.watch=setInterval(function(){
+        if(run.cancelled||!run.active){ clearInterval(run.watch); return; }
+        if(run.paused){ run.lastProgress=Date.now(); return; }
+        if(Date.now()-run.lastProgress>40000) failGalleryTransfer(run);
+      },5000);
       var seq=Promise.resolve();
       items.forEach(function(it){
         seq=seq.then(function(){
-          if(run.cancelled) return;
-          var parts=[], pos=0;
+          if(run.cancelled) throw new Error("cancelled");
+          var state=partState(it), limit=transferLimit(it), pos=Math.min(state.received,limit);
           function next(){
-            if(run.cancelled) return;
-            if(pos>=it.size){ try{ galleryBlobs[it.fileId]=URL.createObjectURL(new Blob(parts,{ type:it.mime||"" })); }catch(e){} parts=null; return; }
-            var end=Math.min(pos+XFER_CHUNK,it.size)-1;
-            return fetchChunkRetry(it.fileId,pos,end).then(function(buf){
-              if(run.cancelled) return;
-              parts.push(buf); got+=((buf&&buf.byteLength)||(end-pos+1)); pos=end+1; run.lastProgress=Date.now(); report();
-              return next();
+            if(run.cancelled) throw new Error("cancelled");
+            if(pos>=limit){
+              if(limit===it.size&&!state.complete){ state.complete=true; try{ galleryBlobs[it.fileId]=URL.createObjectURL(new Blob(state.parts,{type:it.mime||""})); }catch(e){} }
+              maybeReady(); return;
+            }
+            var end=Math.min(pos+XFER_CHUNK,limit)-1, chunkIndex=Math.floor(pos/XFER_CHUNK);
+            return fetchChunk(it.fileId,pos,end,0).then(function(buf){
+              if(run.cancelled) throw new Error("cancelled"); var ab=toArrayBuffer(buf), expected=end-pos+1; if(!ab||ab.byteLength!==expected) throw new Error("short-range");
+              state.parts[chunkIndex]=ab; pos=end+1; state.received=Math.max(state.received,pos); run.lastProgress=Date.now(); report(false); return next();
             });
           }
-          report();
-          return next();
+          report(true); return next();
         });
       });
       seq.then(function(){
         if(run.cancelled) return;
-        run.active=false; if(run.watch) clearInterval(run.watch); rtSend({ type:"gallery-done" }); hideXfer();
-        var show=run.pendingShow||(!run.hold&&gallery?gallery.current:null);   // late joiner reveals for himself; a fresh share waits for the presenter
-        if(show) showGalleryItem(show);
-      }).catch(function(){ if(!run.cancelled){ run.active=false; if(run.watch) clearInterval(run.watch); hideXfer(); toast(tr("xfer_fail"),8000); } });
+        function finish(){
+          if(run.cancelled) return; if(run.streamOnly&&!swControlled){ failGalleryTransfer(run); return; }
+          maybeReady(); run.active=false; if(run.watch) clearInterval(run.watch); report(true); rtSend({type:"gallery-done",streaming:run.streamOnly}); hideXfer();
+          var show=run.pendingShow||(!run.hold&&gallery?gallery.current:null); if(show&&galleryPlayable(show)) showGalleryItem(show);
+        }
+        if(run.streamOnly&&!swControlled){ var until=Date.now()+5000, poll=setInterval(function(){ if(run.cancelled){ clearInterval(poll); return; } if(swControlled||Date.now()>=until){ clearInterval(poll); finish(); } },200); }
+        else finish();
+      }).catch(function(err){ if(!run.cancelled) failGalleryTransfer(run); });
     }
+    function toggleGalleryTransfer(){
+      var run=galleryXfer; if(!run||!run.active||run.failed) return; run.paused=!run.paused; run.lastProgress=Date.now(); if(!run.paused) releasePauseWaiters(run); showXfer(tr(run.paused?"xfer_paused":"xfer_recv2").replace("{p}",String(run.lastPct||0)),run.lastPct||0,"",{pause:true,paused:run.paused}); rtSend({type:"gallery-prog",pct:run.lastPct||0,paused:run.paused});
+    }
+    function retryGalleryTransfer(){ if(!gallery||amPresenter()) return; var old=galleryXfer; prefetchGallery(old?old.hold:false,old?old.pendingShow:null); }
+    if(xferPauseEl) xferPauseEl.addEventListener("click",toggleGalleryTransfer);
+    if(xferRetryEl) xferRetryEl.addEventListener("click",retryGalleryTransfer);
     function presCheckDone(){
       if(!presWait) return;
+      var ready=presWait.need.every(function(pid){ return presWait.ready[pid]||presWait.done[pid]; });
+      if(ready&&!presWait.revealed){ presWait.revealed=true; if(gallery&&gallery.items.length) presenterShow(gallery.current||gallery.items[0].fileId); toast(tr("xfer_ready"),3500); }
       var open=presWait.need.filter(function(pid){ return !presWait.done[pid]; });
-      if(!open.length){ presReveal(true); return; }
-      var pcts=presWait.need.map(function(pid){ return presWait.done[pid]?100:(presWait.pct[pid]||0); });
-      showXfer(tr("xfer_send").replace("{p}", String(Math.min.apply(null,pcts))));
+      if(!open.length){ var streamed=presWait.need.some(function(pid){ return presWait.streaming[pid]; }); if(presWait.timer) clearTimeout(presWait.timer); presWait=null; hideXfer(); toast(tr(streamed?"xfer_streaming":"xfer_ok"),4500); return; }
+      var slow=open[0]; open.forEach(function(pid){ if((presWait.pct[pid]||0)<(presWait.pct[slow]||0)) slow=pid; });
+      var pct=presWait.pct[slow]||0, meta=""; if(presWait.speed[slow]) meta=presWait.eta[slow]?tr("xfer_left").replace("{speed}",fmtRate(presWait.speed[slow])).replace("{eta}",fmtEta(presWait.eta[slow])):fmtRate(presWait.speed[slow]);
+      if(presWait.failed[slow]) showXfer(tr("xfer_failed_short"),pct,tr("xfer_timeout"),{failed:true});
+      else if(presWait.paused[slow]) showXfer(tr("xfer_paused").replace("{p}",String(pct)),pct,"",{paused:true});
+      else showXfer(tr("xfer_send2").replace("{p}",String(pct)),pct,meta,{});
     }
-    function presReveal(ok){
-      if(!presWait) return;
-      var everyone=presWait.need.every(function(pid){ return presWait.done[pid]; });
-      clearTimeout(presWait.timer); presWait=null; hideXfer();
-      if(gallery&&gallery.items.length) presenterShow(gallery.current||gallery.items[0].fileId);
-      if(ok!==false && everyone) toast(tr("xfer_ok"),4000);          // confirmed by every viewer → honestly "shared"
-      else toast(tr("xfer_timeout"),8000);                            // gave up waiting → be honest that not everyone got it
-    }
+    function presStartupTimeout(){ if(!presWait) return; if(!presWait.revealed&&gallery&&gallery.items.length){ presWait.revealed=true; presenterShow(gallery.current||gallery.items[0].fileId); } toast(tr("xfer_timeout"),8000); presWait.timer=null; presCheckDone(); }
     function presWaitPeerLeft(pid){ if(!presWait) return; presWait.need=presWait.need.filter(function(x){ return x!==pid; }); presCheckDone(); }
     function renderStrip(){
       if(!gstrip) return; gstrip.innerHTML="";
       if(!gallery) return;
       gallery.items.forEach(function(it){
-        var d=document.createElement("div"); d.className="gthumb"+(gallery.current===it.fileId?" cur":"");
+        var d=document.createElement("button"); d.type="button"; d.className="gthumb"+(gallery.current===it.fileId?" cur":""); d.setAttribute("aria-label",tr("shared_item_a").replace("{n}",it.name||it.fileId));
         var ic=document.createElement("span"); ic.className="gi"; ic.textContent=(it.type==="image")?"\uD83D\uDDBC":"\uD83C\uDFAC"; d.appendChild(ic);
         var s=document.createElement("span"); s.textContent=it.name||it.fileId; s.style.overflow="hidden"; s.style.textOverflow="ellipsis"; d.appendChild(s);
         d.addEventListener("click", function(){ requestShow(it.fileId); });   // everyone may browse \u2014 the room follows along
@@ -2137,7 +2368,7 @@
     function requestShow(fileId){
       if(!gallery) return;
       if(amPresenter()){ presenterShow(fileId); return; }
-      if(galleryXfer&&galleryXfer.active) return;   // still receiving \u2014 the progress pill explains why
+      if(galleryXfer&&galleryXfer.active&&!galleryPlayable(fileId)) return;   // unbuffered item is not ready yet
       showGalleryItem(fileId);
       rtSend({type:"gallery-show",fileId:fileId});
     }
@@ -2171,25 +2402,26 @@
       var items=[], i;
       for(i=0;i<list.length;i++){ var e=list[i], f=e.blob; var id="f"+rand5()+rand5(); myFiles[id]=f; try{ localURLs[id]=URL.createObjectURL(f); }catch(ex){} items.push({fileId:id,name:(e.name||id).slice(0,120),type:(e.mime&&e.mime.indexOf("image/")===0)?"image":"video",size:f.size,mime:e.mime}); }
       gallery={presenter:myPeerId, items:items, current:items[0].fileId};
-      rtSend({type:"gallery", presenter:myPeerId, items:items, current:items[0].fileId, hold:true});   // hold: viewers reveal only when everyone is at 100%
+      rtSend({type:"gallery", presenter:myPeerId, items:items, current:items[0].fileId, hold:true});   // hold: viewers build a start buffer before the synchronized reveal
       openGalleryUI();
       var receivers=Object.keys(peers);
       if(!receivers.length){ showGalleryItem(items[0].fileId); toast(tr("xfer_alone"),5000); }   // no-one to send to yet — it's ready for whoever joins
       else {
-        presWait={ need:receivers, done:{}, pct:{}, timer:setTimeout(function(){ presReveal(false); },90000) };   // give up after 90s and be honest
-        showXfer(tr("xfer_send").replace("{p}","0"));
+        presWait={need:receivers,ready:{},done:{},streaming:{},failed:{},paused:{},pct:{},speed:{},eta:{},revealed:false,timer:setTimeout(presStartupTimeout,90000)};
+        showXfer(tr("xfer_send2").replace("{p}","0"),0,"",{});
       }
-      // NOTE: no "shared" toast here — we only confirm once viewers actually have it (presReveal)
+      // NOTE: no "shared" toast here — confirmation waits for a real viewer readiness/done acknowledgement
       if(shareMode) updateCompanionShared(items);
     }
     function stopSharing(){ if(!amPresenter()) return; rtSend({type:"gallery-clear"}); teardownGallery(); }
+    function clearGalleryPartCache(){ galleryParts={}; }
     function teardownGallery(){
       Object.keys(localURLs).forEach(function(id){ try{ URL.revokeObjectURL(localURLs[id]); }catch(e){} });
-      if(galleryXfer){ galleryXfer.cancelled=true; galleryXfer=null; }
+      if(galleryXfer){ galleryXfer.cancelled=true; if(galleryXfer.watch) clearInterval(galleryXfer.watch); releasePauseWaiters(galleryXfer,new Error("share-ended")); galleryXfer=null; }
       if(presWait){ clearTimeout(presWait.timer); presWait=null; }
       hideXfer();
       Object.keys(galleryBlobs).forEach(function(id){ try{ URL.revokeObjectURL(galleryBlobs[id]); }catch(e){} });
-      galleryBlobs={};
+      galleryBlobs={}; clearGalleryPartCache();
       localURLs={}; myFiles={}; gallery=null; closeGalleryUI();
       if(galleryImg){ galleryImg.style.display="none"; try{ galleryImg.removeAttribute("src"); }catch(e){} }
       if(mode==="gallery-image"||mode==="file"){ clearPlayers(); placeholder.style.display=""; mode="none"; }
@@ -2197,10 +2429,10 @@
     }
     /* viewer-side teardown (presenter keeps its own localURLs/myFiles via teardownGallery) */
     function galleryClearLocal(){
-      if(galleryXfer){ galleryXfer.cancelled=true; galleryXfer=null; }
+      if(galleryXfer){ galleryXfer.cancelled=true; if(galleryXfer.watch) clearInterval(galleryXfer.watch); releasePauseWaiters(galleryXfer,new Error("share-ended")); galleryXfer=null; }
       hideXfer();
       Object.keys(galleryBlobs).forEach(function(id){ try{ URL.revokeObjectURL(galleryBlobs[id]); }catch(e){} });
-      galleryBlobs={}; gallery=null; closeGalleryUI();
+      galleryBlobs={}; clearGalleryPartCache(); gallery=null; closeGalleryUI();
       if(galleryImg){ galleryImg.style.display="none"; try{ galleryImg.removeAttribute("src"); }catch(e){} }
       if(mode==="gallery-image"||mode==="file"){ clearPlayers(); placeholder.style.display=""; mode="none"; }
       if(typeof updateRoomView==="function") updateRoomView(); renderCams();
@@ -2208,11 +2440,12 @@
     /* presenter left (e.g. phone locked): keep whatever was FULLY transferred, drop the rest — so the laptop
        keeps showing the uploaded photos/videos even though the phone is gone */
     function orphanGallery(){
-      if(galleryXfer){ galleryXfer.cancelled=true; galleryXfer=null; }
+      if(galleryXfer){ galleryXfer.cancelled=true; if(galleryXfer.watch) clearInterval(galleryXfer.watch); releasePauseWaiters(galleryXfer,new Error("presenter-left")); galleryXfer=null; }
       hideXfer();
       if(!gallery){ return; }
       var kept=gallery.items.filter(function(it){ return galleryBlobs[it.fileId]; });
       if(!kept.length){ galleryClearLocal(); return; }              // nothing finished downloading → nothing to keep
+      clearGalleryPartCache();
       gallery.items=kept; gallery.presenter=null;                    // orphaned: plays from local blobs, no presenter needed
       if(!gallery.current || !galleryBlobs[gallery.current]) gallery.current=kept[0].fileId;
       openGalleryUI(); showGalleryItem(gallery.current);
@@ -2222,21 +2455,24 @@
     function galleryRT(m){
       if(m.type==="gallery"){
         if(m.presenter===myPeerId) return true;
+        if(gallery){ if(amPresenter()) teardownGallery(); else galleryClearLocal(); }
         gallery={presenter:m.presenter, items:(m.items||[]), current:m.current||((m.items&&m.items[0])?m.items[0].fileId:null)};
         ensureData(m.presenter);
         var who=(peers[m.presenter]&&peers[m.presenter].name)||tr("others");
         toast(who+" "+tr("someone_sharing")+".",6000);
         openGalleryUI();
-        prefetchGallery(!!m.hold);   // copy everything over first (progress + resume); reveal follows
+        prefetchGallery(!!m.hold);   // video reveals after its start buffer; the remaining transfer continues
         return true;
       }
       if(m.type==="gallery-show"){
         if(!gallery) return true;
-        if(galleryXfer&&galleryXfer.active){ galleryXfer.pendingShow=m.fileId; gallery.current=m.fileId; renderStrip(); return true; }   // still receiving → remember, reveal at 100%
+        if(galleryXfer&&galleryXfer.active&&!galleryPlayable(m.fileId)){ galleryXfer.pendingShow=m.fileId; gallery.current=m.fileId; renderStrip(); return true; }
         showGalleryItem(m.fileId); return true;
       }
-      if(m.type==="gallery-prog"){ if(presWait&&m.from){ presWait.pct[m.from]=m.pct||0; presCheckDone(); } return true; }
-      if(m.type==="gallery-done"){ if(presWait&&m.from){ presWait.done[m.from]=true; presCheckDone(); } return true; }
+      if(m.type==="gallery-prog"){ if(presWait&&m.from){ presWait.pct[m.from]=m.pct||0; presWait.speed[m.from]=m.speed||0; presWait.eta[m.from]=m.eta||0; presWait.paused[m.from]=!!m.paused; delete presWait.failed[m.from]; presCheckDone(); } return true; }
+      if(m.type==="gallery-ready"){ if(presWait&&m.from){ presWait.ready[m.from]=true; presCheckDone(); } return true; }
+      if(m.type==="gallery-done"){ if(presWait&&m.from){ presWait.done[m.from]=true; presWait.ready[m.from]=true; presWait.streaming[m.from]=!!m.streaming; presWait.paused[m.from]=false; presWait.pct[m.from]=100; presCheckDone(); } return true; }
+      if(m.type==="gallery-fail"){ if(presWait&&m.from){ presWait.failed[m.from]=true; presCheckDone(); } return true; }
       if(m.type==="gallery-clear"){ if(!amPresenter()){ if(m.gone) orphanGallery(); else galleryClearLocal(); } return true; }
       return false;
     }
@@ -2255,17 +2491,17 @@
     function screenSupported(){ return !shareMode && navigator.mediaDevices && !!navigator.mediaDevices.getDisplayMedia; }
     function nameOf(pid){ return (peers[pid]&&peers[pid].name)||tr("others"); }
     function showScreen(stream, pid){
-      if(gallery){ if(amPresenter()) stopSharing(); else { gallery=null; closeGalleryUI(); } }
+      if(gallery){ if(amPresenter()) stopSharing(); else galleryClearLocal(); }
       clearPlayers(); setEmbedUI(false);
       mode="screen"; screenPresenter=pid||null; currentMedia=null; placeholder.style.display="none";
-      if(screenVideo){ try{ screenVideo.srcObject=stream; }catch(e){} screenVideo.muted=(pid===myPeerId); screenVideo.style.display="block"; var p=screenVideo.play&&screenVideo.play(); if(p&&p.catch) p.catch(function(){}); }
+      if(screenVideo){ try{ screenVideo.srcObject=stream; }catch(e){} screenVideo.muted=(pid===myPeerId); screenVideo.style.display="block"; var p=screenVideo.play&&screenVideo.play(); if(p&&p.then) p.then(updateWakeLock); if(p&&p.catch) p.catch(function(){}); }
       updateStageChrome(); if(typeof updateRoomView==="function") updateRoomView(); renderCams();
     }
     function clearScreenStage(){
       if(screenVideo){ try{ screenVideo.srcObject=null; }catch(e){} screenVideo.style.display="none"; }
       if(mode==="screen"){ mode="none"; placeholder.style.display=""; }
       screenPresenter=null;
-      updateStageChrome(); if(typeof updateRoomView==="function") updateRoomView(); renderCams(); updateScreenBtn();
+      updateStageChrome(); updateWakeLock(); if(typeof updateRoomView==="function") updateRoomView(); renderCams(); updateScreenBtn();
     }
     function callScreen(pid){ if(!screenStream||!pid||pid===myPeerId||!peer) return; try{ var c=peer.call(pid, screenStream, { metadata:{ kind:"screen" } }); if(c) screenOut[pid]=c; }catch(e){} }
     function wireScreenIn(call){
@@ -2726,9 +2962,11 @@
       setText("ld_rooms_title", tr("my_rooms_title"));
       list.forEach(function(r){
         var chip=document.createElement("div"); chip.className="l-room-chip";
-        var label=document.createElement("span"); label.textContent="🛋️ "+r.code; chip.appendChild(label);
-        var x=document.createElement("span"); x.className="rm"; x.textContent="×"; x.title="Remove"; x.addEventListener("click", function(e){ e.stopPropagation(); removeMyRoom(r.code); }); chip.appendChild(x);
-        chip.addEventListener("click", function(){ if(requireName()) goToRoom(r.code); });
+        var open=document.createElement("button"); open.type="button"; open.className="rc-open"; open.textContent="🛋️ "+r.code; open.setAttribute("aria-label",tr("open_room_a").replace("{c}",r.code));
+        open.addEventListener("click", function(){ if(requireName()) goToRoom(r.code); });
+        var x=document.createElement("button"); x.type="button"; x.className="rm"; x.textContent="×"; x.title=tr("rc_remove").replace("{c}",r.code); x.setAttribute("aria-label",tr("rc_remove").replace("{c}",r.code));
+        x.addEventListener("click", function(e){ e.stopPropagation(); removeMyRoom(r.code); });
+        chip.appendChild(open); chip.appendChild(x);
         box.appendChild(chip);
       });
       sec.style.display="";
@@ -2744,7 +2982,17 @@
         startVAD(); startPeer();
       });
     }
-    function requireName(){ var nm=(ldName&&ldName.value||"").trim(); if(nm){ myName=nm.slice(0,40); try{ localStorage.setItem("wmt_name",myName); }catch(e){} } else { myName=tr("guest")||"Guest"; } return myName; }   // name is genuinely optional — never block the flow
+    function setNameError(msg){
+      var el=$("ld_name_error"); if(el) el.textContent=msg||"";
+      if(ldName) ldName.setAttribute("aria-invalid",msg?"true":"false");
+    }
+    function requireName(){
+      var nm=(ldName&&ldName.value||"").trim();
+      if(!nm){ myName=""; setNameError(tr("name_required")); if(ldName) ldName.focus(); return false; }
+      setNameError(""); myName=nm.slice(0,40);
+      try{ localStorage.setItem("wmt_name",myName); }catch(e){}
+      return true;
+    }
     function goToRoom(code){ roomCode=code; params.set("room",roomCode); history.replaceState(null,"",location.pathname+"?"+params.toString()); if(landing) landing.classList.remove("show"); boot(); }
     function showEl(id,on){ var e=$(id); if(e) e.style.display=on?"":"none"; }
     function setupLanding(mode){
@@ -2758,6 +3006,8 @@
       setTimeout(function(){ if(ldName) ldName.focus(); },50);
     }
     if($("ld_create")) $("ld_create").addEventListener("click", function(){ if(!requireName()) return; goToRoom(rand5()+rand5()); });
+    if(ldName) ldName.addEventListener("input", function(){ if((ldName.value||"").trim()) setNameError(""); });
+    if(ldName) ldName.addEventListener("keydown", function(e){ if(e.key!=="Enter") return; e.preventDefault(); var jr=$("ld_joinrow"), b=(landingMode==="join")?$("ld_joinbtn"):((jr&&jr.style.display!=="none")?$("ld_join"):$("ld_create")); if(b) b.click(); });
     // the same field joins an existing room OR creates one with your own name (a fresh name simply becomes a new room)
     function slugRoom(s){ return (s||"").trim().toLowerCase().replace(/\s+/g,"-").replace(/[^a-z0-9\-_]/g,"").slice(0,40); }
     if($("ld_or")) $("ld_or").addEventListener("click", function(){ var r=$("ld_joinrow"); if(!r) return; var open=r.style.display!=="none"; r.style.display=open?"none":"flex"; if(!open) setTimeout(function(){ if($("ld_code")) $("ld_code").focus(); },50); });

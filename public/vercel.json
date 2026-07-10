@@ -2,6 +2,12 @@
   "redirects": [
     {
       "source": "/:path*",
+      "has": [{ "type": "host", "value": "www.samecouch.com" }],
+      "destination": "https://samecouch.com/:path*",
+      "permanent": true
+    },
+    {
+      "source": "/:path*",
       "has": [{ "type": "host", "value": "watchmovietogether.com" }],
       "destination": "https://samecouch.com/:path*",
       "permanent": true
