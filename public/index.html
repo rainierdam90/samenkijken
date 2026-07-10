@@ -644,6 +644,9 @@
   .stage.fs-controls-idle:fullscreen,
   .stage.fs-controls-idle:-webkit-full-screen{cursor:none}
   @media (max-width:760px){ .stage.file-mode .floatctrls{ bottom:calc(62px + env(safe-area-inset-bottom)); border-radius:16px } }
+  /* subtitles: smaller, high-contrast box, lifted off the very bottom (cue line is set to 84% in JS) so it never gets cut off or hidden behind the controls */
+  video#movie::cue{ font-size:.78em; line-height:1.3; background:rgba(8,6,12,.72); color:#fff; text-shadow:0 1px 3px rgba(0,0,0,.9) }
+  @media (max-width:760px){ video#movie::cue{ font-size:.9em } }
 
   /* mobile: collapse the action controls behind a menu toggle so content gets the screen */
   .bar-toggle{ display:none }
@@ -1786,9 +1789,12 @@
       if(subtitleOffsetEl){ subtitleOffsetEl.textContent=label; setTitle("subtitleOffset",tr("sub_offset").replace("{n}",label)+" — "+tr("sub_reset")); }
       setTitle("subtitleEarlier",tr("sub_earlier")); setTitle("subtitleLater",tr("sub_later")); setTitle("subtitleReplace",tr("sub_replace_short"));
     }
+    /* lift cues off the very bottom edge (and clear of the controls) by giving each cue a line: setting if it lacks one */
+    function liftVttCues(vtt){ return String(vtt||"").replace(/^([^\n]*-->[^\n]*)$/gm, function(line){ return /\bline:/.test(line) ? line : line.replace(/\s+$/,"")+" line:84% align:center"; }); }
     function renderSubtitleTrack(){
       removeSubtitleTrack(); if(!currentSubtitle) return false;
       var rendered=currentSubtitle.vtt; if(window.SameCouchSubtitles&&window.SameCouchSubtitles.shiftWebVtt) rendered=window.SameCouchSubtitles.shiftWebVtt(rendered,subtitleOffset);
+      rendered=liftVttCues(rendered);
       try{
         subtitleObjectUrl=URL.createObjectURL(new Blob([rendered],{type:"text/vtt"}));
         var track=document.createElement("track"); track.kind="subtitles"; track.label=currentSubtitle.name; track.srclang=currentSubtitle.lang; track.src=subtitleObjectUrl; track.default=true; track.setAttribute("data-samecouch","1");
@@ -2145,7 +2151,11 @@
       if(stageIsFullscreen()) fullscreenControlsTimer=setTimeout(hideFullscreenControls,2500);
     }
     function fullscreenStateChanged(){
-      if(stageIsFullscreen()) showFullscreenControls();
+      if(stageIsFullscreen()){
+        // the fullscreen button keeps focus after the click; that made "engaged" always true so the bar never auto-hid → blur it
+        try{ if(document.activeElement&&floatctrls&&floatctrls.contains(document.activeElement)) document.activeElement.blur(); }catch(e){}
+        showFullscreenControls();
+      }
       else{ clearTimeout(fullscreenControlsTimer); fullscreenControlsTimer=null; stage.classList.remove("fs-controls-idle"); }
     }
     ["mousemove","pointerdown","touchstart"].forEach(function(ev){ stage.addEventListener(ev,showFullscreenControls,{passive:true}); });
@@ -2425,20 +2435,37 @@
       items.forEach(function(it){
         seq=seq.then(function(){
           if(run.cancelled) throw new Error("cancelled");
-          var state=partState(it), limit=transferLimit(it), pos=Math.min(state.received,limit);
-          function next(){
-            if(run.cancelled) throw new Error("cancelled");
-            if(pos>=limit){
-              if(limit===it.size&&!state.complete){ state.complete=true; try{ galleryBlobs[it.fileId]=URL.createObjectURL(new Blob(state.parts,{type:it.mime||""})); }catch(e){} }
-              maybeReady(); return;
+          var state=partState(it), limit=transferLimit(it);
+          var chunkCount=Math.ceil(limit/XFER_CHUNK), W=8;   // keep up to 8 chunks in flight → fills a high-latency relay pipe instead of stalling one round-trip at a time
+          function advance(){ var ci=Math.floor(state.received/XFER_CHUNK); while(state.parts[ci]&&ci*XFER_CHUNK===state.received){ state.received+=state.parts[ci].byteLength; ci++; } }   // move the contiguous high-water mark forward over whatever arrived
+          advance(); report(true);
+          return new Promise(function(resolve,reject){
+            var idx=0, inflight=0, settled=false;
+            function done(){ if(settled) return; settled=true; if(limit===it.size&&!state.complete){ state.complete=true; try{ galleryBlobs[it.fileId]=URL.createObjectURL(new Blob(state.parts,{type:it.mime||""})); }catch(e){} } maybeReady(); resolve(); }
+            function fail(err){ if(settled) return; settled=true; reject(err); }
+            function pump(){
+              if(settled) return;
+              if(run.cancelled) return fail(new Error("cancelled"));
+              while(inflight<W && idx<chunkCount){
+                while(idx<chunkCount && state.parts[idx]) idx++;   // skip chunks already cached (resume)
+                if(idx>=chunkCount) break;
+                var ci=idx++, start=ci*XFER_CHUNK, end=Math.min(start+XFER_CHUNK,limit)-1;
+                inflight++;
+                (function(ci,start,end){
+                  fetchChunk(it.fileId,start,end,0).then(function(buf){
+                    if(settled) return; if(run.cancelled) return fail(new Error("cancelled"));
+                    var ab=toArrayBuffer(buf), expected=end-start+1; if(!ab||ab.byteLength!==expected) return fail(new Error("short-range"));
+                    state.parts[ci]=ab; advance(); run.lastProgress=Date.now(); report(false);
+                    inflight--;
+                    if(idx>=chunkCount && inflight===0) return done();
+                    pump();
+                  }).catch(fail);
+                })(ci,start,end);
+              }
+              if(idx>=chunkCount && inflight===0) done();
             }
-            var end=Math.min(pos+XFER_CHUNK,limit)-1, chunkIndex=Math.floor(pos/XFER_CHUNK);
-            return fetchChunk(it.fileId,pos,end,0).then(function(buf){
-              if(run.cancelled) throw new Error("cancelled"); var ab=toArrayBuffer(buf), expected=end-pos+1; if(!ab||ab.byteLength!==expected) throw new Error("short-range");
-              state.parts[chunkIndex]=ab; pos=end+1; state.received=Math.max(state.received,pos); run.lastProgress=Date.now(); report(false); return next();
-            });
-          }
-          report(true); return next();
+            pump();
+          });
         });
       });
       seq.then(function(){
