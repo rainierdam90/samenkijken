@@ -105,7 +105,7 @@ const CSP = [
   "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
   "font-src 'self' https://fonts.gstatic.com data:",
   "img-src 'self' data: blob: https:",
-  "media-src 'self' blob: data: mediastream:",
+  "media-src 'self' blob: data: mediastream: https://turn.watchmovietogether.com:8443",   // our own VPS media server (nginx on 8443; coturn owns 443)
   "connect-src 'self' https://watchmovietogether-j59u.onrender.com wss://watchmovietogether-j59u.onrender.com",
   "frame-src 'self' https:",
   "worker-src 'self' blob:",
