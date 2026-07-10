@@ -3,6 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<script>/* pre-paint: decide landing vs room BEFORE the body renders, so the room UI never flashes on the home page */try{var _q=new URLSearchParams(location.search);if(_q.get("room")&&(_q.get("share")==="1"||localStorage.getItem("wmt_name")))document.documentElement.setAttribute("data-skip-landing","1");}catch(e){}</script>
 <title>SameCouch — be together, even when you're apart</title>
 <meta name="description" content="A private living room for you and the people back home. Watch YouTube and home videos together in perfect sync, see each other live, and leave photos and notes on your shared wall. No app, no sign-up — just send a link." />
 <link rel="canonical" href="https://samecouch.com/" />
@@ -223,6 +224,7 @@
   .landing{position:fixed; inset:0; z-index:200; display:none; flex-direction:column; align-items:center; justify-content:center; justify-content:safe center; padding:28px; text-align:center;
     background:radial-gradient(1000px 600px at 50% -100px, rgba(244,177,74,.14), transparent 60%), var(--bg); overflow:auto}
   .landing.show{display:flex}
+  html[data-skip-landing] .landing{display:none!important}   /* room link with a saved name (or companion) → straight to the room, no landing flash */
   .landing > *{flex-shrink:0}
   .landing .lang-top{position:absolute; top:16px; right:16px}
   .landing .l-brand{display:flex; align-items:center; gap:12px; margin-bottom:18px}
@@ -658,7 +660,7 @@
 <body>
   <div class="grain" aria-hidden="true"></div>
 
-  <div class="landing" id="landing">
+  <div class="landing show" id="landing">
     <div class="lang-top"><select class="lang" id="langSelL"></select></div>
     <div class="l-brand"><svg class="couchmark" viewBox="0 0 48 48" aria-hidden="true"><rect x="10" y="13" width="28" height="13" rx="5" fill="#ffcf86"/><rect x="6" y="20" width="8" height="13" rx="4" fill="#f4b14a"/><rect x="34" y="20" width="8" height="13" rx="4" fill="#f4b14a"/><rect x="10" y="22" width="28" height="11" rx="4" fill="#f4b14a"/><rect x="11" y="33" width="4" height="5" rx="2" fill="#b9792a"/><rect x="33" y="33" width="4" height="5" rx="2" fill="#b9792a"/></svg><b>Same<i>Couch</i></b></div>
     <h1 id="ld_tagline">Watch any movie together — in sync, face to face.</h1>
