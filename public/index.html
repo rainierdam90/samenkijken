@@ -760,11 +760,15 @@
      original stylesheet still supplies a narrower `max-width` and a `display:flex` for the
      same elements — so without these the landing renders far narrower than designed and the
      "grid" columns never take effect. */
-  .landing p.sub{max-width:700px}
+  .landing p.sub{max-width:700px;margin-left:auto;margin-right:auto}
   .l-name,.landing .l-actions .btn{max-width:430px}
   .l-usecases,.l-how{display:grid;max-width:none}
   .uc,.l-how .hw{max-width:none}
   .l-faq{max-width:840px}
+  /* the landing is `align-items:stretch` now, so blocks that used to be centred by the
+     flex container need their own auto margins */
+  .l-rooms{margin-left:auto;margin-right:auto}
+  .l-rooms-title{text-align:center}
 
   @media(max-width:760px){
     /* keep the two touch-size guarantees the original stylesheet made here */
