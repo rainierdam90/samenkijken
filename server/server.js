@@ -449,6 +449,27 @@ function frameBlockingHeaders(headers) {
   if (m && !/(^|\s)(\*|https?:)(\s|$)/.test(m[1].trim().toLowerCase())) return true;   // only wildcard policies can frame us
   return false;
 }
+/* Mirror of the front-end's link detection. Once a redirect lands on something the room can play
+   itself, stop and report that URL: fetching it adds nothing, and YouTube answers datacenter IPs
+   (Render) with a "sorry" CAPTCHA page, which would otherwise hide the real destination. */
+function playableVideoUrl(raw) {
+  let u; try { u = new URL(raw); } catch (_) { return false; }
+  const host = u.hostname.replace(/^www\.|^m\./, "").toLowerCase();
+  if (host === "youtu.be" || host === "youtube.com" || host === "music.youtube.com" || host === "youtube-nocookie.com") return true;
+  if (host === "vimeo.com" || host === "player.vimeo.com") return true;
+  return /\.(mp4|webm|ogg|ogv|m4v|mov|mkv)(?:$|[?#])/i.test(u.pathname);
+}
+/* if we still ended up on a Google interstitial ("sorry"/captcha, or a /url wrapper), the real target is in the query */
+function unwrapGoogleInterstitial(raw) {
+  try {
+    const u = new URL(raw), host = u.hostname.replace(/^www\./, "").toLowerCase();
+    if (host === "google.com" || /\.google\.com$/.test(host)) {
+      const target = u.searchParams.get("continue") || u.searchParams.get("url") || u.searchParams.get("q");
+      if (target && /^https?:\/\//i.test(target)) return target;
+    }
+  } catch (_) {}
+  return raw;
+}
 function htmlRedirectTarget(body, baseUrl) {
   let m = body.match(/<meta[^>]+http-equiv=["']?refresh["']?[^>]*content=["']?[^"'>]*url\s*=\s*([^"'>\s]+)/i);
   if (!m) m = body.match(/(?:location\.href|location\.replace\(|window\.location(?:\.href)?)\s*[=(]\s*["'](https?:\/\/[^"']+)["']/i);
@@ -472,6 +493,7 @@ function fetchEmbedHead(raw, hops) {
       if (status >= 300 && status < 400 && response.headers.location) {
         const next = new URL(response.headers.location, target.url).toString();
         response.resume();
+        if (playableVideoUrl(next)) { resolve({ finalUrl: next, status, blocked: false }); return; }   // wrapper → real video: done, the room plays it natively
         resolve(fetchEmbedHead(next, hops + 1));
         return;
       }
@@ -484,7 +506,8 @@ function fetchEmbedHead(raw, hops) {
         const finish = () => {
           if (done) return; done = true; clearTimeout(timer); response.destroy();
           const jump = htmlRedirectTarget(body, target.url);
-          if (jump && jump !== summary.finalUrl) resolve(fetchEmbedHead(jump, hops + 1).catch(() => summary));
+          if (jump && playableVideoUrl(jump)) resolve({ finalUrl: jump, status, blocked: false });
+          else if (jump && jump !== summary.finalUrl) resolve(fetchEmbedHead(jump, hops + 1).catch(() => summary));
           else resolve(summary);
         };
         response.on("data", chunk => { body += String(chunk); if (body.length > 96 * 1024) finish(); });
@@ -504,7 +527,8 @@ app.get("/embed-check", async (req, res) => {
   const ip = clientIp(req); if (!embedCheckLimiter(ip)) return tooMany(res);
   try {
     const out = await fetchEmbedHead(req.query.url);
-    res.json({ ok: true, finalUrl: out.finalUrl, status: out.status, blocked: !!out.blocked });
+    const finalUrl = unwrapGoogleInterstitial(out.finalUrl);
+    res.json({ ok: true, finalUrl, status: out.status, blocked: finalUrl === out.finalUrl && !!out.blocked });
   } catch (error) { res.json({ ok: false, error: (error && error.code) || "probe_failed" }); }
 });
 
