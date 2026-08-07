@@ -776,6 +776,8 @@ function leaveRoom(ws) {
 }
 
 const MSG = { JOIN: "join", LEAVE: "leave", CHAT: "chat", SYNC: "sync", TALKING: "talking", VIDEO: "video", REACT: "reaction" };
+/* modes that can carry room-shared subtitles: native players use a <track>, embedded sites get an overlay the client draws itself */
+const SUBTITLE_MODES = new Set(["file", "mkv", "embed"]);
 const REACTIONS = ["❤️", "😂", "😮", "😢", "🔥", "👏", "👍", "🎉"];   // server validates emoji to keep the channel clean
 
 wss.on("connection", (ws) => {
@@ -856,7 +858,13 @@ wss.on("connection", (ws) => {
       if (r.gallery && r.gallery.items.length) sendJSON(ws, { type: "gallery", presenter: r.gallery.presenter, items: r.gallery.items, current: r.gallery.current });
       else if (r.media && r.media.url) {
         sendJSON(ws, { type: "video", from: "", mode: r.media.mode, url: r.media.url, id: r.media.id });   // replay the active link to (re)joiners
-        if (r.subtitle && r.subtitle.url === r.media.url) sendJSON(ws, { type: "subtitle", ...r.subtitle });
+        if (r.subtitle && r.subtitle.url === r.media.url) {
+          sendJSON(ws, { type: "subtitle", ...r.subtitle });
+          if (r.subclock && r.subclock.started) {                       // hand a late joiner the running subtitle clock
+            const elapsed = r.subclock.running ? Math.max(0, Date.now() - r.subclock.at) / 1000 : 0;
+            sendJSON(ws, { type: "subclock", started: true, running: r.subclock.running, base: Math.max(0, r.subclock.base + elapsed) });
+          }
+        }
       }
       pushStats();
       return;
@@ -921,6 +929,12 @@ wss.on("connection", (ws) => {
 
     if (m.type === MSG.SYNC) {
       if (m.kind === "play" && !r.played) { r.played = true; metrics.firstPlays++; }   // first time this room starts playing
+      /* the countdown is what starts an embedded film — remember when its "NOW" lands so a late
+         joiner's subtitle overlay can pick the clock up mid-film instead of staying blank */
+      if (m.kind === "countdown" && r.media && r.media.mode === "embed" && r.subtitle) {
+        const secs = Math.min(10, Math.max(0, Number(m.time) || 3));
+        r.subclock = { started: true, running: true, base: 0, at: Date.now() + secs * 1000 };
+      }
       broadcastRoom(r, { type: "sync", from: ws._peerId, kind: m.kind, time: m.time, playing: m.playing }, ws);
       return;
     }
@@ -993,7 +1007,7 @@ wss.on("connection", (ws) => {
       const mode = String(m.mode || "").slice(0, 16);
       const url = String(m.url || "").slice(0, 2000);
       const id = String(m.id || "").slice(0, 64);
-      if (!r.media || r.media.url !== url || (mode !== "file" && mode !== "mkv")) r.subtitle = null;
+      if (!r.media || r.media.url !== url || !SUBTITLE_MODES.has(mode)) { r.subtitle = null; r.subclock = null; }
       r.media = url ? { mode, url, id } : null;   // remember what's playing → replay to (re)joiners so a missed link never stays blank
       broadcastRoom(r, { type: "video", from: ws._peerId, mode, url, id }, ws);
       return;
@@ -1002,12 +1016,24 @@ wss.on("connection", (ws) => {
     /* SRT is converted to WebVTT in the browser and kept with the active direct-video URL.
        The text-only payload is capped so a subtitle cannot become a general file-upload route. */
     if (m.type === "subtitle") {
-      if (!r.media || (r.media.mode !== "file" && r.media.mode !== "mkv")) return;
+      if (!r.media || !SUBTITLE_MODES.has(r.media.mode)) return;
       const url = String(m.url || "").slice(0, 2000);
       const vtt = String(m.vtt || "");
       if (url !== r.media.url || vtt.length < 12 || vtt.length > 600 * 1024 || !/^WEBVTT(?:\s|$)/.test(vtt) || !vtt.includes("-->")) return;
       r.subtitle = { url, name: String(m.name || "subtitles.srt").slice(0, 120), lang: String(m.lang || "und").replace(/[^a-zA-Z0-9-]/g, "").slice(0, 12) || "und", vtt };
+      r.subclock = null;   // a fresh subtitle file starts unplayed; the countdown starts its clock
       broadcastRoom(r, { type: "subtitle", ...r.subtitle }, ws);
+      return;
+    }
+
+    /* Embedded sites play in a cross-origin iframe, so subtitles ride our own clock: relay where
+       that clock stands (started at the countdown, paused/resumed by hand) to the rest of the room. */
+    if (m.type === "subclock") {
+      if (!r.media || r.media.mode !== "embed" || !r.subtitle) return;
+      const base = Math.min(24 * 3600, Math.max(0, Number(m.base) || 0));
+      const started = m.started !== false, running = !!m.running;
+      r.subclock = { started, running, base, at: Date.now() };   // keep it for (re)joiners
+      broadcastRoom(r, { type: "subclock", started, running, base }, ws);
       return;
     }
 
@@ -1015,7 +1041,7 @@ wss.on("connection", (ws) => {
     if (m.type === "gallery") {
       const items = cleanGalleryItems(m.items);
       r.media = null;   // a gallery share replaces a pasted link
-      r.subtitle = null;
+      r.subtitle = null; r.subclock = null;
       r.gallery = { presenter: ws._peerId, items, current: String(m.current || "").slice(0, 64) || null };
       // hold is relayed but NOT stored: live viewers wait for the synchronized reveal, late joiners reveal for themselves
       broadcastRoom(r, { type: "gallery", presenter: ws._peerId, items: r.gallery.items, current: r.gallery.current, hold: !!m.hold }, ws);

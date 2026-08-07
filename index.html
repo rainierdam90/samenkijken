@@ -1792,7 +1792,7 @@
           if(typeof applyTheme==="function"){ roomDecor=Array.isArray(m.decor)?m.decor:roomDecor; applyTheme(m.theme||"classic"); }
           (m.peers||[]).forEach(function(pp){ if(pp.peerId===myPeerId) return; peers[pp.peerId]=peers[pp.peerId]||{}; peers[pp.peerId].name=pp.name||"Guest"; if(shouldInitiate(myPeerId,pp.peerId)) callPeer(pp.peerId); });
           recomputeAuthority(); updatePresenceStatus(); renderCams();
-          if(currentMedia&&(isAuthority||currentMedia.mine)){ rtSend({ type:"video", mode:currentMedia.mode, url:currentMedia.url, id:currentMedia.id }); if(currentSubtitle&&currentSubtitle.url===currentMedia.url) rtSend({type:"subtitle",url:currentSubtitle.url,name:currentSubtitle.name,lang:currentSubtitle.lang,vtt:currentSubtitle.vtt}); }   // after a reconnect the person who pasted the link re-announces it too
+          if(currentMedia&&(isAuthority||currentMedia.mine)){ rtSend({ type:"video", mode:currentMedia.mode, url:currentMedia.url, id:currentMedia.id }); if(currentSubtitle&&currentSubtitle.url===currentMedia.url){ rtSend({type:"subtitle",url:currentSubtitle.url,name:currentSubtitle.name,lang:currentSubtitle.lang,vtt:currentSubtitle.vtt}); announceSubClock(); } }   // after a reconnect the person who pasted the link re-announces it too
           break;
         case "need-pass": hideConnecting(); openPassEnter(!!m.wrong); break;
         case "pass-set": if(m.denied){ toast(tr("pass_denied"),5000); } else { roomHasPass=!!m.hasPass; updateHostControls(); toast(m.hasPass?tr("pass_on"):tr("pass_off"),5000); } break;
@@ -1807,7 +1807,7 @@
           if(shouldInitiate(myPeerId,m.peerId)) callPeer(m.peerId);
           if(screenStream) callScreen(m.peerId);   // late joiner → send them the live screen too
           recomputeAuthority(); updatePresenceStatus(); renderCams();
-          if(isAuthority&&currentMedia){ rtSend({ type:"video", mode:currentMedia.mode, url:currentMedia.url, id:currentMedia.id }); if(currentSubtitle&&currentSubtitle.url===currentMedia.url) rtSend({type:"subtitle",url:currentSubtitle.url,name:currentSubtitle.name,lang:currentSubtitle.lang,vtt:currentSubtitle.vtt}); if(nativeMode()||mode==="youtube") rtSend({ type:"sync", kind:isPausedMedia()?"pause":"play", time:getTime() }); }
+          if(isAuthority&&currentMedia){ rtSend({ type:"video", mode:currentMedia.mode, url:currentMedia.url, id:currentMedia.id }); if(currentSubtitle&&currentSubtitle.url===currentMedia.url){ rtSend({type:"subtitle",url:currentSubtitle.url,name:currentSubtitle.name,lang:currentSubtitle.lang,vtt:currentSubtitle.vtt}); announceSubClock(); } if(nativeMode()||mode==="youtube") rtSend({ type:"sync", kind:isPausedMedia()?"pause":"play", time:getTime() }); }
           break;
         case "peer-left": if(peers[m.peerId]) { if(peers[m.peerId].name) toast(peers[m.peerId].name+" left."); } removePeer(m.peerId); if(typeof gameOnPeerLeft==="function") gameOnPeerLeft(m.peerId); if(typeof presWaitPeerLeft==="function") presWaitPeerLeft(m.peerId); break;
         case "chat": if(typeof m.text==="string"){ receiveChat(m.from||tr("others"), m.text); if(typeof gameChatCheck==="function") gameChatCheck(m.peerId, m.from, m.text); } break;
@@ -1998,13 +1998,15 @@
       if(!embedSubMode()||!currentSubtitle) return;
       if(subClockRunning){ subClockBase=subClockNow(); subClockRunning=false; toast(tr("sub_embed_paused"),2200); }
       else { subClockStart=Date.now(); subClockRunning=true; toast(tr("sub_embed_resumed"),2200); }
-      rtSend({ type:"subclock", running:subClockRunning, base:subClockRunning?subClockBase:subClockNow() });
+      announceSubClock();
       subOverlayLastText=null; paintSubOverlay(); updateSubtitleUI();
     }
+    /* tell the room where our subtitle clock stands — also used to bring a late joiner up to speed */
+    function announceSubClock(){ if(embedSubMode()&&currentSubtitle&&subClockStarted) rtSend({ type:"subclock", started:true, running:subClockRunning, base:subClockNow() }); }
     function applySubClock(m){
       if(!embedSubMode()||!currentSubtitle||!m) return;
       subClockBase=Math.max(0,+m.base||0);
-      subClockStarted=!!(m.running||subClockBase>0);
+      subClockStarted=(typeof m.started==="boolean")?m.started:!!(m.running||subClockBase>0);
       if(m.running){ subClockStart=Date.now(); subClockRunning=true; } else { subClockRunning=false; }
       subOverlayLastText=null; paintSubOverlay(); updateSubtitleUI();
     }
