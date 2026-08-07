@@ -117,6 +117,16 @@
   .subsync button:hover{background:rgba(255,255,255,.15)}
   .subsync .suboffset{min-width:55px; color:var(--amber-2); font-variant-numeric:tabular-nums}
   .subsync .subfile{font-size:10px; letter-spacing:.3px}
+  .subsync .subplay{font-size:14px}
+  .subsync .subplay[hidden]{display:none}
+  .subsync .subplay.paused{color:var(--amber-2)}
+  /* subtitle overlay for embedded (non-YouTube/Vimeo) videos: SameCouch draws the cues itself,
+     since it cannot inject a <track> into a cross-origin iframe. Sits above the iframe (z-index 1),
+     below the floating controls. */
+  .suboverlay{position:absolute; left:50%; bottom:14%; transform:translateX(-50%); z-index:46; max-width:84%; display:none; text-align:center; pointer-events:none; font-size:clamp(15px,2.5vw,23px); line-height:1.35; font-weight:600}
+  .suboverlay.show{display:block}
+  .suboverlay span{background:rgba(8,6,12,.74); color:#fff; padding:.1em .38em; border-radius:4px; box-decoration-break:clone; -webkit-box-decoration-break:clone; white-space:pre-wrap; text-shadow:0 1px 3px rgba(0,0,0,.9)}
+  @media (max-width:760px){ .suboverlay{bottom:16%; font-size:clamp(14px,3.4vw,20px)} }
   .fbtn.has-unread::before{content:attr(data-unread); position:absolute; top:-4px; right:-4px; min-width:16px; height:16px; padding:0 4px; border-radius:9px; background:var(--bad); color:#fff; font-size:10px; font-weight:700; display:grid; place-items:center; box-shadow:0 0 0 2px var(--bg)}
 
   .mediabar{position:absolute; left:50%; bottom:18px; transform:translateX(-50%); z-index:54; display:none; align-items:center; gap:11px; padding:9px 15px; border-radius:999px; background:rgba(20,16,24,.78); border:1px solid var(--line); backdrop-filter:blur(8px); box-shadow:var(--shadow)}
@@ -871,6 +881,7 @@
     <img id="galleryImg" alt="" />
     <div id="ytwrap"></div>
     <div id="framewrap"><iframe id="frame" title="Shared website" allow="fullscreen; encrypted-media; picture-in-picture" allowfullscreen referrerpolicy="no-referrer-when-downgrade" sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox allow-presentation"></iframe></div>
+    <div class="suboverlay" id="subOverlay" aria-hidden="true"><span></span></div>
 
     <div class="placeholder" id="placeholder">
       <div class="ph-card">
@@ -943,6 +954,7 @@
       <div class="subtools" id="subtitleTools">
         <button type="button" class="fbtn cc" id="subtitleBtn" title="Add subtitles" hidden>CC+</button>
         <div class="subsync" id="subtitleSync" hidden aria-label="Subtitle timing">
+          <button type="button" class="subplay" id="subtitlePlay" title="Pause subtitles" hidden aria-pressed="false">⏸</button>
           <button type="button" id="subtitleEarlier" title="Show subtitles 0.5 seconds earlier">−</button>
           <button type="button" class="suboffset" id="subtitleOffset" title="Reset subtitle timing">0.0s</button>
           <button type="button" id="subtitleLater" title="Show subtitles 0.5 seconds later">+</button>
@@ -1415,8 +1427,8 @@
     MKVCOPY.nl.fq4_a="Jullie kamer is privé via de link en kan een wachtwoord hebben. Gesprekken en bestanden vanaf een apparaat zijn peer-to-peer versleuteld; omgepakte externe MKV-streams lopen tijdelijk via onze server.";
     Object.keys(MKVCOPY).forEach(function(k){ if(I18N[k]) Object.keys(MKVCOPY[k]).forEach(function(j){ I18N[k][j]=MKVCOPY[k][j]; }); });
     var SUBTIMECOPY = {
-      en:{sub_turn_off:"Turn subtitles off",sub_turn_on:"Turn subtitles on",sub_disabled:"Subtitles off",sub_enabled:"Subtitles on",sub_earlier:"Show subtitles 0.5 seconds earlier",sub_later:"Show subtitles 0.5 seconds later",sub_reset:"Reset subtitle timing",sub_offset:"Subtitle delay {n}",sub_timing:"Subtitle timing",sub_replace_short:"Replace subtitle file"},
-      nl:{sub_turn_off:"Ondertiteling uitzetten",sub_turn_on:"Ondertiteling aanzetten",sub_disabled:"Ondertiteling uit",sub_enabled:"Ondertiteling aan",sub_earlier:"Ondertiteling 0,5 seconde eerder tonen",sub_later:"Ondertiteling 0,5 seconde later tonen",sub_reset:"Timing van ondertiteling herstellen",sub_offset:"Ondertitelvertraging {n}",sub_timing:"Timing van ondertiteling",sub_replace_short:"Ondertitelbestand vervangen"}
+      en:{sub_turn_off:"Turn subtitles off",sub_turn_on:"Turn subtitles on",sub_disabled:"Subtitles off",sub_enabled:"Subtitles on",sub_earlier:"Show subtitles 0.5 seconds earlier",sub_later:"Show subtitles 0.5 seconds later",sub_reset:"Reset subtitle timing",sub_offset:"Subtitle delay {n}",sub_timing:"Subtitle timing",sub_replace_short:"Replace subtitle file",sub_embed_hint:"Start the subtitles together with the 3·2·1 countdown.",sub_embed_pause:"Pause subtitles",sub_embed_resume:"Resume subtitles",sub_embed_started:"Subtitles started — nudge with −/+ if they run ahead or behind.",sub_embed_paused:"Subtitles paused",sub_embed_resumed:"Subtitles resumed"},
+      nl:{sub_turn_off:"Ondertiteling uitzetten",sub_turn_on:"Ondertiteling aanzetten",sub_disabled:"Ondertiteling uit",sub_enabled:"Ondertiteling aan",sub_earlier:"Ondertiteling 0,5 seconde eerder tonen",sub_later:"Ondertiteling 0,5 seconde later tonen",sub_reset:"Timing van ondertiteling herstellen",sub_offset:"Ondertitelvertraging {n}",sub_timing:"Timing van ondertiteling",sub_replace_short:"Ondertitelbestand vervangen",sub_embed_hint:"Start de ondertiteling samen met de 3·2·1 aftelknop.",sub_embed_pause:"Ondertiteling pauzeren",sub_embed_resume:"Ondertiteling hervatten",sub_embed_started:"Ondertiteling gestart — stuur met −/+ bij als ze voor- of achterloopt.",sub_embed_paused:"Ondertiteling gepauzeerd",sub_embed_resumed:"Ondertiteling hervat"}
     };
     Object.keys(SUBTIMECOPY).forEach(function(k){ if(I18N[k]) Object.keys(SUBTIMECOPY[k]).forEach(function(j){ I18N[k][j]=SUBTIMECOPY[k][j]; }); });
     var landingMode="home";
@@ -1466,7 +1478,7 @@
     var placeholder=$("placeholder"), playgate=$("playgate"), playgateBtn=$("playgateBtn");
     var cams=$("cams"), selfVideo=$("selfVideo"), peerVideo=$("peerVideo"), camState=$("camState"), camStateText=$("camStateText"), peerCam=$("peerCam"), selfCam=$("selfCam"), peerWho=$("peerWho");
     var urlInput=$("urlInput"), loadBtn=$("loadBtn"), copyBtn=$("copyBtn"), linkText=$("linkText"), browseBtn=$("browseBtn");
-    var subtitleBtn=$("subtitleBtn"), subtitleInput=$("subtitleInput"), subtitleSync=$("subtitleSync"), subtitleEarlier=$("subtitleEarlier"), subtitleOffsetEl=$("subtitleOffset"), subtitleLater=$("subtitleLater"), subtitleReplace=$("subtitleReplace");
+    var subtitleBtn=$("subtitleBtn"), subtitleInput=$("subtitleInput"), subtitleSync=$("subtitleSync"), subtitleEarlier=$("subtitleEarlier"), subtitleOffsetEl=$("subtitleOffset"), subtitleLater=$("subtitleLater"), subtitleReplace=$("subtitleReplace"), subtitlePlay=$("subtitlePlay"), subOverlay=$("subOverlay");
     var statusDot=$("statusDot"), statusText=$("statusText");
     var micBtn=$("micBtn"), camBtn=$("camBtn"), chatBtn=$("chatBtn"), fsBtn=$("fsBtn"), floatctrls=$("floatctrls");
     var volBtn=$("volBtn"), volpop=$("volpop"), movieVol=$("movieVol"), duckChk=$("duckChk");
@@ -1806,6 +1818,7 @@
         case "talking": setPeerTalking(m.from, !!m.on); break;
         case "reaction": if(typeof m.emoji==="string") spawnReaction(m.emoji, m.name||""); break;
         case "subtitle": if(m&&typeof m.vtt==="string"&&typeof m.url==="string"){ if(applySubtitlePayload({url:m.url,name:m.name||"subtitles.srt",lang:m.lang||"und",vtt:m.vtt},false)) toast(tr("sub_received"),4500); } break;
+        case "subclock": applySubClock(m); break;
         case "video": if(typeof m.url==="string"){
           if(m.mode==="none"||!m.url){ if(!gallery&&mode!=="none"&&typeof stopWatchingLocal==="function") stopWatchingLocal(); break; }   // someone pressed Stop → whole room back to the living room
           if(currentMedia&&currentMedia.url===m.url&&mode===m.mode) break; /* already showing — replays must not reload */ urlInput.value=m.url; applyMedia(m.mode,m.url,m.id); toast((m.from&&peers[m.from]&&peers[m.from].name?peers[m.from].name:tr("others"))+" loaded a video."); } break;
@@ -1889,13 +1902,17 @@
     /* ===================== Media: file / youtube / embed ===================== */
     var mode="none", currentMedia=null, pending=null, closing=false, movieErrored=false;
     var subtitleTrackEl=null, subtitleObjectUrl="", currentSubtitle=null, subtitleEnabled=true, subtitleOffset=0;
+    /* embed-subtitle overlay (YouTube/Vimeo excluded): SameCouch renders cues itself and runs its own
+       clock, anchored to the 3·2·1 countdown, because a cross-origin iframe exposes no player track or clock. */
+    var subCues=null, subClockBase=0, subClockStart=0, subClockRunning=false, subClockStarted=false, subOverlayLastText="";
     function mediaNames(url){ var out=[]; try{ var u=new URL(url); out.push(u.pathname||""); u.searchParams.forEach(function(v){ out.push(v); }); }catch(e){ out.push(String(url||"")); } return out.map(function(v){ try{ return decodeURIComponent(v); }catch(e){ return v; } }).join(" "); }
     function detectMedia(url,forceDirect){ var yt=parseYouTube(url); if(yt) return { mode:"youtube", id:yt, url:url }; var vim=parseVimeo(url); if(vim) return { mode:"vimeo", id:vim.id, url:url }; var names=mediaNames(url); if(/\.mkv(?:$|[?#&/\s])/i.test(names)) return { mode:"mkv", url:url }; if(/\.(mp4|webm|ogg|ogv|m4v|mov)(?:$|[?#&/\s])/i.test(names)) return { mode:"file", url:url }; if(forceDirect) return { mode:"mkv", url:url, opaque:true }; return { mode:"embed", url:url }; }
     function parseVimeo(url){ try{ var u=new URL(url), h=u.hostname.replace(/^www\./,""); if(h!=="vimeo.com"&&h!=="player.vimeo.com") return null; var m=u.pathname.match(/\/(?:video\/)?(\d+)(?:\/(\w+))?/); if(m) return { id:m[1], h:m[2]||u.searchParams.get("h")||"" }; }catch(e){} return null; }
     function parseYouTube(url){ try{ var u=new URL(url), h=u.hostname.replace(/^www\./,""); if(h==="youtu.be") return u.pathname.slice(1).split("/")[0]||null; if(h==="youtube.com"||h==="m.youtube.com"||h==="youtube-nocookie.com"){ if(u.pathname==="/watch") return u.searchParams.get("v"); var m=u.pathname.match(/^\/(embed|shorts|v|live)\/([^\/?#]+)/); if(m) return m[2]; } }catch(e){} return null; }
     function nativeMode(){ return mode==="file"||mode==="mkv"; }
+    function embedSubMode(){ return mode==="embed"; }   // generic embedded site → overlay-rendered subtitles (not YouTube/Vimeo)
     function updateStageChrome(){ if(stage) stage.classList.toggle("file-mode", !!(movie && movie.style.display==="block")); }   // lift our controls above the native video bar
-    function subtitleEligible(){ return !!(nativeMode()&&currentMedia&&/^https?:\/\//i.test(currentMedia.url||"")&&!gallery); }
+    function subtitleEligible(){ return !!((nativeMode()||embedSubMode())&&currentMedia&&/^https?:\/\//i.test(currentMedia.url||"")&&!gallery); }
     function removeSubtitleTrack(){
       if(subtitleTrackEl&&subtitleTrackEl.parentNode) try{ subtitleTrackEl.parentNode.removeChild(subtitleTrackEl); }catch(e){}
       subtitleTrackEl=null;
@@ -1910,6 +1927,9 @@
       if(subtitleSync){ subtitleSync.hidden=!has; subtitleSync.setAttribute("aria-label",tr("sub_timing")); }
       if(subtitleOffsetEl){ subtitleOffsetEl.textContent=label; setTitle("subtitleOffset",tr("sub_offset").replace("{n}",label)+" — "+tr("sub_reset")); }
       setTitle("subtitleEarlier",tr("sub_earlier")); setTitle("subtitleLater",tr("sub_later")); setTitle("subtitleReplace",tr("sub_replace_short"));
+      if(subtitlePlay){ var showPlay=!!(has&&embedSubMode()); subtitlePlay.hidden=!showPlay; subtitlePlay.classList.toggle("paused",!subClockRunning); subtitlePlay.textContent=subClockRunning?"⏸":"▶"; subtitlePlay.setAttribute("aria-pressed",subClockRunning?"false":"true"); setTitle("subtitlePlay",tr(subClockRunning?"sub_embed_pause":"sub_embed_resume")); }
+      if(!(has&&embedSubMode())) hideSubOverlay();
+      paintSubOverlay();
     }
     /* lift cues off the very bottom edge (and clear of the controls) by giving each cue a line: setting if it lacks one */
     function liftVttCues(vtt){ return String(vtt||"").replace(/^([^\n]*-->[^\n]*)$/gm, function(line){ return /\bline:/.test(line) ? line : line.replace(/\s+$/,"")+" line:84% align:center"; }); }
@@ -1925,10 +1945,69 @@
         return true;
       }catch(e){ removeSubtitleTrack(); return false; }
     }
-    function setSubtitleEnabled(on){ if(!currentSubtitle) return; subtitleEnabled=!!on; if(subtitleTrackEl&&subtitleTrackEl.track) try{ subtitleTrackEl.track.mode=subtitleEnabled?"showing":"disabled"; }catch(e){} updateSubtitleUI(); toast(tr(subtitleEnabled?"sub_enabled":"sub_disabled"),2600); }
-    function setSubtitleOffset(next){ if(!currentSubtitle) return; subtitleOffset=Math.max(-60,Math.min(60,Math.round((+next||0)*2)/2)); if(!renderSubtitleTrack()){ toast(tr("sub_invalid"),5000); return; } updateSubtitleUI(); }
+    /* --- embedded-site subtitles: parse cues once, then paint them over the iframe on our own clock --- */
+    function vttSeconds(s){ s=String(s).trim().replace(",","."); var p=s.split(":"), t=0; for(var i=0;i<p.length;i++) t=t*60+parseFloat(p[i]||0); return isFinite(t)?t:0; }
+    function parseVttCues(vtt){
+      var out=[], blocks=String(vtt||"").replace(/\r/g,"").split(/\n\n+/);
+      for(var i=0;i<blocks.length;i++){
+        var lines=blocks[i].split("\n"), ti=-1;
+        for(var j=0;j<lines.length;j++){ if(lines[j].indexOf("-->")>=0){ ti=j; break; } }
+        if(ti<0) continue;
+        var m=lines[ti].match(/((?:\d{1,2}:)?\d{1,2}:\d{2}[.,]\d{1,3})\s*-->\s*((?:\d{1,2}:)?\d{1,2}:\d{2}[.,]\d{1,3})/);
+        if(!m) continue;
+        var text=lines.slice(ti+1).join("\n").replace(/<[^>]+>/g,"").replace(/\{[^}]*\}/g,"").trim();
+        if(text) out.push({ start:vttSeconds(m[1]), end:vttSeconds(m[2]), text:text });
+      }
+      out.sort(function(a,b){ return a.start-b.start; });
+      return out;
+    }
+    function subClockNow(){ return subClockRunning ? subClockBase+(Date.now()-subClockStart)/1000 : subClockBase; }
+    function startSubClock(base){ subClockBase=+base||0; subClockStart=Date.now(); subClockRunning=true; subClockStarted=true; subOverlayLastText=" "; paintSubOverlay(); updateSubtitleUI(); }
+    function stopSubClock(){ subClockRunning=false; subClockStarted=false; subClockBase=0; subOverlayLastText=" "; }
+    function hideSubOverlay(){ if(subOverlay){ subOverlay.classList.remove("show"); var sp=subOverlay.firstChild; if(sp) sp.textContent=""; } subOverlayLastText=""; }
+    function paintSubOverlay(){
+      if(!subOverlay) return;
+      if(!(embedSubMode()&&currentSubtitle&&subtitleEnabled&&subClockStarted&&subCues&&subCues.length)){ hideSubOverlay(); return; }
+      var t=subClockNow()-subtitleOffset, cur="";
+      for(var i=0;i<subCues.length;i++){ if(t>=subCues[i].start){ if(t<subCues[i].end){ cur=subCues[i].text; } } else break; }
+      if(cur===subOverlayLastText) return;                 // avoid touching the DOM every tick
+      subOverlayLastText=cur;
+      var sp=subOverlay.firstChild || subOverlay.appendChild(document.createElement("span"));
+      sp.textContent=cur;
+      subOverlay.classList.toggle("show",!!cur);
+    }
+    function renderSubtitleOverlay(){
+      subCues=currentSubtitle?parseVttCues(currentSubtitle.vtt):null; subOverlayLastText=null;
+      if(!subCues||!subCues.length){ subCues=null; hideSubOverlay(); return false; }
+      paintSubOverlay(); return true;
+    }
+    function renderSubtitle(){ return embedSubMode() ? renderSubtitleOverlay() : renderSubtitleTrack(); }
+    function setSubtitleEnabled(on){
+      if(!currentSubtitle) return; subtitleEnabled=!!on;
+      if(subtitleTrackEl&&subtitleTrackEl.track) try{ subtitleTrackEl.track.mode=subtitleEnabled?"showing":"disabled"; }catch(e){}
+      if(embedSubMode()){ subOverlayLastText=null; paintSubOverlay(); }
+      updateSubtitleUI(); toast(tr(subtitleEnabled?"sub_enabled":"sub_disabled"),2600);
+    }
+    function setSubtitleOffset(next){ if(!currentSubtitle) return; subtitleOffset=Math.max(-60,Math.min(60,Math.round((+next||0)*2)/2)); subOverlayLastText=null; if(!renderSubtitle()){ toast(tr("sub_invalid"),5000); return; } updateSubtitleUI(); }
+    /* one of you presses the 3·2·1 countdown → its "NOW" moment starts every viewer's subtitle clock together */
+    function embedSubCountdownStart(){ if(embedSubMode()&&currentSubtitle){ startSubClock(0); toast(tr("sub_embed_started"),4200); } }
+    function toggleSubClock(){
+      if(!embedSubMode()||!currentSubtitle) return;
+      if(subClockRunning){ subClockBase=subClockNow(); subClockRunning=false; toast(tr("sub_embed_paused"),2200); }
+      else { subClockStart=Date.now(); subClockRunning=true; toast(tr("sub_embed_resumed"),2200); }
+      rtSend({ type:"subclock", running:subClockRunning, base:subClockRunning?subClockBase:subClockNow() });
+      subOverlayLastText=null; paintSubOverlay(); updateSubtitleUI();
+    }
+    function applySubClock(m){
+      if(!embedSubMode()||!currentSubtitle||!m) return;
+      subClockBase=Math.max(0,+m.base||0);
+      subClockStarted=!!(m.running||subClockBase>0);
+      if(m.running){ subClockStart=Date.now(); subClockRunning=true; } else { subClockRunning=false; }
+      subOverlayLastText=null; paintSubOverlay(); updateSubtitleUI();
+    }
     function clearSubtitleLocal(){
       currentSubtitle=null; subtitleEnabled=true; subtitleOffset=0; removeSubtitleTrack();
+      subCues=null; stopSubClock(); hideSubOverlay();
       updateSubtitleUI();
     }
     function subtitleLang(name){ if(window.SameCouchSubtitles) return window.SameCouchSubtitles.inferLanguage(name); var m=String(name||"").toLowerCase().match(/[._-](en|nl|de|fr|es|ar|zh|ja|ko|hi|ur)(?:[._-]|\.srt$|\.vtt$)/); return m?m[1]:"und"; }
@@ -1945,10 +2024,12 @@
       if(!payload||!subtitleEligible()||String(payload.url||"")!==String(currentMedia.url||"")) return false;
       var vtt=String(payload.vtt||""); if(!vtt||vtt.indexOf("-->")<0||vtt.length>600*1024) return false;
       var same=!!(currentSubtitle&&currentSubtitle.url===currentMedia.url&&currentSubtitle.vtt===vtt), keepEnabled=subtitleEnabled, keepOffset=subtitleOffset;
+      var keepStarted=subClockStarted, keepRunning=subClockRunning, keepBase=subClockNow();   // preserve the running clock across a same-file re-apply (e.g. reconnect)
       clearSubtitleLocal();
       currentSubtitle={url:currentMedia.url,name:String(payload.name||"subtitles.srt").slice(0,120),lang:String(payload.lang||"und").slice(0,12),vtt:vtt};
       if(same){ subtitleEnabled=keepEnabled; subtitleOffset=keepOffset; }
-      if(!renderSubtitleTrack()){ clearSubtitleLocal(); return false; }
+      if(!renderSubtitle()){ clearSubtitleLocal(); return false; }
+      if(same&&embedSubMode()&&keepStarted){ subClockBase=keepBase; subClockStarted=true; if(keepRunning){ subClockStart=Date.now(); subClockRunning=true; } }
       updateSubtitleUI();
       if(announce) rtSend({type:"subtitle",url:currentSubtitle.url,name:currentSubtitle.name,lang:currentSubtitle.lang,vtt:currentSubtitle.vtt});
       return true;
@@ -2055,6 +2136,7 @@
     if(subtitleEarlier) subtitleEarlier.addEventListener("click",function(){ setSubtitleOffset(subtitleOffset-0.5); });
     if(subtitleLater) subtitleLater.addEventListener("click",function(){ setSubtitleOffset(subtitleOffset+0.5); });
     if(subtitleOffsetEl) subtitleOffsetEl.addEventListener("click",function(){ setSubtitleOffset(0); });
+    if(subtitlePlay) subtitlePlay.addEventListener("click",function(){ toggleSubClock(); });
     if(subtitleReplace) subtitleReplace.addEventListener("click",function(){ if(subtitleEligible()&&subtitleInput) subtitleInput.click(); });
     if(subtitleInput) subtitleInput.addEventListener("change",function(){
       var f=subtitleInput.files&&subtitleInput.files[0]; try{ subtitleInput.value=""; }catch(e){}
@@ -2062,7 +2144,7 @@
       var subCap=(window.SameCouchSubtitles&&window.SameCouchSubtitles.MAX_FILE_BYTES)||512*1024;
       if(f.size>subCap){ toast(tr("sub_too_big"),6500); return; }
       var reader=new FileReader();
-      reader.onload=function(){ var vtt=srtToVtt(reader.result); if(!vtt){ toast(tr("sub_invalid"),6500); return; } if(applySubtitlePayload({url:currentMedia.url,name:f.name||"subtitles.srt",lang:subtitleLang(f.name),vtt:vtt},true)) toast(tr("sub_loaded"),4500); else toast(tr("sub_invalid"),6500); };
+      reader.onload=function(){ var vtt=srtToVtt(reader.result); if(!vtt){ toast(tr("sub_invalid"),6500); return; } if(applySubtitlePayload({url:currentMedia.url,name:f.name||"subtitles.srt",lang:subtitleLang(f.name),vtt:vtt},true)) toast(tr(embedSubMode()&&!subClockRunning?"sub_embed_hint":"sub_loaded"),embedSubMode()&&!subClockRunning?5600:4500); else toast(tr("sub_invalid"),6500); };
       reader.onerror=function(){ toast(tr("sub_read_fail"),6500); };
       reader.readAsArrayBuffer(f);
     });
@@ -2131,6 +2213,7 @@
     setInterval(function(){ if(peer && !shareMode && Object.keys(peers).length) refreshIce(); },25*60*1000);   // keep TURN credentials fresh so reconnections never use expired ones
     var lastPoll={ t:0, time:0, playing:false };
     setInterval(function(){ applyPending(); updateDuck(); if(mode==="youtube"&&mediaReady()&&!applyingRemote){ var nowS=getTime(), playing=!isPausedMedia(), nowMs=Date.now(); if(lastPoll.t){ var dt=(nowMs-lastPoll.t)/1000; var exp=lastPoll.time+(lastPoll.playing?dt:0); if(Math.abs(nowS-exp)>1.2) broadcast("seek"); } lastPoll={ t:nowMs, time:nowS, playing:playing }; } else { lastPoll={ t:Date.now(), time:getTime(), playing:!isPausedMedia() }; } },400);
+    setInterval(function(){ if(subClockRunning&&embedSubMode()&&currentSubtitle&&subtitleEnabled) paintSubOverlay(); },180);   // advance the embed subtitle overlay on our own clock
     function safePlay(){
       if(shareMode||movieErrored){ playgate.hidden=true; return; }
       if(amPresenter()){ playgate.hidden=true; var pp=movie.play&&movie.play(); if(pp&&pp.catch) pp.catch(function(){}); return; }   // the person sharing owns the file + has native controls — never gate them
@@ -2206,7 +2289,7 @@
       if(mode==="embed") cdwidget.hidden=false;
       clearInterval(cdTimer); cdBtn.disabled=true; cdBusy=true;
       var end=Date.now()+(seconds||3)*1000;
-      function tick(){ var rem=end-Date.now(); if(rem>200){ cdNum.textContent=String(Math.ceil(rem/1000)); cdNum.classList.remove("go"); } else { cdNum.textContent=tr("cd_now"); cdNum.classList.add("go"); clearInterval(cdTimer); setTimeout(function(){ cdNum.textContent="\u25B6"; cdNum.classList.remove("go"); cdBtn.disabled=false; cdBusy=false; },2600); } }
+      function tick(){ var rem=end-Date.now(); if(rem>200){ cdNum.textContent=String(Math.ceil(rem/1000)); cdNum.classList.remove("go"); } else { cdNum.textContent=tr("cd_now"); cdNum.classList.add("go"); clearInterval(cdTimer); embedSubCountdownStart(); setTimeout(function(){ cdNum.textContent="\u25B6"; cdNum.classList.remove("go"); cdBtn.disabled=false; cdBusy=false; },2600); } }
       tick(); cdTimer=setInterval(tick,100);
     }
 
