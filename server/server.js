@@ -434,6 +434,80 @@ app.get("/mkv-stream", async (req, res) => {
   source.pipe(ffmpeg.stdin); ffmpeg.stdout.pipe(res);
 });
 
+/* ---- embeddability probe ----
+   The room loads arbitrary "video page" links into an iframe. The browser cannot tell the page
+   WHY such a frame fails (cross-origin): sites that send X-Frame-Options / frame-ancestors — or
+   that redirect to one that does, e.g. youtube.com — only show a browser error page. The front-end
+   asks us to follow the link server-side (same SSRF guards as the MKV path) so it can switch to
+   the real player, or explain the failure, instead of leaving a dead frame. */
+const embedCheckLimiter = makeLimiter(40, 10 * 60 * 1000);
+function frameBlockingHeaders(headers) {
+  const xfo = String(headers["x-frame-options"] || "").toLowerCase();
+  if (xfo.includes("deny") || xfo.includes("sameorigin")) return true;
+  const csp = String(headers["content-security-policy"] || "");
+  const m = csp.match(/frame-ancestors([^;]*)/i);
+  if (m && !/(^|\s)(\*|https?:)(\s|$)/.test(m[1].trim().toLowerCase())) return true;   // only wildcard policies can frame us
+  return false;
+}
+function htmlRedirectTarget(body, baseUrl) {
+  let m = body.match(/<meta[^>]+http-equiv=["']?refresh["']?[^>]*content=["']?[^"'>]*url\s*=\s*([^"'>\s]+)/i);
+  if (!m) m = body.match(/(?:location\.href|location\.replace\(|window\.location(?:\.href)?)\s*[=(]\s*["'](https?:\/\/[^"']+)["']/i);
+  if (!m) return "";
+  try { return new URL(m[1].replace(/&amp;/g, "&"), baseUrl).toString(); } catch (_) { return ""; }
+}
+function fetchEmbedHead(raw, hops) {
+  hops = hops || 0;
+  if (hops > 4) return Promise.reject(mkvError("too_many_redirects", 502));
+  return validateMkvTarget(raw).then(target => new Promise((resolve, reject) => {
+    const transport = target.url.protocol === "https:" ? https : http;
+    const req = transport.get(target.url, {
+      headers: { "User-Agent": "Mozilla/5.0 (compatible; SameCouch-EmbedCheck/1.0)", Accept: "text/html,application/xhtml+xml,*/*;q=0.5", "Accept-Encoding": "identity", "Accept-Language": "en" },
+      lookup: (_hostname, options, callback) => {
+        if (typeof options === "function") { callback = options; options = {}; }
+        if (options && options.all) callback(null, [{ address: target.address, family: target.family }]);
+        else callback(null, target.address, target.family);
+      }
+    }, response => {
+      const status = response.statusCode || 0;
+      if (status >= 300 && status < 400 && response.headers.location) {
+        const next = new URL(response.headers.location, target.url).toString();
+        response.resume();
+        resolve(fetchEmbedHead(next, hops + 1));
+        return;
+      }
+      const blocked = frameBlockingHeaders(response.headers);
+      const type = String(response.headers["content-type"] || "").toLowerCase();
+      const summary = { finalUrl: target.url.toString(), status, blocked };
+      if (!blocked && status < 400 && type.includes("text/html")) {
+        /* page loads fine per its headers — still sniff a client-side redirect (meta refresh / location.href) */
+        let body = "", done = false, timer = null;
+        const finish = () => {
+          if (done) return; done = true; clearTimeout(timer); response.destroy();
+          const jump = htmlRedirectTarget(body, target.url);
+          if (jump && jump !== summary.finalUrl) resolve(fetchEmbedHead(jump, hops + 1).catch(() => summary));
+          else resolve(summary);
+        };
+        response.on("data", chunk => { body += String(chunk); if (body.length > 96 * 1024) finish(); });
+        response.once("end", finish); response.once("error", finish);
+        timer = setTimeout(finish, 4000);
+      } else {
+        response.resume(); response.destroy();
+        resolve(summary);
+      }
+    });
+    req.setTimeout(10000, () => req.destroy(mkvError("upstream_timeout", 504)));
+    req.once("error", error => reject(error && error.code ? error : mkvError("upstream_failed", 502)));
+  }));
+}
+app.get("/embed-check", async (req, res) => {
+  cors(req, res); res.setHeader("Cache-Control", "no-store");
+  const ip = clientIp(req); if (!embedCheckLimiter(ip)) return tooMany(res);
+  try {
+    const out = await fetchEmbedHead(req.query.url);
+    res.json({ ok: true, finalUrl: out.finalUrl, status: out.status, blocked: !!out.blocked });
+  } catch (error) { res.json({ ok: false, error: (error && error.code) || "probe_failed" }); }
+});
+
 /* ---- Web Push subscribe: store a reminder to fire at a scheduled time ---- */
 app.options("/push-subscribe", (req, res) => { cors(req, res); res.setHeader("Access-Control-Allow-Methods", "POST,OPTIONS"); res.sendStatus(204); });
 app.post("/push-subscribe", (req, res) => {

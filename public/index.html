@@ -1427,8 +1427,8 @@
     MKVCOPY.nl.fq4_a="Jullie kamer is privé via de link en kan een wachtwoord hebben. Gesprekken en bestanden vanaf een apparaat zijn peer-to-peer versleuteld; omgepakte externe MKV-streams lopen tijdelijk via onze server.";
     Object.keys(MKVCOPY).forEach(function(k){ if(I18N[k]) Object.keys(MKVCOPY[k]).forEach(function(j){ I18N[k][j]=MKVCOPY[k][j]; }); });
     var SUBTIMECOPY = {
-      en:{sub_turn_off:"Turn subtitles off",sub_turn_on:"Turn subtitles on",sub_disabled:"Subtitles off",sub_enabled:"Subtitles on",sub_earlier:"Show subtitles 0.5 seconds earlier",sub_later:"Show subtitles 0.5 seconds later",sub_reset:"Reset subtitle timing",sub_offset:"Subtitle delay {n}",sub_timing:"Subtitle timing",sub_replace_short:"Replace subtitle file",sub_embed_hint:"Start the subtitles together with the 3·2·1 countdown.",sub_embed_pause:"Pause subtitles",sub_embed_resume:"Resume subtitles",sub_embed_started:"Subtitles started — nudge with −/+ if they run ahead or behind.",sub_embed_paused:"Subtitles paused",sub_embed_resumed:"Subtitles resumed",yt_noembed:"This YouTube link can't be embedded (playlist, channel or search page). Open the video itself and paste that link."},
-      nl:{sub_turn_off:"Ondertiteling uitzetten",sub_turn_on:"Ondertiteling aanzetten",sub_disabled:"Ondertiteling uit",sub_enabled:"Ondertiteling aan",sub_earlier:"Ondertiteling 0,5 seconde eerder tonen",sub_later:"Ondertiteling 0,5 seconde later tonen",sub_reset:"Timing van ondertiteling herstellen",sub_offset:"Ondertitelvertraging {n}",sub_timing:"Timing van ondertiteling",sub_replace_short:"Ondertitelbestand vervangen",sub_embed_hint:"Start de ondertiteling samen met de 3·2·1 aftelknop.",sub_embed_pause:"Ondertiteling pauzeren",sub_embed_resume:"Ondertiteling hervatten",sub_embed_started:"Ondertiteling gestart — stuur met −/+ bij als ze voor- of achterloopt.",sub_embed_paused:"Ondertiteling gepauzeerd",sub_embed_resumed:"Ondertiteling hervat",yt_noembed:"Deze YouTube-link kan niet worden ingesloten (afspeellijst, kanaal of zoekpagina). Open de video zelf en plak die link."}
+      en:{sub_turn_off:"Turn subtitles off",sub_turn_on:"Turn subtitles on",sub_disabled:"Subtitles off",sub_enabled:"Subtitles on",sub_earlier:"Show subtitles 0.5 seconds earlier",sub_later:"Show subtitles 0.5 seconds later",sub_reset:"Reset subtitle timing",sub_offset:"Subtitle delay {n}",sub_timing:"Subtitle timing",sub_replace_short:"Replace subtitle file",sub_embed_hint:"Start the subtitles together with the 3·2·1 countdown.",sub_embed_pause:"Pause subtitles",sub_embed_resume:"Resume subtitles",sub_embed_started:"Subtitles started — nudge with −/+ if they run ahead or behind.",sub_embed_paused:"Subtitles paused",sub_embed_resumed:"Subtitles resumed",yt_noembed:"This YouTube link can't be embedded (playlist, channel or search page). Open the video itself and paste that link.",embed_redirected:"That page was just a wrapper — the video now plays in the proper player.",embed_blocked:"This site refuses to be shown inside SameCouch. Use “Open in new tab ↗” and start together with the countdown."},
+      nl:{sub_turn_off:"Ondertiteling uitzetten",sub_turn_on:"Ondertiteling aanzetten",sub_disabled:"Ondertiteling uit",sub_enabled:"Ondertiteling aan",sub_earlier:"Ondertiteling 0,5 seconde eerder tonen",sub_later:"Ondertiteling 0,5 seconde later tonen",sub_reset:"Timing van ondertiteling herstellen",sub_offset:"Ondertitelvertraging {n}",sub_timing:"Timing van ondertiteling",sub_replace_short:"Ondertitelbestand vervangen",sub_embed_hint:"Start de ondertiteling samen met de 3·2·1 aftelknop.",sub_embed_pause:"Ondertiteling pauzeren",sub_embed_resume:"Ondertiteling hervatten",sub_embed_started:"Ondertiteling gestart — stuur met −/+ bij als ze voor- of achterloopt.",sub_embed_paused:"Ondertiteling gepauzeerd",sub_embed_resumed:"Ondertiteling hervat",yt_noembed:"Deze YouTube-link kan niet worden ingesloten (afspeellijst, kanaal of zoekpagina). Open de video zelf en plak die link.",embed_redirected:"Die pagina bleek een omweg naar de video — hij speelt nu in de juiste speler.",embed_blocked:"Deze site staat weergave binnen SameCouch niet toe. Gebruik “Openen in nieuw tabblad ↗” en start samen met de aftelknop."}
     };
     Object.keys(SUBTIMECOPY).forEach(function(k){ if(I18N[k]) Object.keys(SUBTIMECOPY[k]).forEach(function(j){ I18N[k][j]=SUBTIMECOPY[k][j]; }); });
     var landingMode="home";
@@ -2088,6 +2088,33 @@
       else { setEmbedUI(true); framewrap.style.display="flex"; try{ frame.src=url||"about:blank"; }catch(e){} openTab.href=url||"#"; }
       updateStageChrome(); updateSubtitleUI(); if(typeof updateRoomView==="function") updateRoomView(); renderCams();
     }
+    /* the iframe can't tell us why a site failed to show (cross-origin) — ask the room server to
+       follow the link: many "video pages" are wrappers that redirect to YouTube (which refuses
+       framing), and some sites refuse frames outright. React by switching to the real player, or
+       by explaining, instead of leaving the browser's dead error frame. */
+    function probeEmbed(url){
+      if(!url) return;
+      try{
+        var ctl=(typeof AbortController!=="undefined")?new AbortController():null;
+        if(ctl) setTimeout(function(){ try{ ctl.abort(); }catch(e){} },9000);
+        fetch(SERVER_BASE+"/embed-check?url="+encodeURIComponent(url), ctl?{signal:ctl.signal}:{}).then(function(r){ return r.json(); }).then(function(j){
+          if(!j||!j.ok) return;
+          if(!(mode==="embed"&&currentMedia&&currentMedia.url===url)) return;        // the room moved on meanwhile
+          var fin=String(j.finalUrl||url);
+          if(fin!==url){
+            var det2=detectMedia(fin);
+            if(det2.mode!=="embed"){                                                  // wrapper page → the real video; play it properly
+              applyMedia(det2.mode,det2.url,det2.id); if(currentMedia) currentMedia.mine=true;
+              rtSend({ type:"video", mode:det2.mode, url:det2.url, id:det2.id });
+              toast(tr("embed_redirected"),6500);
+              return;
+            }
+            if(ytHost(fin)){ stopWatching(); toast(tr("yt_noembed"),9000); return; }  // dead end: a YouTube page with no playable video id
+          }
+          if(j.blocked) toast(tr("embed_blocked"),9000);
+        }).catch(function(){});
+      }catch(e){}
+    }
     function loadUrl(url,forceDirect){
       url=(url||"").trim();
       if(!url){ toast(tr("link_needed")); return false; }
@@ -2098,7 +2125,7 @@
       applyMedia(det.mode,det.url,det.id);
       if(currentMedia) currentMedia.mine=true;
       rtSend({ type:"video", mode:det.mode, url:det.url, id:det.id });
-      if(det.mode==="embed") toast("Loaded — use the countdown on the left to start together.",6000);
+      if(det.mode==="embed"){ probeEmbed(det.url); toast("Loaded — use the countdown on the left to start together.",6000); }
       else if(det.opaque) toast(tr("mkv_direct"),3500);
       return true;
     }
