@@ -116,6 +116,9 @@
   .subsync button{height:44px; min-width:44px; padding:0 8px; border:0; border-radius:22px; cursor:pointer; background:rgba(255,255,255,.07); color:var(--txt); font-family:inherit; font-size:12px; font-weight:700; line-height:1}
   .subsync button:hover{background:rgba(255,255,255,.15)}
   .subsync .suboffset{min-width:55px; color:var(--amber-2); font-variant-numeric:tabular-nums}
+  .subsync .subat{width:64px; background:var(--bg); border:1px solid var(--line); color:var(--txt); border-radius:8px; padding:5px 7px; font:inherit; font-size:12px; text-align:center; font-variant-numeric:tabular-nums}
+  .subsync .subat:focus{outline:2px solid var(--amber); outline-offset:1px}
+  .subsync .subat::placeholder{color:var(--muted); opacity:.7}
   .subsync .subfile{font-size:10px; letter-spacing:.3px}
   .subsync .subplay{font-size:14px}
   .subsync .subplay[hidden]{display:none}
@@ -958,6 +961,7 @@
           <button type="button" id="subtitleEarlier" title="Show subtitles 0.5 seconds earlier">−</button>
           <button type="button" class="suboffset" id="subtitleOffset" title="Reset subtitle timing">0.0s</button>
           <button type="button" id="subtitleLater" title="Show subtitles 0.5 seconds later">+</button>
+          <input type="text" class="subat" id="subtitleAt" inputmode="numeric" maxlength="8" autocomplete="off" placeholder="⏱ 40:20" title="Jump film + subtitles to an exact time (e.g. 40:20)" />
           <button type="button" class="subfile" id="subtitleReplace" title="Replace subtitle file">SRT</button>
         </div>
         <input id="subtitleInput" type="file" accept=".srt,.vtt,application/x-subrip,text/plain,text/vtt" hidden />
@@ -1427,8 +1431,8 @@
     MKVCOPY.nl.fq4_a="Jullie kamer is privé via de link en kan een wachtwoord hebben. Gesprekken en bestanden vanaf een apparaat zijn peer-to-peer versleuteld; omgepakte externe MKV-streams lopen tijdelijk via onze server.";
     Object.keys(MKVCOPY).forEach(function(k){ if(I18N[k]) Object.keys(MKVCOPY[k]).forEach(function(j){ I18N[k][j]=MKVCOPY[k][j]; }); });
     var SUBTIMECOPY = {
-      en:{sub_turn_off:"Turn subtitles off",sub_turn_on:"Turn subtitles on",sub_disabled:"Subtitles off",sub_enabled:"Subtitles on",sub_earlier:"Show subtitles 0.5 seconds earlier",sub_later:"Show subtitles 0.5 seconds later",sub_reset:"Reset subtitle timing",sub_offset:"Subtitle delay {n}",sub_timing:"Subtitle timing",sub_replace_short:"Replace subtitle file",sub_embed_hint:"Start the subtitles together with the 3·2·1 countdown.",sub_embed_pause:"Pause subtitles",sub_embed_resume:"Resume subtitles",sub_embed_started:"Subtitles started — nudge with −/+ if they run ahead or behind.",sub_embed_paused:"Subtitles paused",sub_embed_resumed:"Subtitles resumed",yt_noembed:"This YouTube link can't be embedded (playlist, channel or search page). Open the video itself and paste that link.",embed_redirected:"That page was just a wrapper — the video now plays in the proper player.",embed_blocked:"This site refuses to be shown inside SameCouch. Use “Open in new tab ↗” and start together with the countdown."},
-      nl:{sub_turn_off:"Ondertiteling uitzetten",sub_turn_on:"Ondertiteling aanzetten",sub_disabled:"Ondertiteling uit",sub_enabled:"Ondertiteling aan",sub_earlier:"Ondertiteling 0,5 seconde eerder tonen",sub_later:"Ondertiteling 0,5 seconde later tonen",sub_reset:"Timing van ondertiteling herstellen",sub_offset:"Ondertitelvertraging {n}",sub_timing:"Timing van ondertiteling",sub_replace_short:"Ondertitelbestand vervangen",sub_embed_hint:"Start de ondertiteling samen met de 3·2·1 aftelknop.",sub_embed_pause:"Ondertiteling pauzeren",sub_embed_resume:"Ondertiteling hervatten",sub_embed_started:"Ondertiteling gestart — stuur met −/+ bij als ze voor- of achterloopt.",sub_embed_paused:"Ondertiteling gepauzeerd",sub_embed_resumed:"Ondertiteling hervat",yt_noembed:"Deze YouTube-link kan niet worden ingesloten (afspeellijst, kanaal of zoekpagina). Open de video zelf en plak die link.",embed_redirected:"Die pagina bleek een omweg naar de video — hij speelt nu in de juiste speler.",embed_blocked:"Deze site staat weergave binnen SameCouch niet toe. Gebruik “Openen in nieuw tabblad ↗” en start samen met de aftelknop."}
+      en:{sub_turn_off:"Turn subtitles off",sub_turn_on:"Turn subtitles on",sub_disabled:"Subtitles off",sub_enabled:"Subtitles on",sub_earlier:"Show subtitles 0.5 seconds earlier",sub_later:"Show subtitles 0.5 seconds later",sub_reset:"Reset subtitle timing",sub_offset:"Subtitle delay {n}",sub_timing:"Subtitle timing",sub_replace_short:"Replace subtitle file",sub_at_title:"Jump film + subtitles to an exact time (e.g. 40:20)",sub_set_at:"Jumped to {t} — film and subtitles are in sync.",sub_at_bad:"Enter a time like 40:20 (minutes:seconds) or 1:40:20.",sub_at_native:"Set an exact time only works while a video is loaded.",sub_embed_hint:"Start the subtitles together with the 3·2·1 countdown.",sub_embed_pause:"Pause subtitles",sub_embed_resume:"Resume subtitles",sub_embed_started:"Subtitles started — nudge with −/+ if they run ahead or behind.",sub_embed_paused:"Subtitles paused",sub_embed_resumed:"Subtitles resumed",yt_noembed:"This YouTube link can't be embedded (playlist, channel or search page). Open the video itself and paste that link.",embed_redirected:"That page was just a wrapper — the video now plays in the proper player.",embed_blocked:"This site refuses to be shown inside SameCouch. Use “Open in new tab ↗” and start together with the countdown."},
+      nl:{sub_turn_off:"Ondertiteling uitzetten",sub_turn_on:"Ondertiteling aanzetten",sub_disabled:"Ondertiteling uit",sub_enabled:"Ondertiteling aan",sub_earlier:"Ondertiteling 0,5 seconde eerder tonen",sub_later:"Ondertiteling 0,5 seconde later tonen",sub_reset:"Timing van ondertiteling herstellen",sub_offset:"Ondertitelvertraging {n}",sub_timing:"Timing van ondertiteling",sub_replace_short:"Ondertitelbestand vervangen",sub_at_title:"Film + ondertiteling naar een exacte tijd (bijv. 40:20)",sub_set_at:"Naar {t} gesprongen — film en ondertiteling lopen gelijk.",sub_at_bad:"Voer een tijd in zoals 40:20 (minuten:seconden) of 1:40:20.",sub_at_native:"Een exacte tijd instellen kan alleen bij een geladen video.",sub_embed_hint:"Start de ondertiteling samen met de 3·2·1 aftelknop.",sub_embed_pause:"Ondertiteling pauzeren",sub_embed_resume:"Ondertiteling hervatten",sub_embed_started:"Ondertiteling gestart — stuur met −/+ bij als ze voor- of achterloopt.",sub_embed_paused:"Ondertiteling gepauzeerd",sub_embed_resumed:"Ondertiteling hervat",yt_noembed:"Deze YouTube-link kan niet worden ingesloten (afspeellijst, kanaal of zoekpagina). Open de video zelf en plak die link.",embed_redirected:"Die pagina bleek een omweg naar de video — hij speelt nu in de juiste speler.",embed_blocked:"Deze site staat weergave binnen SameCouch niet toe. Gebruik “Openen in nieuw tabblad ↗” en start samen met de aftelknop."}
     };
     Object.keys(SUBTIMECOPY).forEach(function(k){ if(I18N[k]) Object.keys(SUBTIMECOPY[k]).forEach(function(j){ I18N[k][j]=SUBTIMECOPY[k][j]; }); });
     var landingMode="home";
@@ -1478,7 +1482,7 @@
     var placeholder=$("placeholder"), playgate=$("playgate"), playgateBtn=$("playgateBtn");
     var cams=$("cams"), selfVideo=$("selfVideo"), peerVideo=$("peerVideo"), camState=$("camState"), camStateText=$("camStateText"), peerCam=$("peerCam"), selfCam=$("selfCam"), peerWho=$("peerWho");
     var urlInput=$("urlInput"), loadBtn=$("loadBtn"), copyBtn=$("copyBtn"), linkText=$("linkText"), browseBtn=$("browseBtn");
-    var subtitleBtn=$("subtitleBtn"), subtitleInput=$("subtitleInput"), subtitleSync=$("subtitleSync"), subtitleEarlier=$("subtitleEarlier"), subtitleOffsetEl=$("subtitleOffset"), subtitleLater=$("subtitleLater"), subtitleReplace=$("subtitleReplace"), subtitlePlay=$("subtitlePlay"), subOverlay=$("subOverlay");
+    var subtitleBtn=$("subtitleBtn"), subtitleInput=$("subtitleInput"), subtitleSync=$("subtitleSync"), subtitleEarlier=$("subtitleEarlier"), subtitleOffsetEl=$("subtitleOffset"), subtitleLater=$("subtitleLater"), subtitleReplace=$("subtitleReplace"), subtitlePlay=$("subtitlePlay"), subOverlay=$("subOverlay"), subtitleAtEl=$("subtitleAt");
     var statusDot=$("statusDot"), statusText=$("statusText");
     var micBtn=$("micBtn"), camBtn=$("camBtn"), chatBtn=$("chatBtn"), fsBtn=$("fsBtn"), floatctrls=$("floatctrls");
     var volBtn=$("volBtn"), volpop=$("volpop"), movieVol=$("movieVol"), duckChk=$("duckChk");
@@ -1929,7 +1933,7 @@
       setTitle("subtitleBtn",has?tr(subtitleEnabled?"sub_turn_off":"sub_turn_on"):tr("sub_add"));
       if(subtitleSync){ subtitleSync.hidden=!has; subtitleSync.setAttribute("aria-label",tr("sub_timing")); }
       if(subtitleOffsetEl){ subtitleOffsetEl.textContent=label; setTitle("subtitleOffset",tr("sub_offset").replace("{n}",label)+" — "+tr("sub_reset")); }
-      setTitle("subtitleEarlier",tr("sub_earlier")); setTitle("subtitleLater",tr("sub_later")); setTitle("subtitleReplace",tr("sub_replace_short"));
+      setTitle("subtitleEarlier",tr("sub_earlier")); setTitle("subtitleLater",tr("sub_later")); setTitle("subtitleReplace",tr("sub_replace_short")); setTitle("subtitleAt",tr("sub_at_title"));
       if(subtitlePlay){ var showPlay=!!(has&&embedSubMode()); subtitlePlay.hidden=!showPlay; subtitlePlay.classList.toggle("paused",!subClockRunning); subtitlePlay.textContent=subClockRunning?"⏸":"▶"; subtitlePlay.setAttribute("aria-pressed",subClockRunning?"false":"true"); setTitle("subtitlePlay",tr(subClockRunning?"sub_embed_pause":"sub_embed_resume")); }
       if(!(has&&embedSubMode())) hideSubOverlay();
       paintSubOverlay();
@@ -1992,6 +1996,21 @@
       updateSubtitleUI(); toast(tr(subtitleEnabled?"sub_enabled":"sub_disabled"),2600);
     }
     function setSubtitleOffset(next){ if(!currentSubtitle) return; subtitleOffset=Math.max(-60,Math.min(60,Math.round((+next||0)*2)/2)); subOverlayLastText=null; if(!renderSubtitle()){ toast(tr("sub_invalid"),5000); return; } updateSubtitleUI(); }
+    /* resume a half-watched film: type the exact timecode and jump the film + subtitles there together (whole room follows) */
+    function fmtClock(sec){ sec=Math.max(0,Math.round(+sec||0)); var h=Math.floor(sec/3600),m=Math.floor((sec%3600)/60),s=sec%60; function p(n){return (n<10?"0":"")+n;} return (h>0?h+":"+p(m):m)+":"+p(s); }
+    function parseTimecode(str){
+      str=String(str||"").trim().replace(",","."); if(!str) return null;
+      if(/^\d+(\.\d+)?$/.test(str)){ var n=parseFloat(str); return (n>=0&&n<24*3600)?n:null; }   // plain seconds
+      var m=str.match(/^(?:(\d{1,2}):)?(\d{1,2}):(\d{1,2}(?:\.\d+)?)$/);   // [hh:]mm:ss
+      if(!m) return null; var h=+(m[1]||0),mi=+m[2],se=+m[3]; if(mi>59||se>=60) return null; var t=h*3600+mi*60+se; return (t<24*3600)?t:null;
+    }
+    function setSubtitleTime(sec){
+      if(!currentSubtitle||sec==null) return;
+      if(embedSubMode()){ startSubClock(sec); announceSubClock(); }        // embedded video: move the manual subtitle clock
+      else if(nativeMode()){ setTime(sec); lastActionAt=Date.now(); rtSend({type:"sync",kind:"seek",time:sec,playing:!isPausedMedia()}); }   // real video: seek it; the <track> follows and the room syncs
+      else { toast(tr("sub_at_native"),5000); return; }
+      toast(tr("sub_set_at").replace("{t}",fmtClock(sec)),4200); updateSubtitleUI();
+    }
     /* one of you presses the 3·2·1 countdown → its "NOW" moment starts every viewer's subtitle clock together */
     function embedSubCountdownStart(){ if(embedSubMode()&&currentSubtitle){ startSubClock(0); toast(tr("sub_embed_started"),4200); } }
     function toggleSubClock(){
@@ -2171,6 +2190,8 @@
     if(subtitleOffsetEl) subtitleOffsetEl.addEventListener("click",function(){ setSubtitleOffset(0); });
     if(subtitlePlay) subtitlePlay.addEventListener("click",function(){ toggleSubClock(); });
     if(subtitleReplace) subtitleReplace.addEventListener("click",function(){ if(subtitleEligible()&&subtitleInput) subtitleInput.click(); });
+    function applySubtitleAt(){ if(!subtitleAtEl) return; var v=subtitleAtEl.value.trim(); if(!v) return; var t=parseTimecode(v); if(t==null){ toast(tr("sub_at_bad"),4500); return; } setSubtitleTime(t); subtitleAtEl.blur(); }
+    if(subtitleAtEl){ subtitleAtEl.addEventListener("keydown",function(e){ if(e.key==="Enter"){ e.preventDefault(); applySubtitleAt(); } }); subtitleAtEl.addEventListener("change",applySubtitleAt); }
     if(subtitleInput) subtitleInput.addEventListener("change",function(){
       var f=subtitleInput.files&&subtitleInput.files[0]; try{ subtitleInput.value=""; }catch(e){}
       if(!f||!subtitleEligible()) return;
