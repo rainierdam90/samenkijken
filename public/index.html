@@ -2551,6 +2551,10 @@
       if(c._wmtQueue.length<100) c._wmtQueue.push(obj);   // one open-listener + bounded queue, rather than an ever-growing listener pile
       return true;
     }
+
+    /* ---- raw fast path for file bytes: a second data channel with serialization:"none".
+            The JSON channel wraps every chunk in BinaryPack (pack → 16KB slices → unpack, with
+            retry timers on full buffers) which cap
     function onData(pid,d){
       if(!d||typeof d!=="object") return;
       if(d.t==="draw"||d.t==="draw-clear"){ if(typeof gameData==="function") gameData(pid,d); return; }
@@ -2606,7 +2610,7 @@
     var galleryParts={};                       // fileId -> contiguous, retryable chunk cache
     var galleryXfer=null;                      // receiver-side transfer state
     var presWait=null;                         // presenter-side readiness/progress state
-    var XFER_CHUNK=512*1024, PREFETCH_MAX=256*1024*1024, START_BUFFER=4*1024*1024;
+    var XFER_CHUNK=64*1024, PREFETCH_MAX=256*1024*1024, START_BUFFER=4*1024*1024;   // 64KB stays well under the reliable-DataChannel message ceiling → far fewer dropped/short chunks (each of which used to cost a slow retry)
     var xferPillEl=$("xferPill"), xferBarEl=$("xferBar"), xferPauseEl=$("xferPause"), xferRetryEl=$("xferRetry");
     function fmtRate(n){ n=Math.max(0,+n||0); if(n>=1024*1024) return (n/1024/1024).toFixed(n>=10*1024*1024?1:2)+" MB/s"; if(n>=1024) return Math.round(n/1024)+" KB/s"; return Math.round(n)+" B/s"; }
     function fmtEta(sec){ sec=Math.max(0,Math.round(+sec||0)); if(sec<60) return tr("eta_seconds").replace("{n}",String(Math.max(1,sec))); return tr("eta_minutes").replace("{n}",String(Math.ceil(sec/60))); }
@@ -2681,8 +2685,8 @@
       function waitIfPaused(){ if(!run.paused) return Promise.resolve(); return new Promise(function(resolve,reject){ run.pauseWaiters.push({resolve:resolve,reject:reject}); }); }
       function fetchChunk(fid,start,end,attempt){
         return waitIfPaused().then(function(){ if(run.cancelled||!gallery) throw new Error("cancelled"); return fetchRange(fid,start,end); }).catch(function(err){
-          if(run.cancelled||!gallery) throw err; attempt=(attempt||0)+1; if(attempt>=3) throw err;
-          return new Promise(function(resolve){ setTimeout(resolve,1800); }).then(function(){ try{ ensureData(gallery.presenter); }catch(e){} return fetchChunk(fid,start,end,attempt); });
+          if(run.cancelled||!gallery) throw err; attempt=(attempt||0)+1; if(attempt>=4) throw err;
+          return new Promise(function(resolve){ setTimeout(resolve,300*attempt); }).then(function(){ try{ ensureData(gallery.presenter); }catch(e){} return fetchChunk(fid,start,end,attempt); });   // quick backoff so an occasional miss doesn't tank throughput
         });
       }
       run.watch=setInterval(function(){
@@ -2695,7 +2699,7 @@
         seq=seq.then(function(){
           if(run.cancelled) throw new Error("cancelled");
           var state=partState(it), limit=transferLimit(it);
-          var chunkCount=Math.ceil(limit/XFER_CHUNK), W=8;   // keep up to 8 chunks in flight → fills a high-latency relay pipe instead of stalling one round-trip at a time
+          var chunkCount=Math.ceil(limit/XFER_CHUNK), W=32;   // deep window: ~32 chunks (2 MB) in flight fills a high-latency relay pipe instead of stalling one round-trip at a time
           function advance(){ var ci=Math.floor(state.received/XFER_CHUNK); while(state.parts[ci]&&ci*XFER_CHUNK===state.received){ state.received+=state.parts[ci].byteLength; ci++; } }   // move the contiguous high-water mark forward over whatever arrived
           advance(); report(true);
           return new Promise(function(resolve,reject){
