@@ -51,7 +51,11 @@
       "headers": [{ "key": "Cache-Control", "value": "public, max-age=0, must-revalidate" }]
     },
     {
-      "source": "/(samecouch-hero-.*\\.(avif|webp))",
+      "source": "/(samecouch-hero-.*\\.avif)",
+      "headers": [{ "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }]
+    },
+    {
+      "source": "/(samecouch-hero-.*\\.webp)",
       "headers": [{ "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }]
     },
     {
