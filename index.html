@@ -2489,7 +2489,10 @@
 
     /* ===================== Shared gallery (photos/videos), peer-to-peer ===================== */
     var galleryImg=$("galleryImg"), sharebar=$("sharebar"), gstrip=$("gstrip"), gnav=$("gnav"), gPrev=$("gPrev"), gNext=$("gNext"), gStop=$("gStop"), fileInput=$("fileInput"), shareMediaBtn=$("shareMediaBtn");
-    var dconns={}, dpending={}, dReqId=1, swReg=false, swControlled=false;
+    /* Small control messages stay on the existing BinaryPack channel. File bytes use a separate,
+       capability-gated raw channel so BinaryPack cannot throttle them; camera/mic calls are untouched. */
+    var dconns={}, rawConns={}, rawCaps={}, rawCapWait={}, rawOpenWait={}, rawBlockedUntil={}, dpending={}, dReqId=1, swReg=false, swControlled=false;
+    var RAW_LABEL="wmt-file-v1", RAW_MAGIC=0x574d5431, RAW_HEADER=16, RAW_FRAME_MAX=16300;   // below PeerJS' cross-browser 16.3 KB message ceiling
     var myFiles={}, localURLs={}, gallery=null;   // gallery = { presenter, items:[{fileId,name,type,size,mime}], current }
 
     function toArrayBuffer(x){ if(!x) return new ArrayBuffer(0); if(x instanceof ArrayBuffer) return x; if(x.buffer && x.byteLength!=null){ return x.buffer.slice(x.byteOffset||0,(x.byteOffset||0)+x.byteLength); } return x; }
@@ -2497,7 +2500,22 @@
     function rejectDataPending(pid,reason){
       Object.keys(dpending).forEach(function(id){ var p=dpending[id]; if(!p||p.pid!==pid) return; clearTimeout(p.to); delete dpending[id]; p.reject(new Error(reason||"data-closed")); });
     }
+    function finishRawCap(pid,ok){ var w=rawCapWait[pid]; if(!w) return; clearTimeout(w.to); delete rawCapWait[pid]; w.resolve(!!ok); }
+    function finishRawOpen(pid,conn,err){ var w=rawOpenWait[pid]; if(!w) return; clearTimeout(w.to); delete rawOpenWait[pid]; if(err) w.reject(err); else w.resolve(conn); }
+    function wireRawData(conn){
+      var pid=conn.peer;
+      conn._wmtCreated=conn._wmtCreated||Date.now();
+      rawConns[pid]=conn;
+      function opened(){ if(rawConns[pid]!==conn) return; delete rawBlockedUntil[pid]; finishRawOpen(pid,conn); }
+      function gone(){ if(rawConns[pid]!==conn) return; delete rawConns[pid]; rawBlockedUntil[pid]=Date.now()+30000; finishRawOpen(pid,null,new Error("raw-closed")); }
+      conn.on("open",opened);
+      conn.on("data",function(d){ onRawData(pid,d); });
+      conn.on("close",gone);
+      conn.on("error",gone);
+      if(conn.open) opened();
+    }
     function wireData(conn){
+      if(conn&&(conn.serialization==="raw"||conn.label===RAW_LABEL||(conn.metadata&&conn.metadata.kind===RAW_LABEL))){ wireRawData(conn); return; }
       var pid=conn.peer;
       conn._wmtCreated=conn._wmtCreated||Date.now();
       conn._wmtQueue=conn._wmtQueue||[];
@@ -2506,6 +2524,7 @@
         if(!conn.open||dconns[pid]!==conn) return;
         var q=conn._wmtQueue.splice(0);
         q.forEach(function(obj){ try{ conn.send(obj); }catch(e){} });
+        if(!conn._wmtRawCapSent){ conn._wmtRawCapSent=true; try{ conn.send({t:"file-raw-cap",v:1}); }catch(e){} }
       }
       function gone(){ if(dconns[pid]!==conn) return; delete dconns[pid]; rejectDataPending(pid,"data-closed"); }
       conn.on("open", flush);
@@ -2530,27 +2549,75 @@
       if(c._wmtQueue.length<100) c._wmtQueue.push(obj);   // one open-listener + bounded queue, rather than an ever-growing listener pile
       return true;
     }
+    function waitRawCapability(pid){
+      if(rawCaps[pid]) return Promise.resolve(true);
+      if((rawBlockedUntil[pid]||0)>Date.now()) return Promise.resolve(false);
+      if(rawCapWait[pid]) return rawCapWait[pid].promise;
+      var w={}; w.promise=new Promise(function(resolve){ w.resolve=resolve; w.to=setTimeout(function(){ if(rawCapWait[pid]===w){ delete rawCapWait[pid]; rawBlockedUntil[pid]=Date.now()+30000; resolve(false); } },5000); }); rawCapWait[pid]=w; return w.promise;
+    }
+    function ensureRawData(pid){
+      if(!rawCaps[pid]||(rawBlockedUntil[pid]||0)>Date.now()) return null;
+      var c=rawConns[pid], now=Date.now();
+      if(c&&c.open) return c;
+      if(c&&(now-(c._wmtCreated||now))<8000) return c;
+      if(c){ try{ c.close(); }catch(e){} if(rawConns[pid]===c) delete rawConns[pid]; }
+      try{ c=peer.connect(pid,{label:RAW_LABEL,metadata:{kind:RAW_LABEL},reliable:true,serialization:"raw"}); }catch(e){ return null; }
+      if(c){ c._wmtCreated=Date.now(); wireRawData(c); }
+      return c;
+    }
+    function waitRawData(pid){
+      var c=ensureRawData(pid); if(!c) return Promise.resolve(null);
+      if(c.open) return Promise.resolve(c);
+      if(rawOpenWait[pid]) return rawOpenWait[pid].promise.catch(function(){ return null; });
+      var w={}; w.promise=new Promise(function(resolve,reject){ w.resolve=resolve; w.reject=reject; w.to=setTimeout(function(){ if(rawOpenWait[pid]===w){ delete rawOpenWait[pid]; rawBlockedUntil[pid]=Date.now()+30000; reject(new Error("raw-timeout")); } },8000); }); rawOpenWait[pid]=w; return w.promise.catch(function(){ return null; });
+    }
+    function sendRawRange(pid,reqId,buf){
+      var c=rawConns[pid]; if(!c||!c.open) return false;
+      var src=new Uint8Array(toArrayBuffer(buf)), total=src.byteLength, off=0;
+      try{
+        do{
+          var n=Math.min(RAW_FRAME_MAX-RAW_HEADER,total-off), frame=new Uint8Array(RAW_HEADER+n), v=new DataView(frame.buffer);
+          v.setUint32(0,RAW_MAGIC); v.setUint32(4,reqId); v.setUint32(8,off); v.setUint32(12,total); if(n) frame.set(src.subarray(off,off+n),RAW_HEADER);
+          c.send(frame.buffer); off+=n;
+        }while(off<total);
+        return true;
+      }catch(e){ return false; }
+    }
+    function settleDataPending(reqId,err,buf){ var p=dpending[reqId]; if(!p) return; clearTimeout(p.to); delete dpending[reqId]; if(err) p.reject(err instanceof Error?err:new Error(String(err))); else p.resolve(buf); }
+    function onRawData(pid,d){
+      var ab=toArrayBuffer(d); if(ab.byteLength<RAW_HEADER) return;
+      var v=new DataView(ab); if(v.getUint32(0)!==RAW_MAGIC) return;
+      var reqId=v.getUint32(4), off=v.getUint32(8), total=v.getUint32(12), p=dpending[reqId], n=ab.byteLength-RAW_HEADER;
+      if(!p||p.pid!==pid||!p.raw) return;
+      if(total!==p.expected||off!==p.rawReceived||n>total-off){ settleDataPending(reqId,new Error("bad-raw-range")); return; }
+      if(!p.rawBuf) p.rawBuf=new Uint8Array(total);
+      if(n) p.rawBuf.set(new Uint8Array(ab,RAW_HEADER,n),off); p.rawReceived+=n;
+      if(p.rawReceived===total) settleDataPending(reqId,null,p.rawBuf.buffer);
+    }
     function onData(pid,d){
       if(!d||typeof d!=="object") return;
+      if(d.t==="file-raw-cap"){ if(+d.v>=1){ rawCaps[pid]=true; delete rawBlockedUntil[pid]; finishRawCap(pid,true); } return; }
       if(d.t==="draw"||d.t==="draw-clear"){ if(typeof gameData==="function") gameData(pid,d); return; }
       if(d.t==="range-req"){
         var f=myFiles[d.fileId];
         if(!f){ dsend(pid,{t:"range-data",reqId:d.reqId,err:true}); return; }
         var end=Math.min(d.end, f.size-1); if(end<d.start){ dsend(pid,{t:"range-data",reqId:d.reqId,buf:new ArrayBuffer(0)}); return; }
-        f.slice(d.start,end+1).arrayBuffer().then(function(buf){ dsend(pid,{t:"range-data",reqId:d.reqId,buf:buf}); });
+        f.slice(d.start,end+1).arrayBuffer().then(function(buf){ if(!(d.raw&&sendRawRange(pid,d.reqId,buf))) dsend(pid,{t:"range-data",reqId:d.reqId,buf:buf}); }).catch(function(){ dsend(pid,{t:"range-data",reqId:d.reqId,err:true}); });
         return;
       }
-      if(d.t==="range-data"){ var p=dpending[d.reqId]; if(p){ clearTimeout(p.to); delete dpending[d.reqId]; if(d.err) p.reject(new Error("noent")); else p.resolve(toArrayBuffer(d.buf)); } return; }
+      if(d.t==="range-data"){ settleDataPending(d.reqId,d.err?new Error("noent"):null,toArrayBuffer(d.buf)); return; }
+    }
+    function requestRange(pid,fileId,start,end,useRaw){
+      return new Promise(function(resolve,reject){
+        var reqId=dReqId++;
+        dpending[reqId]={pid:pid,raw:!!useRaw,rawReceived:0,expected:Math.max(0,end-start+1),resolve:resolve,reject:reject,to:setTimeout(function(){ delete dpending[reqId]; reject(new Error("timeout")); },12000)};
+        if(!dsend(pid,{t:"range-req",reqId:reqId,fileId:fileId,start:start,end:end,raw:useRaw?1:0})){ clearTimeout(dpending[reqId].to); delete dpending[reqId]; reject(new Error("data-unavailable")); }
+      });
     }
     function fetchRange(fileId,start,end){
-      return new Promise(function(resolve,reject){
-        if(!gallery||!gallery.presenter||gallery.presenter===myPeerId){ reject(new Error("no-presenter")); return; }
-        var pid=gallery.presenter;
-        if(!ensureData(pid)){ reject(new Error("data-unavailable")); return; }
-        var reqId=dReqId++;
-        dpending[reqId]={pid:pid,resolve:resolve,reject:reject,to:setTimeout(function(){ delete dpending[reqId]; reject(new Error("timeout")); },12000)};
-        if(!dsend(pid,{t:"range-req",reqId:reqId,fileId:fileId,start:start,end:end})){ clearTimeout(dpending[reqId].to); delete dpending[reqId]; reject(new Error("data-unavailable")); }
-      });
+      if(!gallery||!gallery.presenter||gallery.presenter===myPeerId) return Promise.reject(new Error("no-presenter"));
+      var pid=gallery.presenter; if(!ensureData(pid)) return Promise.reject(new Error("data-unavailable"));
+      return waitRawCapability(pid).then(function(ok){ return ok?waitRawData(pid):null; }).catch(function(){ return null; }).then(function(c){ return requestRange(pid,fileId,start,end,!!(c&&c.open)); });
     }
 
     function initSW(){

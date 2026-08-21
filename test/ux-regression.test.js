@@ -8,15 +8,30 @@ const vm = require("node:vm");
 
 const ROOT = path.resolve(__dirname, "..");
 const html = fs.readFileSync(path.join(ROOT, "public", "index.html"), "utf8");
+const rootHtml = fs.readFileSync(path.join(ROOT, "index.html"), "utf8");
 const serverSource = fs.readFileSync(path.join(ROOT, "server", "server.js"), "utf8");
 const subtitles = require(path.join(ROOT, "public", "subtitles.js"));
 
+function extractFunction(source, name) {
+  const start = source.indexOf(`function ${name}(`);
+  assert.notEqual(start, -1, `missing ${name}`);
+  const bodyStart = source.indexOf("{", start);
+  let depth = 0;
+  for (let i = bodyStart; i < source.length; i++) {
+    if (source[i] === "{") depth++;
+    else if (source[i] === "}" && --depth === 0) return source.slice(start, i + 1);
+  }
+  throw new Error(`unterminated ${name}`);
+}
+
 test("inline application script parses", () => {
-  const scripts = [...html.matchAll(/<script(?:\s[^>]*)?>([\s\S]*?)<\/script>/gi)]
-    .map(match => match[1])
-    .filter(source => source.trim());
-  assert.ok(scripts.length > 0);
-  scripts.forEach((source, index) => new vm.Script(source, { filename: `inline-${index + 1}.js` }));
+  for (const [entry, sourceHtml] of [["public", html], ["root", rootHtml]]) {
+    const scripts = [...sourceHtml.matchAll(/<script(?:\s[^>]*)?>([\s\S]*?)<\/script>/gi)]
+      .map(match => match[1])
+      .filter(source => source.trim());
+    assert.ok(scripts.length > 0);
+    scripts.forEach((source, index) => new vm.Script(source, { filename: `${entry}-inline-${index + 1}.js` }));
+  }
 });
 
 test("a participant name is required and has an inline accessible error", () => {
@@ -37,6 +52,56 @@ test("peer-to-peer file requests use a bounded reconnecting queue", () => {
   assert.match(html, /rejectDataPending\(pid,"data-stale"\)/);
   assert.match(html, /serialization:"binary"/);
   assert.match(html, /type:"gallery-fail"/);
+});
+
+test("shared file bytes use a framed raw fast path with a compatible fallback", () => {
+  for (const sourceHtml of [html, rootHtml]) {
+    assert.match(sourceHtml, /RAW_LABEL="wmt-file-v1"/);
+    assert.match(sourceHtml, /RAW_FRAME_MAX=16300/);
+    assert.match(sourceHtml, /serialization:"raw"/);
+    assert.match(sourceHtml, /t:"file-raw-cap",v:1/);
+    assert.match(sourceHtml, /d\.raw&&sendRawRange\(pid,d\.reqId,buf\)/);
+    assert.match(sourceHtml, /dsend\(pid,\{t:"range-data",reqId:d\.reqId,buf:buf\}\)/);
+  }
+});
+
+test("raw file frames reconstruct the requested bytes exactly", () => {
+  const frames = [];
+  const context = vm.createContext({
+    RAW_MAGIC: 0x574d5431,
+    RAW_HEADER: 16,
+    RAW_FRAME_MAX: 16300,
+    rawConns: { phone: { open: true, send: frame => frames.push(frame) } },
+    dpending: {},
+    clearTimeout
+  });
+  vm.runInContext([
+    extractFunction(html, "toArrayBuffer"),
+    extractFunction(html, "sendRawRange"),
+    extractFunction(html, "settleDataPending"),
+    extractFunction(html, "onRawData")
+  ].join("\n"), context);
+
+  const original = Uint8Array.from({ length: 70000 }, (_, i) => (i * 31) & 255);
+  assert.equal(context.sendRawRange("phone", 77, original.buffer), true);
+  assert.ok(frames.length > 1);
+  assert.ok(frames.every(frame => frame.byteLength <= 16300));
+
+  let reconstructed;
+  context.dpending[77] = {
+    pid: "phone", raw: true, rawReceived: 0, expected: original.byteLength,
+    resolve: value => { reconstructed = value; },
+    reject: error => { throw error; }
+  };
+  frames.forEach(frame => context.onRawData("phone", frame));
+  assert.deepEqual(Buffer.from(reconstructed), Buffer.from(original));
+  assert.equal(context.dpending[77], undefined);
+});
+
+test("file transfer remains separate from webcam and microphone calls", () => {
+  assert.match(html, /peer\.call\(pid, localStream\|\|new MediaStream\(\)\)/);
+  assert.match(html, /call\.answer\(localStream\|\|new MediaStream\(\)\)/);
+  assert.match(html, /if\(shareMode\)\{ localStream=null/);
 });
 
 test("large shared videos use a progressive start buffer with transfer controls", () => {
