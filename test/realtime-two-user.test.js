@@ -28,6 +28,40 @@ function waitForMessage(ws, type, timeout = 5000) {
   });
 }
 
+function waitForMessageWhere(ws, predicate, label, timeout = 5000) {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => {
+      ws.off("message", onMessage);
+      reject(new Error(`Timed out waiting for ${label}`));
+    }, timeout);
+    function onMessage(raw) {
+      const message = JSON.parse(String(raw));
+      if (!predicate(message)) return;
+      clearTimeout(timer);
+      ws.off("message", onMessage);
+      resolve(message);
+    }
+    ws.on("message", onMessage);
+  });
+}
+
+function expectNoMessageWhere(ws, predicate, label, timeout = 300) {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => {
+      ws.off("message", onMessage);
+      resolve();
+    }, timeout);
+    function onMessage(raw) {
+      const message = JSON.parse(String(raw));
+      if (!predicate(message)) return;
+      clearTimeout(timer);
+      ws.off("message", onMessage);
+      reject(new Error(`Unexpected ${label}`));
+    }
+    ws.on("message", onMessage);
+  });
+}
+
 function openSocket(url) {
   return new Promise((resolve, reject) => {
     const ws = new WebSocket(url);
@@ -170,6 +204,37 @@ test("participants relay playback, fast transfer, queue, moments, subtitles, and
   const sync = await syncPromise;
   assert.equal(sync.kind, "play");
   assert.equal(sync.time, 12.5);
+  assert.equal(sync.seq, 1);
+  assert.ok(Number.isFinite(sync.serverAt));
+
+  const rejectedGuestHeartbeat = expectNoMessageWhere(host,
+    message => message.type === "sync" && message.kind === "heartbeat",
+    "guest heartbeat relay");
+  guest.send(JSON.stringify({ type: "sync", kind: "heartbeat", time: 13, playing: true }));
+  await rejectedGuestHeartbeat;
+
+  const hostHeartbeatPromise = waitForMessageWhere(guest,
+    message => message.type === "sync" && message.kind === "heartbeat",
+    "host heartbeat");
+  host.send(JSON.stringify({ type: "sync", kind: "heartbeat", time: 13.25, playing: true }));
+  const hostHeartbeat = await hostHeartbeatPromise;
+  assert.equal(hostHeartbeat.from, "hostqa");
+  assert.equal(hostHeartbeat.time, 13.25);
+  assert.equal(hostHeartbeat.seq, 2);
+
+  const rejectedGuestBuffering = expectNoMessageWhere(host,
+    message => message.type === "sync" && message.kind === "buffering",
+    "guest buffering relay");
+  guest.send(JSON.stringify({ type: "sync", kind: "buffering", time: 13.25, playing: true }));
+  await rejectedGuestBuffering;
+
+  const hostBufferingPromise = waitForMessageWhere(guest,
+    message => message.type === "sync" && message.kind === "buffering",
+    "host buffering state");
+  host.send(JSON.stringify({ type: "sync", kind: "buffering", time: 13.5, playing: true }));
+  const hostBuffering = await hostBufferingPromise;
+  assert.equal(hostBuffering.seq, 3);
+  assert.equal(hostBuffering.from, "hostqa");
 
   const readyPromise = waitForMessage(host, "gallery-ready");
   guest.send(JSON.stringify({ type: "gallery-ready", fileId: "film-1" }));

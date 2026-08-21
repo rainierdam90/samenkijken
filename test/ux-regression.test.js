@@ -176,6 +176,34 @@ test("file transfer remains separate from webcam and microphone calls", () => {
   assert.match(html, /if\(shareMode\)\{ localStream=null/);
 });
 
+test("shared playback has one stable clock and never hard-rewinds a smooth viewer", () => {
+  const authoritySource = extractFunction(appJs, "recomputeAuthority");
+  assert.match(authoritySource, /isAuthority=!!isHost/);
+  assert.doesNotMatch(authoritySource, /\.sort\(/);
+
+  const context = vm.createContext({ Math });
+  vm.runInContext(`${extractFunction(appJs, "heartbeatCorrection")}; this.correct=heartbeatCorrection`, context);
+  const viewerAhead = context.correct(-5, true, false);
+  assert.equal(viewerAhead.seek, false);
+  assert.equal(viewerAhead.hold, 5000);
+  const directBehind = context.correct(1, true, false);
+  assert.equal(directBehind.seek, false);
+  assert.ok(directBehind.rate > 1 && directBehind.rate <= 1.08);
+  const farBehind = context.correct(6, true, false);
+  assert.equal(farBehind.seek, true);
+  const remuxBehind = context.correct(6, true, true);
+  assert.equal(remuxBehind.seek, false);
+  assert.equal(remuxBehind.rate, 1.08);
+
+  const clockHealthSource = extractFunction(appJs, "syncClockHealthy");
+  assert.match(clockHealthSource, /!nativeBuffering&&!movie\.seeking&&movie\.readyState>=3/);
+  assert.match(appJs, /movie\.addEventListener\("seeked",\s*function\(\)\{\s*if\(!consumeRemoteSeek\(\)\) broadcast\("seek"\);\s*\}\)/);
+  assert.match(appJs, /rtSend\(\{type:"sync",kind:on\?"buffering":"buffered-play"/);
+  assert.match(serverSource, /kind === "heartbeat" \|\| kind === "buffering" \|\| kind === "buffered-play"/);
+  assert.match(serverSource, /r\.host !== ws\._peerId/);
+  assert.match(serverSource, /seq: r\.syncSeq, serverAt: Date\.now\(\)/);
+});
+
 test("large shared videos use a progressive start buffer with transfer controls", () => {
   assert.match(html, /START_BUFFER=4\*1024\*1024/);
   assert.match(html, /function galleryPlayable\(fileId\)/);

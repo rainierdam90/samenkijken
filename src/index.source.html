@@ -1862,7 +1862,7 @@
     function armAudioUnlock(){ if(audioUnlockArmed) return; audioUnlockArmed=true; toast("Tap the screen to hear everyone.",6000); document.addEventListener("click", function once(){ document.removeEventListener("click",once); Object.keys(peers).forEach(function(id){ var a=peers[id].audioEl; if(a&&a.play) a.play().catch(function(){}); }); }, { once:true }); }
 
     function updatePresenceStatus(){ var n=Object.keys(peers).length; setStatus(n>0?"connected":"waiting"); if(curCam!=="ok") setCamStatus(curCam); }   // refresh "waiting" ↔ "connecting" as people come and go
-    function recomputeAuthority(){ if(shareMode){ isAuthority=false; diag.role="companion (share only)"; return; } var ids=[myPeerId].concat(Object.keys(peers)).filter(Boolean).sort(); isAuthority=(ids[0]===myPeerId); diag.role=isAuthority?"host (sync authority)":"guest"; }
+    function recomputeAuthority(){ if(shareMode){ isAuthority=false; diag.role="companion (share only)"; return; } isAuthority=!!isHost; diag.role=isAuthority?"host (sync authority)":"guest"; }
 
     /* ---- control plane ---- */
     var rtRetryTimer=null;
@@ -1921,7 +1921,7 @@
         case "video": if(typeof m.url==="string"){
           if(m.mode==="none"||!m.url){ if(!gallery&&mode!=="none"&&typeof stopWatchingLocal==="function") stopWatchingLocal(); break; }   // someone pressed Stop → whole room back to the living room
           if(currentMedia&&currentMedia.url===m.url&&mode===m.mode) break; /* already showing — replays must not reload */ urlInput.value=m.url; applyMedia(m.mode,m.url,m.id); toast((m.from&&peers[m.from]&&peers[m.from].name?peers[m.from].name:tr("others"))+" loaded a video."); } break;
-        case "host": { var meHost=(m.peerId===myPeerId); if(meHost&&!isHost) toast(tr("host_now"),5000); isHost=meHost; updateHostControls(); if(typeof refreshWallDelButtons==="function") refreshWallDelButtons(); break; }
+        case "host": { var meHost=(m.peerId===myPeerId); if(meHost&&!isHost) toast(tr("host_now"),5000); isHost=meHost; recomputeAuthority(); updateHostControls(); if(typeof refreshWallDelButtons==="function") refreshWallDelButtons(); break; }
         case "reneg": if(m.target===myPeerId && m.from && peers[m.from]){ refreshIce().then(function(){ reconnectAsInitiator(m.from); }); } break;
       }
     }
@@ -2187,7 +2187,7 @@
       movie.addEventListener("canplay",directReady); movie.addEventListener("error",fallback); timer=setTimeout(fallback,8000);
       movie.src=url; movie.load();
     }
-    function clearPlayers(){ clearMkvPreparation(); try{ movie.pause(); }catch(e){} clearSubtitleLocal(); try{ movie.removeAttribute("src"); movie.load(); }catch(e){} movie.style.display="none"; if(galleryImg) galleryImg.style.display="none"; if(typeof screenVideo!=="undefined"&&screenVideo) screenVideo.style.display="none"; if(ytPlayer){ try{ ytPlayer.destroy(); }catch(e){} ytPlayer=null; } if(vimPlayer){ try{ vimPlayer.destroy(); }catch(e){} vimPlayer=null; vimReady=false; } ytwrap.style.display="none"; ytwrap.innerHTML=""; try{ frame.src="about:blank"; }catch(e){} framewrap.style.display="none"; clearTimeout(gateCheckTimer); clearTimeout(gateFallbackTimer); gateDismissed=false; playgate.hidden=true; pending=null; movieErrored=false; updateStageChrome(); updateWakeLock(); }
+    function clearPlayers(){ if(typeof resetSyncCorrection==="function") resetSyncCorrection(); clearMkvPreparation(); try{ movie.pause(); }catch(e){} clearSubtitleLocal(); try{ movie.removeAttribute("src"); movie.load(); }catch(e){} movie.style.display="none"; if(galleryImg) galleryImg.style.display="none"; if(typeof screenVideo!=="undefined"&&screenVideo) screenVideo.style.display="none"; if(ytPlayer){ try{ ytPlayer.destroy(); }catch(e){} ytPlayer=null; } if(vimPlayer){ try{ vimPlayer.destroy(); }catch(e){} vimPlayer=null; vimReady=false; vimBuffering=false; } ytwrap.style.display="none"; ytwrap.innerHTML=""; try{ frame.src="about:blank"; }catch(e){} framewrap.style.display="none"; clearTimeout(gateCheckTimer); clearTimeout(gateFallbackTimer); gateDismissed=false; playgate.hidden=true; pending=null; movieErrored=false; updateStageChrome(); updateWakeLock(); }
     function setEmbedUI(on){ cdwidget.hidden=!on; if(!on){ clearInterval(cdTimer); cdNum.textContent="\u25B6"; cdNum.classList.remove("go"); cdBtn.disabled=false; cdBusy=false; } }
     /* only ever hand the player/iframe a safe scheme — a malicious peer could push a "video" with a javascript:/data: url */
     function safeUrl(u){ u=String(u||""); return (/^https?:\/\//i.test(u)||/^blob:/i.test(u))?u:""; }
@@ -2307,11 +2307,11 @@
     function onYtState(e){ if(e.data===1||e.data===3){ clearTimeout(gateCheckTimer); clearTimeout(gateFallbackTimer); playgate.hidden=true; } updateWakeLock(); if(applyingRemote||mode!=="youtube") return; if(e.data===1) broadcast("play"); else if(e.data===2) broadcast("pause"); }
 
     /* ---- Vimeo provider (Player API; same sync events) ---- */
-    var vimApiReady=false, vimApiLoading=false, vimPending=null, vimPlayer=null, vimReady=false, vimPaused=true, vimTime=0;
+    var vimApiReady=false, vimApiLoading=false, vimPending=null, vimPlayer=null, vimReady=false, vimPaused=true, vimBuffering=false, vimTime=0;
     function ensureVimeoApi(cb){ if(vimApiReady){ cb(); return; } vimPending=cb; if(vimApiLoading) return; vimApiLoading=true; var s=document.createElement("script"); s.src="https://player.vimeo.com/api/player.js"; s.onload=function(){ vimApiReady=true; if(vimPending){ var f=vimPending; vimPending=null; f(); } }; s.onerror=function(){ toast("Could not load Vimeo.",6000); }; document.head.appendChild(s); }
     function loadVimeo(url){ var info=parseVimeo(url)||{};
       // build the iframe ourselves (reliable), then attach the Player API for sync
-      ytwrap.innerHTML=""; vimReady=false; vimPaused=true; vimTime=0;
+      ytwrap.innerHTML=""; vimReady=false; vimPaused=true; vimBuffering=false; vimTime=0;
       var ifr=document.createElement("iframe");
       ifr.src="https://player.vimeo.com/video/"+encodeURIComponent(info.id)+"?dnt=1&playsinline=1"+(info.h?("&h="+encodeURIComponent(info.h)):"");
       ifr.allow="autoplay; fullscreen; picture-in-picture"; ifr.setAttribute("allowfullscreen",""); ifr.style.cssText="width:100%;height:100%;border:0;display:block";
@@ -2322,7 +2322,9 @@
         vimPlayer.on("loaded", function(){ vimReady=true; applyUserVolume(); applyPending(); });
         vimPlayer.on("play", function(){ vimPaused=false; clearTimeout(gateCheckTimer); clearTimeout(gateFallbackTimer); playgate.hidden=true; updateWakeLock(); if(!applyingRemote&&mode==="vimeo") broadcast("play"); });
         vimPlayer.on("pause", function(){ vimPaused=true; updateWakeLock(); if(!applyingRemote&&mode==="vimeo") broadcast("pause"); });
-        vimPlayer.on("seeked", function(d){ if(d&&typeof d.seconds==="number") vimTime=d.seconds; if(!applyingRemote&&mode==="vimeo") broadcast("seek"); });
+        vimPlayer.on("bufferstart", function(){ vimBuffering=true; });
+        vimPlayer.on("bufferend", function(){ vimBuffering=false; });
+        vimPlayer.on("seeked", function(d){ if(d&&typeof d.seconds==="number") vimTime=d.seconds; if(!consumeRemoteSeek()&&!applyingRemote&&mode==="vimeo") broadcast("seek"); });
         vimPlayer.on("timeupdate", function(d){ if(d&&typeof d.seconds==="number") vimTime=d.seconds; });
     }); }
 
@@ -2339,28 +2341,70 @@
     function isSyncable(){ return nativeMode()||mode==="youtube"||mode==="vimeo"; }
 
     /* ---- sync (relayed by server to whole room) ---- */
-    var applyingRemote=false, applyingTimer, lastActionAt=0;
+    var applyingRemote=false, applyingTimer, lastActionAt=0, remoteSeekUntil=0, nativeBuffering=false, syncHoldTimer=null, lastSyncSeq=0;
     function broadcast(kind){ if(applyingRemote) return; if(!isSyncable()) return; lastActionAt=Date.now(); rtSend({ type:"sync", kind:kind, time:getTime(), playing:!isPausedMedia() }); }
-    function markApplying(){ applyingRemote=true; clearTimeout(applyingTimer); applyingTimer=setTimeout(function(){ applyingRemote=false; },700); }
+    function markApplying(ms){ applyingRemote=true; clearTimeout(applyingTimer); applyingTimer=setTimeout(function(){ applyingRemote=false; },ms||2500); }
+    function remoteSetTime(t){ remoteSeekUntil=Date.now()+10000; setTime(t); }
+    function consumeRemoteSeek(){ if(remoteSeekUntil&&Date.now()<=remoteSeekUntil){ remoteSeekUntil=0; return true; } remoteSeekUntil=0; return false; }
+    function restoreSyncRate(){ if(nativeMode()&&movie&&movie.playbackRate!==1){ try{ movie.playbackRate=1; }catch(e){} } }
+    function heartbeatCorrection(drift,canRate,avoidSeek){
+      drift=+drift||0;
+      if(drift<-.75) return {hold:Math.min(5000,Math.max(300,Math.round(-drift*1000))),rate:1,seek:false};
+      if(drift>4&&!avoidSeek) return {hold:0,rate:1,seek:true};
+      if(canRate&&Math.abs(drift)>=.3) return {hold:0,rate:Math.max(.92,Math.min(1.08,1+drift*.04)),seek:false};
+      return {hold:0,rate:1,seek:false};
+    }
+    function clearSyncHold(){ if(syncHoldTimer){ clearTimeout(syncHoldTimer); syncHoldTimer=null; } }
+    function holdForAuthority(ms){
+      clearSyncHold(); restoreSyncRate(); markApplying(); if(!isPausedMedia()) pauseMedia();
+      syncHoldTimer=setTimeout(function(){ syncHoldTimer=null; if(!currentMedia||!isSyncable()) return; markApplying(); playMedia(); },ms);
+    }
+    function resetSyncCorrection(){ clearSyncHold(); restoreSyncRate(); remoteSeekUntil=0; nativeBuffering=false; }
+    function syncClockHealthy(){
+      if(!mediaReady()) return false;
+      if(nativeMode()) return !!(movie.paused||(!nativeBuffering&&!movie.seeking&&movie.readyState>=3));
+      if(mode==="youtube"&&ytPlayer&&ytPlayer.getPlayerState){ try{ return ytPlayer.getPlayerState()!==3; }catch(e){ return false; } }
+      if(mode==="vimeo") return !!(vimReady&&!vimBuffering);
+      return false;
+    }
+    function applyHeartbeat(data){
+      var drift=data.time-getTime(), native= nativeMode(), plan;
+      if(!data.playing){ clearSyncHold(); restoreSyncRate(); markApplying(); if(Math.abs(drift)>1) remoteSetTime(data.time); if(!isPausedMedia()) pauseMedia(); return; }
+      plan=heartbeatCorrection(drift,native,mode==="mkv");
+      if(plan.hold){ holdForAuthority(plan.hold); return; }
+      if(syncHoldTimer){ clearSyncHold(); markApplying(); if(isPausedMedia()) playMedia(); }
+      if(plan.seek){ markApplying(); remoteSetTime(data.time); }
+      if(native){ try{ movie.playbackRate=plan.rate; }catch(e){} }
+      if(isPausedMedia()){ markApplying(); playMedia(); }
+    }
+    function setNativeBuffering(on){
+      on=!!on; if(nativeBuffering===on) return; nativeBuffering=on;
+      if(isAuthority&&rtReady&&nativeMode()&&!movie.paused) rtSend({type:"sync",kind:on?"buffering":"buffered-play",time:getTime(),playing:true});
+    }
     movie.addEventListener("play", function(){ updateWakeLock(); broadcast("play"); });
-    movie.addEventListener("pause", function(){ updateWakeLock(); broadcast("pause"); });
+    movie.addEventListener("playing", function(){ setNativeBuffering(false); });
+    movie.addEventListener("waiting", function(){ setNativeBuffering(true); });
+    movie.addEventListener("stalled", function(){ setNativeBuffering(true); });
+    movie.addEventListener("pause", function(){ restoreSyncRate(); updateWakeLock(); broadcast("pause"); });
     movie.addEventListener("ended", updateWakeLock);
-    movie.addEventListener("seeked", function(){ broadcast("seek"); });
-    movie.addEventListener("loadedmetadata", function(){ applyPending(); applyUserVolume(); });
-    function applyPending(){ if(pending&&mediaReady()){ markApplying(); if(typeof pending.time==="number") setTime(pending.time); if(pending.play) playMedia(); pending=null; } }
+    movie.addEventListener("seeked", function(){ if(!consumeRemoteSeek()) broadcast("seek"); });
+    movie.addEventListener("loadedmetadata", function(){ nativeBuffering=false; applyPending(); applyUserVolume(); });
+    function applyPending(){ if(pending&&mediaReady()){ markApplying(); if(typeof pending.time==="number") remoteSetTime(pending.time); if(pending.play) playMedia(); pending=null; } }
     function applyRemote(data){
       if(mode==="embed"||mode==="none") return; if(!data||typeof data.time!=="number") return;
+      if(data.seq&&data.seq<=lastSyncSeq) return; if(data.seq) lastSyncSeq=data.seq;
       if(!mediaReady()){ var wp=(data.kind==="play"||(data.kind==="heartbeat"&&data.playing)); pending={ time:data.time, play: wp||(pending&&pending.play)||false }; return; }
-      markApplying();
       switch(data.kind){
-        case "play": lastActionAt=Date.now(); if(Math.abs(getTime()-data.time)>0.5) setTime(data.time); playMedia(); break;
-        case "pause": lastActionAt=Date.now(); if(Math.abs(getTime()-data.time)>0.5) setTime(data.time); pauseMedia(); break;
-        case "seek": lastActionAt=Date.now(); if(Math.abs(getTime()-data.time)>0.3) setTime(data.time); if(typeof data.playing==="boolean"){ if(data.playing&&isPausedMedia()) playMedia(); else if(!data.playing&&!isPausedMedia()) pauseMedia(); } break;
+        case "play": lastActionAt=Date.now(); resetSyncCorrection(); markApplying(); if(Math.abs(getTime()-data.time)>0.5) remoteSetTime(data.time); playMedia(); break;
+        case "pause": lastActionAt=Date.now(); resetSyncCorrection(); markApplying(); if(Math.abs(getTime()-data.time)>0.5) remoteSetTime(data.time); pauseMedia(); break;
+        case "seek": lastActionAt=Date.now(); resetSyncCorrection(); markApplying(); if(Math.abs(getTime()-data.time)>0.3) remoteSetTime(data.time); if(typeof data.playing==="boolean"){ if(data.playing&&isPausedMedia()) playMedia(); else if(!data.playing&&!isPausedMedia()) pauseMedia(); } break;
+        case "buffering": lastActionAt=Date.now(); clearSyncHold(); restoreSyncRate(); markApplying(); if(!isPausedMedia()) pauseMedia(); break;
+        case "buffered-play": lastActionAt=Date.now(); applyHeartbeat({time:data.time,playing:true}); break;
         // heartbeat keeps latecomers/drifters aligned, but never fights a fresh local/remote action (grace window avoids resume-after-pause races)
-        case "heartbeat": if(!isAuthority && (Date.now()-lastActionAt)>2500){ if(data.playing&&isPausedMedia()) playMedia(); if(!data.playing&&!isPausedMedia()) pauseMedia(); if(Math.abs(getTime()-data.time)>1.5) setTime(data.time); } break;
+        case "heartbeat": if(!isAuthority && (Date.now()-lastActionAt)>2500) applyHeartbeat(data); break;
       }
     }
-    setInterval(function(){ if(isAuthority&&rtReady&&isSyncable()&&mediaReady()) rtSend({ type:"sync", kind:"heartbeat", time:getTime(), playing:!isPausedMedia() }); },4000);
+    setInterval(function(){ if(isAuthority&&rtReady&&isSyncable()&&syncClockHealthy()) rtSend({ type:"sync", kind:"heartbeat", time:getTime(), playing:!isPausedMedia() }); },4000);
     setInterval(function(){ if(peer && !shareMode && Object.keys(peers).length) refreshIce(); },25*60*1000);   // keep TURN credentials fresh so reconnections never use expired ones
     var lastPoll={ t:0, time:0, playing:false };
     setInterval(function(){ applyPending(); updateDuck(); if(mode==="youtube"&&mediaReady()&&!applyingRemote){ var nowS=getTime(), playing=!isPausedMedia(), nowMs=Date.now(); if(lastPoll.t){ var dt=(nowMs-lastPoll.t)/1000; var exp=lastPoll.time+(lastPoll.playing?dt:0); if(Math.abs(nowS-exp)>1.2) broadcast("seek"); } lastPoll={ t:nowMs, time:nowS, playing:playing }; } else { lastPoll={ t:Date.now(), time:getTime(), playing:!isPausedMedia() }; } },400);

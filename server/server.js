@@ -736,7 +736,7 @@ const admins = new Set();
 const rooms = new Map();
 function getRoom(code) {
   let r = rooms.get(code);
-  if (!r) { r = { members: new Map(), chat: [], queue: [], highlights: [], lastActivity: Date.now(), played: false, pass: null, host: null }; rooms.set(code, r); metrics.roomsCreated++; }
+  if (!r) { r = { members: new Map(), chat: [], queue: [], highlights: [], lastActivity: Date.now(), played: false, pass: null, host: null, syncSeq: 0 }; rooms.set(code, r); metrics.roomsCreated++; }
   return r;
 }
 function hashPass(p) { return crypto.createHash("sha256").update("wmt:" + String(p || "")).digest("hex"); }
@@ -826,6 +826,7 @@ function leaveRoom(ws) {
 const MSG = { JOIN: "join", LEAVE: "leave", CHAT: "chat", SYNC: "sync", TALKING: "talking", VIDEO: "video", REACT: "reaction" };
 /* modes that can carry room-shared subtitles: native players use a <track>, embedded sites get an overlay the client draws itself */
 const SUBTITLE_MODES = new Set(["file", "mkv", "embed"]);
+const SYNC_KINDS = new Set(["play", "pause", "seek", "heartbeat", "buffering", "buffered-play", "countdown"]);
 const REACTIONS = ["❤️", "😂", "😮", "😢", "🔥", "👏", "👍", "🎉"];   // server validates emoji to keep the channel clean
 
 wss.on("connection", (ws) => {
@@ -976,14 +977,20 @@ wss.on("connection", (ws) => {
     }
 
     if (m.type === MSG.SYNC) {
-      if (m.kind === "play" && !r.played) { r.played = true; metrics.firstPlays++; }   // first time this room starts playing
+      const kind = String(m.kind || "");
+      if (!SYNC_KINDS.has(kind)) return;
+      if ((kind === "heartbeat" || kind === "buffering" || kind === "buffered-play") && r.host !== ws._peerId) return;   // one stable clock; guests may still explicitly play/pause/seek
+      const rawTime = Number(m.time); if (!Number.isFinite(rawTime)) return;
+      const syncTime = kind === "countdown" ? Math.min(10, Math.max(0, rawTime)) : Math.min(24 * 3600, Math.max(0, rawTime));
+      if (kind === "play" && !r.played) { r.played = true; metrics.firstPlays++; }   // first time this room starts playing
       /* the countdown is what starts an embedded film — remember when its "NOW" lands so a late
          joiner's subtitle overlay can pick the clock up mid-film instead of staying blank */
-      if (m.kind === "countdown" && r.media && r.media.mode === "embed" && r.subtitle) {
-        const secs = Math.min(10, Math.max(0, Number(m.time) || 3));
+      if (kind === "countdown" && r.media && r.media.mode === "embed" && r.subtitle) {
+        const secs = syncTime || 3;
         r.subclock = { started: true, running: true, base: 0, at: Date.now() + secs * 1000 };
       }
-      broadcastRoom(r, { type: "sync", from: ws._peerId, kind: m.kind, time: m.time, playing: m.playing }, ws);
+      r.syncSeq = (r.syncSeq || 0) + 1;
+      broadcastRoom(r, { type: "sync", from: ws._peerId, kind, time: syncTime, playing: !!m.playing, seq: r.syncSeq, serverAt: Date.now() }, ws);
       return;
     }
     if (m.type === "ev") {   // lightweight client analytics events (aggregate only)
