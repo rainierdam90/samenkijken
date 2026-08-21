@@ -720,8 +720,8 @@ const PUBLIC = path.join(__dirname, "..", "public");
 app.get("/admin", (req, res) => res.sendFile(path.join(PUBLIC, "admin.html")));
 app.use(express.static(PUBLIC, { extensions: ["html"], setHeaders: (res, file) => {
   const name = path.basename(file);
-  if (name === "sw.js" || /\.html$/i.test(name)) res.setHeader("Cache-Control", "no-cache");
-  else if (/^(samecouch-(?:app-v2\.js|v2\.css|hero-\d+\.(?:avif|webp))|prepaint-v1\.js)$/i.test(name) || file.includes(path.sep + "vendor" + path.sep))
+  if (name === "sw.js" || /\.html$/i.test(name) || /^(?:samecouch-app-v3\.js|samecouch-v3\.css|prepaint-v2\.js)$/i.test(name)) res.setHeader("Cache-Control", "no-cache");
+  else if (/^samecouch-hero-\d+\.(?:avif|webp)$/i.test(name) || file.includes(path.sep + "vendor" + path.sep))
     res.setHeader("Cache-Control", "public, max-age=31536000, immutable");
   else res.setHeader("Cache-Control", "public, max-age=3600");
 } }));

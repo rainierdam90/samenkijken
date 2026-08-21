@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-<script src="/prepaint-v1.js"></script>
+<script src="/prepaint-v2.js"></script>
 <title>SameCouch — be together, even when you're apart</title>
 <meta name="description" content="A private living room for you and the people back home. Watch YouTube and home videos together in perfect sync, see each other live, and leave photos and notes on your shared wall. No app, no sign-up — just send a link." />
 <link rel="canonical" href="https://samecouch.com/" />
@@ -30,7 +30,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Bricolage+Grotesque:opsz,wght@12..96,300..800&display=swap" rel="stylesheet" />
-<link rel="stylesheet" href="/samecouch-v2.css" />
+<link rel="stylesheet" href="/samecouch-v3.css" />
 </head>
 <body>
   <div class="grain" aria-hidden="true"></div>
@@ -393,6 +393,11 @@
     <p id="compSub">Everyone in the room will see them on the big screen.</p>
     <button type="button" class="btn primary" id="compChoose">📷 <span id="compChooseTxt">Choose from your phone</span></button>
     <div class="c-status" id="compStatus"></div>
+    <div class="c-transfer" id="compTransfer" role="status" aria-live="polite" hidden>
+      <div class="c-xfer-head"><span id="compXferText">Preparing…</span><strong id="compXferPct">0%</strong></div>
+      <div class="c-track" aria-hidden="true"><span id="compXferBar"></span></div>
+      <div class="c-xfer-meta" id="compXferMeta"></div>
+    </div>
     <div class="c-grid" id="compGrid"></div>
   </div>
 
@@ -483,6 +488,6 @@
 
   <div class="toast" id="toast" role="status" aria-live="polite" aria-atomic="true"></div>
 
-  <script src="/samecouch-app-v2.js"></script>
+  <script src="/samecouch-app-v3.js"></script>
 </body>
 </html>

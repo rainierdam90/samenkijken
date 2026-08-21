@@ -102,9 +102,9 @@ test("participants relay playback, fast transfer, queue, moments, subtitles, and
   assert.match(swResponse.headers.get("content-type") || "", /javascript/);
   assert.match(swResponse.headers.get("cache-control") || "", /no-cache/);
 
-  const appResponse = await fetch(`http://127.0.0.1:${port}/samecouch-app-v2.js`, { headers: { "accept-encoding": "gzip" } });
+  const appResponse = await fetch(`http://127.0.0.1:${port}/samecouch-app-v3.js`, { headers: { "accept-encoding": "gzip" } });
   assert.equal(appResponse.status, 200);
-  assert.match(appResponse.headers.get("cache-control") || "", /immutable/);
+  assert.match(appResponse.headers.get("cache-control") || "", /no-cache/);
   assert.equal(appResponse.headers.get("content-encoding"), "gzip");
 
   const speedDown = await fetch(`http://127.0.0.1:${port}/speed-test?bytes=65536`);

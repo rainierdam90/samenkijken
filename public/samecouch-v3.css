@@ -527,11 +527,22 @@
   .companion{position:fixed; inset:0; z-index:215; display:none; flex-direction:column; align-items:center; justify-content:center; gap:6px; padding:26px; text-align:center;
     background:radial-gradient(900px 600px at 50% -80px, rgba(244,177,74,.16), transparent 60%), #0b0a0c}
   .companion.show{display:flex}
+  html[data-share-companion] body > :not(.companion){visibility:hidden!important}
+  html[data-share-companion] .companion{display:flex;visibility:visible!important}
   .companion .c-emoji{font-size:46px}
   .companion h1{font-family:'Bebas Neue',sans-serif; font-weight:400; letter-spacing:1px; font-size:clamp(26px,7vw,40px); margin:8px 0 4px}
   .companion p{color:#cabfb4; font-size:15px; line-height:1.5; margin:0 0 22px; max-width:420px}
   .companion .btn.primary{font-size:18px; padding:16px 30px}
   .companion .c-status{margin-top:18px; font-size:14px; color:var(--good); min-height:20px}
+  .companion .c-transfer{width:min(440px,92vw); margin-top:12px; padding:14px 15px; border:1px solid var(--line); border-radius:13px; background:rgba(255,255,255,.045); text-align:left}
+  .companion .c-transfer[hidden]{display:none}
+  .companion .c-transfer.failed{border-color:rgba(232,115,107,.58)}
+  .companion .c-transfer.done{border-color:rgba(123,216,143,.52)}
+  .companion .c-xfer-head{display:flex; align-items:center; justify-content:space-between; gap:12px; color:var(--txt); font-size:14px}
+  .companion .c-xfer-head strong{font-variant-numeric:tabular-nums; color:var(--amber-2)}
+  .companion .c-track{height:8px; margin-top:10px; border-radius:999px; overflow:hidden; background:rgba(255,255,255,.10)}
+  .companion .c-track span{display:block; width:0; height:100%; border-radius:inherit; background:linear-gradient(90deg,var(--amber),var(--good)); transition:width .25s ease}
+  .companion .c-xfer-meta{min-height:18px; margin-top:7px; color:var(--muted); font-size:13px; font-variant-numeric:tabular-nums}
   .companion .c-grid{display:flex; flex-wrap:wrap; gap:8px; justify-content:center; margin-top:16px; max-width:90vw}
   .companion .c-thumb{font-size:12px; color:var(--txt); background:var(--panel-2); border:1px solid var(--line); border-radius:8px; padding:6px 10px}
 

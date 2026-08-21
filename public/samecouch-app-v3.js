@@ -128,8 +128,8 @@
 
     /* strings for the desktop share modal + phone companion (en + nl; rest fall back to en) */
     var EXTRA5 = {
-      en:{share_modal_title:"Share photos & videos",share_opt_pc_title:"From this computer",share_opt_pc_sub:"Pick files saved on this device.",share_from_pc:"Choose files",share_opt_phone_title:"From your phone",share_opt_phone_sub:"Scan to add photos & videos from your phone — no camera needed.",share_qr_fail:"Couldn't draw the QR code. Copy the room link and open it on your phone instead.",comp_title:"Share your photos & videos",comp_sub:"Everyone in the room will see them on the big screen.",comp_choose:"Choose from your phone",comp_shared:"Shared! Pick more anytime. 🎉",comp_connecting:"Connecting to the room…",comp_connected:"Connected — pick what to show.",uc_family_t:"Family back home",uc_family_d:"Be there for the evening, from anywhere.",uc_couples_t:"The kids' moments",uc_couples_d:"Share photos & videos as they grow.",uc_friends_t:"Your partner, far away",uc_friends_d:"Date night, any distance.",vid_fail:"This video couldn't load here. External links are often blocked for the other person — for reliable watch-alongs use a YouTube link, or share the video file itself (📷 Share) so it streams directly to everyone."},
-      nl:{share_modal_title:"Foto's & video's delen",share_opt_pc_title:"Vanaf deze computer",share_opt_pc_sub:"Kies bestanden op dit apparaat.",share_from_pc:"Bestanden kiezen",share_opt_phone_title:"Vanaf je telefoon",share_opt_phone_sub:"Scan om foto's & video's vanaf je telefoon toe te voegen — geen camera nodig.",share_qr_fail:"QR-code tekenen mislukt. Kopieer de roomlink en open die op je telefoon.",comp_title:"Deel je foto's & video's",comp_sub:"Iedereen in de room ziet ze op het grote scherm.",comp_choose:"Kies vanaf je telefoon",comp_shared:"Gedeeld! Kies wanneer je wilt meer. 🎉",comp_connecting:"Verbinden met de room…",comp_connected:"Verbonden — kies wat je wilt tonen.",uc_family_t:"Familie thuis",uc_family_d:"Wees erbij 's avonds, waar je ook bent.",uc_couples_t:"De momenten van de kinderen",uc_couples_d:"Deel foto's & video's terwijl ze groeien.",uc_friends_t:"Je partner, ver weg",uc_friends_d:"Een date-avond, welke afstand dan ook.",vid_fail:"Deze video kon hier niet laden. Externe links worden vaak geblokkeerd voor de ander — gebruik voor zeker samen kijken een YouTube-link, of deel het videobestand zelf (📷 Delen) zodat het rechtstreeks naar iedereen streamt."}
+      en:{share_modal_title:"Share photos & videos",share_opt_pc_title:"From this computer",share_opt_pc_sub:"Pick files saved on this device.",share_from_pc:"Choose files",share_opt_phone_title:"From your phone",share_opt_phone_sub:"Scan to add photos & videos from your phone — no camera needed.",share_qr_fail:"Couldn't draw the QR code. Copy the room link and open it on your phone instead.",comp_title:"Share your photos & videos",comp_sub:"Everyone in the room will see them on the big screen.",comp_choose:"Choose from your phone",comp_preparing:"Preparing your selection…",comp_sending:"Sending to the room…",comp_waiting:"Ready — waiting for someone in the room.",comp_complete:"Shared with everyone ✓",comp_failed:"Transfer interrupted — try sharing again.",comp_connecting:"Connecting to the room…",comp_connected:"Connected — pick what to show.",uc_family_t:"Family back home",uc_family_d:"Be there for the evening, from anywhere.",uc_couples_t:"The kids' moments",uc_couples_d:"Share photos & videos as they grow.",uc_friends_t:"Your partner, far away",uc_friends_d:"Date night, any distance.",vid_fail:"This video couldn't load here. External links are often blocked for the other person — for reliable watch-alongs use a YouTube link, or share the video file itself (📷 Share) so it streams directly to everyone."},
+      nl:{share_modal_title:"Foto's & video's delen",share_opt_pc_title:"Vanaf deze computer",share_opt_pc_sub:"Kies bestanden op dit apparaat.",share_from_pc:"Bestanden kiezen",share_opt_phone_title:"Vanaf je telefoon",share_opt_phone_sub:"Scan om foto's & video's vanaf je telefoon toe te voegen — geen camera nodig.",share_qr_fail:"QR-code tekenen mislukt. Kopieer de roomlink en open die op je telefoon.",comp_title:"Deel je foto's & video's",comp_sub:"Iedereen in de room ziet ze op het grote scherm.",comp_choose:"Kies vanaf je telefoon",comp_preparing:"Je selectie wordt voorbereid…",comp_sending:"Naar de room versturen…",comp_waiting:"Klaar — wachten op iemand in de room.",comp_complete:"Met iedereen gedeeld ✓",comp_failed:"Overdracht onderbroken — probeer opnieuw te delen.",comp_connecting:"Verbinden met de room…",comp_connected:"Verbonden — kies wat je wilt tonen.",uc_family_t:"Familie thuis",uc_family_d:"Wees erbij 's avonds, waar je ook bent.",uc_couples_t:"De momenten van de kinderen",uc_couples_d:"Deel foto's & video's terwijl ze groeien.",uc_friends_t:"Je partner, ver weg",uc_friends_d:"Een date-avond, welke afstand dan ook.",vid_fail:"Deze video kon hier niet laden. Externe links worden vaak geblokkeerd voor de ander — gebruik voor zeker samen kijken een YouTube-link, of deel het videobestand zelf (📷 Delen) zodat het rechtstreeks naar iedereen streamt."}
     };
     Object.keys(EXTRA5).forEach(function(k){ if(I18N[k]) Object.keys(EXTRA5[k]).forEach(function(j){ I18N[k][j]=EXTRA5[k][j]; }); });
 
@@ -1322,7 +1322,7 @@
     var galleryImg=$("galleryImg"), sharebar=$("sharebar"), gstrip=$("gstrip"), gnav=$("gnav"), gPrev=$("gPrev"), gNext=$("gNext"), gStop=$("gStop"), fileInput=$("fileInput"), shareMediaBtn=$("shareMediaBtn");
     /* Small control messages stay on the existing BinaryPack channel. File bytes use a separate,
        capability-gated raw channel so BinaryPack cannot throttle them; camera/mic calls are untouched. */
-    var dconns={}, rawConns={}, rawCaps={}, rawCapWait={}, rawOpenWait={}, rawBlockedUntil={}, dpending={}, dReqId=1, swReg=false, swControlled=false;
+    var dconns={}, rawConns={}, rawCaps={}, rawCapWait={}, rawOpenWait={}, rawBlockedUntil={}, rawWarm={}, dpending={}, dReqId=1, swReg=false, swControlled=false;
     var RAW_LABEL="wmt-file-v1", RAW_MAGIC=0x574d5431, RAW_HEADER=16, RAW_FRAME_MAX=16300;   // below PeerJS' cross-browser 16.3 KB message ceiling
     var myFiles={}, localURLs={}, gallery=null;   // gallery = { presenter, items:[{fileId,name,type,size,mime}], current }
 
@@ -1400,7 +1400,7 @@
       var c=ensureRawData(pid); if(!c) return Promise.resolve(null);
       if(c.open) return Promise.resolve(c);
       if(rawOpenWait[pid]) return rawOpenWait[pid].promise.catch(function(){ return null; });
-      var w={}; w.promise=new Promise(function(resolve,reject){ w.resolve=resolve; w.reject=reject; w.to=setTimeout(function(){ if(rawOpenWait[pid]===w){ delete rawOpenWait[pid]; rawBlockedUntil[pid]=Date.now()+30000; reject(new Error("raw-timeout")); } },8000); }); rawOpenWait[pid]=w; return w.promise.catch(function(){ return null; });
+      var w={}; w.promise=new Promise(function(resolve,reject){ w.resolve=resolve; w.reject=reject; w.to=setTimeout(function(){ if(rawOpenWait[pid]===w){ delete rawOpenWait[pid]; rawBlockedUntil[pid]=Date.now()+30000; reject(new Error("raw-timeout")); } },3500); }); rawOpenWait[pid]=w; return w.promise.catch(function(){ return null; });
     }
     function sendRawRange(pid,reqId,buf){
       var c=rawConns[pid]; if(!c||!c.open) return false;
@@ -1441,14 +1441,20 @@
     function requestRange(pid,fileId,start,end,useRaw){
       return new Promise(function(resolve,reject){
         var reqId=dReqId++;
-        dpending[reqId]={pid:pid,raw:!!useRaw,rawReceived:0,expected:Math.max(0,end-start+1),resolve:resolve,reject:reject,to:setTimeout(function(){ delete dpending[reqId]; reject(new Error("timeout")); },12000)};
+        dpending[reqId]={pid:pid,raw:!!useRaw,rawReceived:0,expected:Math.max(0,end-start+1),resolve:resolve,reject:reject,to:setTimeout(function(){ delete dpending[reqId]; reject(new Error("timeout")); },45000)};
         if(!dsend(pid,{t:"range-req",reqId:reqId,fileId:fileId,start:start,end:end,raw:useRaw?1:0})){ clearTimeout(dpending[reqId].to); delete dpending[reqId]; reject(new Error("data-unavailable")); }
       });
     }
     function fetchRange(fileId,start,end){
       if(!gallery||!gallery.presenter||gallery.presenter===myPeerId) return Promise.reject(new Error("no-presenter"));
       var pid=gallery.presenter; if(!ensureData(pid)) return Promise.reject(new Error("data-unavailable"));
-      return waitRawCapability(pid).then(function(ok){ return ok?waitRawData(pid):null; }).catch(function(){ return null; }).then(function(c){ return requestRange(pid,fileId,start,end,!!(c&&c.open)); });
+      /* Never hold the first bytes behind raw-channel negotiation. The compatible binary
+         channel starts immediately; raw warms in parallel and takes over later ranges. */
+      if(!rawCaps[pid]){
+        if(!rawWarm[pid]) rawWarm[pid]=waitRawCapability(pid).then(function(ok){ return ok?waitRawData(pid):null; }).catch(function(){ return null; }).then(function(c){ delete rawWarm[pid]; return c; });
+        return requestRange(pid,fileId,start,end,false);
+      }
+      return waitRawData(pid).then(function(c){ return requestRange(pid,fileId,start,end,!!(c&&c.open)); }).catch(function(){ return requestRange(pid,fileId,start,end,false); });
     }
 
     function initSW(){
@@ -1483,7 +1489,7 @@
     var galleryParts={};                       // fileId -> contiguous, retryable chunk cache
     var galleryXfer=null;                      // receiver-side transfer state
     var presWait=null;                         // presenter-side readiness/progress state
-    var XFER_CHUNK=512*1024, PREFETCH_MAX=256*1024*1024, START_BUFFER=4*1024*1024;
+    var XFER_CHUNK=256*1024, PREFETCH_MAX=256*1024*1024, START_BUFFER=4*1024*1024;
     var xferPillEl=$("xferPill"), xferBarEl=$("xferBar"), xferPauseEl=$("xferPause"), xferRetryEl=$("xferRetry");
     function fmtRate(n){ n=Math.max(0,+n||0); if(n>=1024*1024) return (n/1024/1024).toFixed(n>=10*1024*1024?1:2)+" MB/s"; if(n>=1024) return Math.round(n/1024)+" KB/s"; return Math.round(n)+" B/s"; }
     function fmtEta(sec){ sec=Math.max(0,Math.round(+sec||0)); if(sec<60) return tr("eta_seconds").replace("{n}",String(Math.max(1,sec))); return tr("eta_minutes").replace("{n}",String(Math.ceil(sec/60))); }
@@ -1565,14 +1571,14 @@
       run.watch=setInterval(function(){
         if(run.cancelled||!run.active){ clearInterval(run.watch); return; }
         if(run.paused){ run.lastProgress=Date.now(); return; }
-        if(Date.now()-run.lastProgress>40000) failGalleryTransfer(run);
+        if(Date.now()-run.lastProgress>60000) failGalleryTransfer(run);
       },5000);
       var seq=Promise.resolve();
       items.forEach(function(it){
         seq=seq.then(function(){
           if(run.cancelled) throw new Error("cancelled");
           var state=partState(it), limit=transferLimit(it);
-          var chunkCount=Math.ceil(limit/XFER_CHUNK), W=8;   // keep up to 8 chunks in flight → fills a high-latency relay pipe instead of stalling one round-trip at a time
+          var chunkCount=Math.ceil(limit/XFER_CHUNK), W=6;   // 1.5 MB in flight: enough for high latency, bounded enough for slow mobile relays
           function advance(){ var ci=Math.floor(state.received/XFER_CHUNK); while(state.parts[ci]&&ci*XFER_CHUNK===state.received){ state.received+=state.parts[ci].byteLength; ci++; } }   // move the contiguous high-water mark forward over whatever arrived
           advance(); report(true);
           return new Promise(function(resolve,reject){
@@ -1626,12 +1632,17 @@
       var ready=presWait.need.every(function(pid){ return presWait.ready[pid]||presWait.done[pid]; });
       if(ready&&!presWait.revealed){ presWait.revealed=true; if(gallery&&gallery.items.length) presenterShow(gallery.current||gallery.items[0].fileId); toast(tr("xfer_ready"),3500); }
       var open=presWait.need.filter(function(pid){ return !presWait.done[pid]; });
-      if(!open.length){ var streamed=presWait.need.some(function(pid){ return presWait.streaming[pid]; }); if(presWait.timer) clearTimeout(presWait.timer); presWait=null; hideXfer(); toast(tr(streamed?"xfer_streaming":"xfer_ok"),4500); return; }
+      if(!open.length){
+        var streamed=presWait.need.some(function(pid){ return presWait.streaming[pid]; }), finalSpeed=0;
+        presWait.need.forEach(function(pid){ var n=presWait.speed[pid]||0; if(n&&(!finalSpeed||n<finalSpeed)) finalSpeed=n; });
+        if(shareMode) setCompanionTransfer(tr("comp_complete"),100,finalSpeed?tr("xfer_speed").replace("{speed}",fmtRate(finalSpeed)):"","done");
+        if(presWait.timer) clearTimeout(presWait.timer); presWait=null; hideXfer(); toast(tr(streamed?"xfer_streaming":"xfer_ok"),4500); return;
+      }
       var slow=open[0]; open.forEach(function(pid){ if((presWait.pct[pid]||0)<(presWait.pct[slow]||0)) slow=pid; });
       var pct=presWait.pct[slow]||0, meta=""; if(presWait.speed[slow]) meta=presWait.eta[slow]?tr("xfer_left").replace("{speed}",fmtRate(presWait.speed[slow])).replace("{eta}",fmtEta(presWait.eta[slow])):fmtRate(presWait.speed[slow]);
-      if(presWait.failed[slow]) showXfer(tr("xfer_failed_short"),pct,tr("xfer_timeout"),{failed:true});
-      else if(presWait.paused[slow]) showXfer(tr("xfer_paused").replace("{p}",String(pct)),pct,"",{paused:true});
-      else showXfer(tr("xfer_send2").replace("{p}",String(pct)),pct,meta,{});
+      if(presWait.failed[slow]){ showXfer(tr("xfer_failed_short"),pct,tr("xfer_timeout"),{failed:true}); if(shareMode) setCompanionTransfer(tr("comp_failed"),pct,tr("xfer_timeout"),"failed"); }
+      else if(presWait.paused[slow]){ showXfer(tr("xfer_paused").replace("{p}",String(pct)),pct,"",{paused:true}); if(shareMode) setCompanionTransfer(tr("xfer_paused").replace("{p}",String(pct)),pct,"","paused"); }
+      else { showXfer(tr("xfer_send2").replace("{p}",String(pct)),pct,meta,{}); if(shareMode) setCompanionTransfer(tr("comp_sending"),pct,meta,"active"); }
     }
     function presStartupTimeout(){ if(!presWait) return; if(!presWait.revealed&&gallery&&gallery.items.length){ presWait.revealed=true; presenterShow(gallery.current||gallery.items[0].fileId); } toast(tr("xfer_timeout"),8000); presWait.timer=null; presCheckDone(); }
     function presWaitPeerLeft(pid){ if(!presWait) return; presWait.need=presWait.need.filter(function(x){ return x!==pid; }); presCheckDone(); }
@@ -1680,6 +1691,7 @@
     }
     function startSharing(files){
       if(!files||!files.length) return;
+      if(shareMode) setCompanionTransfer(tr("comp_preparing"),0,"","active");
       var arr=Array.prototype.slice.call(files), prepared=new Array(arr.length), pending=arr.length;
       arr.forEach(function(f,idx){
         shrinkShareImage(f, function(g){ prepared[idx]={ blob:g, name:f.name||"", mime:(g.type||f.type||"") }; if(--pending===0) reallyStartSharing(prepared); });
@@ -1692,10 +1704,11 @@
       rtSend({type:"gallery", presenter:myPeerId, items:items, current:items[0].fileId, hold:true});   // hold: viewers build a start buffer before the synchronized reveal
       openGalleryUI();
       var receivers=Object.keys(peers);
-      if(!receivers.length){ showGalleryItem(items[0].fileId); toast(tr("xfer_alone"),5000); }   // no-one to send to yet — it's ready for whoever joins
+      if(!receivers.length){ showGalleryItem(items[0].fileId); toast(tr("xfer_alone"),5000); if(shareMode) hideCompanionTransfer(tr("comp_waiting")); }   // no-one to send to yet — it's ready for whoever joins
       else {
         presWait={need:receivers,ready:{},done:{},streaming:{},failed:{},paused:{},pct:{},speed:{},eta:{},revealed:false,timer:setTimeout(presStartupTimeout,90000)};
         showXfer(tr("xfer_send2").replace("{p}","0"),0,"",{});
+        if(shareMode) setCompanionTransfer(tr("comp_sending"),0,"","active");
       }
       // NOTE: no "shared" toast here — confirmation waits for a real viewer readiness/done acknowledgement
       if(shareMode) updateCompanionShared(items);
@@ -2937,9 +2950,9 @@
     }
 
     /* ===================== Feature: desktop QR share + phone companion ===================== */
-    var shareMode=false, compShareCount=0;
+    var shareMode=false, compShareCount=0, compTransferState="";
     var shareModal=$("shareModal"), shareModalX=$("shareModalX"), shareFromPc=$("shareFromPc"), shareQr=$("shareQr");
-    var companion=$("companion"), compChoose=$("compChoose"), compStatus=$("compStatus"), compGrid=$("compGrid");
+    var companion=$("companion"), compChoose=$("compChoose"), compStatus=$("compStatus"), compGrid=$("compGrid"), compTransfer=$("compTransfer"), compXferText=$("compXferText"), compXferPct=$("compXferPct"), compXferBar=$("compXferBar"), compXferMeta=$("compXferMeta");
     function isMobileDevice(){ try{ if(navigator.userAgentData && navigator.userAgentData.mobile) return true; }catch(e){} if(/Mobi|Android|iPhone|iPad|iPod|IEMobile|Opera Mini/i.test(navigator.userAgent)) return true; return !!(window.matchMedia && window.matchMedia("(pointer:coarse)").matches && window.matchMedia("(max-width:820px)").matches); }
     function shareCompanionUrl(){ return location.origin+location.pathname+"?room="+encodeURIComponent(roomCode||"")+"&share=1"; }
     function renderQrInto(el){
@@ -2953,10 +2966,16 @@
     if(shareModalX) shareModalX.addEventListener("click", function(){ shareModal.classList.remove("show"); });
     if(shareFromPc) shareFromPc.addEventListener("click", function(){ try{ sessionStorage.setItem("wmt_legal","1"); }catch(e){} if(shareModal) shareModal.classList.remove("show"); if(fileInput) fileInput.click(); });
     function showCompanion(){ if(!companion) return; if(compStatus) compStatus.textContent=tr("comp_connecting"); companion.classList.add("show");
-      var t=setInterval(function(){ if(rtReady){ if(compStatus && compShareCount===0) compStatus.textContent=tr("comp_connected"); clearInterval(t); } },500); setTimeout(function(){ clearInterval(t); },15000); }
+      var t=setInterval(function(){ if(rtReady){ if(compStatus && compShareCount===0&&!compTransferState) compStatus.textContent=tr("comp_connected"); clearInterval(t); } },500); setTimeout(function(){ clearInterval(t); },15000); }
+    function setCompanionTransfer(txt,pct,meta,state){
+      if(!compTransfer) return; pct=Math.max(0,Math.min(100,+pct||0)); compTransferState=state||"active";
+      compTransfer.hidden=false; compTransfer.classList.toggle("failed",compTransferState==="failed"); compTransfer.classList.toggle("done",compTransferState==="done");
+      if(compXferText) compXferText.textContent=txt||""; if(compXferPct) compXferPct.textContent=Math.round(pct)+"%"; if(compXferBar) compXferBar.style.width=pct+"%"; if(compXferMeta) compXferMeta.textContent=meta||"";
+      if(compStatus) compStatus.textContent="";
+    }
+    function hideCompanionTransfer(status){ if(compTransfer) compTransfer.hidden=true; compTransferState=""; if(compStatus) compStatus.textContent=status||""; }
     function updateCompanionShared(items){
       compShareCount += (items?items.length:0);
-      if(compStatus) compStatus.textContent=tr("comp_shared");
       if(compGrid){ (items||[]).forEach(function(it){ var d=document.createElement("div"); d.className="c-thumb"; d.textContent=(it.type==="image"?"🖼 ":"🎬 ")+(it.name||it.fileId); compGrid.appendChild(d); }); }
     }
     if(compChoose) compChoose.addEventListener("click", function(){ if(fileInput) fileInput.click(); });

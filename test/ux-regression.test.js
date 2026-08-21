@@ -9,8 +9,8 @@ const vm = require("node:vm");
 const ROOT = path.resolve(__dirname, "..");
 const publicMarkup = fs.readFileSync(path.join(ROOT, "public", "index.html"), "utf8");
 const rootMarkup = fs.readFileSync(path.join(ROOT, "index.html"), "utf8");
-const appJs = fs.readFileSync(path.join(ROOT, "public", "samecouch-app-v2.js"), "utf8");
-const appCss = fs.readFileSync(path.join(ROOT, "public", "samecouch-v2.css"), "utf8");
+const appJs = fs.readFileSync(path.join(ROOT, "public", "samecouch-app-v3.js"), "utf8");
+const appCss = fs.readFileSync(path.join(ROOT, "public", "samecouch-v3.css"), "utf8");
 // Most historical assertions intentionally scan the complete frontend bundle.
 // Markup-specific checks continue to use publicMarkup/rootMarkup below.
 const html = `${publicMarkup}\n${appCss}\n${appJs}`;
@@ -32,14 +32,16 @@ function extractFunction(source, name) {
 
 test("generated frontend is split, synchronized, and parses", () => {
   assert.equal(publicMarkup, rootMarkup);
-  assert.match(publicMarkup, /<link rel="stylesheet" href="\/samecouch-v2\.css"\s*\/>/);
-  assert.match(publicMarkup, /<script src="\/prepaint-v1\.js"><\/script>/);
-  assert.match(publicMarkup, /<script src="\/samecouch-app-v2\.js"><\/script>/);
+  assert.match(publicMarkup, /<link rel="stylesheet" href="\/samecouch-v3\.css"\s*\/>/);
+  assert.match(publicMarkup, /<script src="\/prepaint-v2\.js"><\/script>/);
+  assert.match(publicMarkup, /<script src="\/samecouch-app-v3\.js"><\/script>/);
   const inlineScripts = [...publicMarkup.matchAll(/<script(?:\s[^>]*)?>([\s\S]*?)<\/script>/gi)]
     .map(match => match[1])
     .filter(source => source.trim());
   assert.equal(inlineScripts.length, 0);
-  new vm.Script(appJs, { filename: "samecouch-app-v2.js" });
+  new vm.Script(appJs, { filename: "samecouch-app-v3.js" });
+  for (const legacy of ["prepaint-v1.js", "samecouch-v2.css", "samecouch-app-v2.js"])
+    assert.equal(fs.existsSync(path.join(ROOT, "public", legacy)), false, `${legacy} must not survive a release build`);
 });
 
 test("critical landing assets are responsive, compressed, and local", () => {
@@ -113,6 +115,26 @@ test("shared file bytes use a framed raw fast path with a compatible fallback", 
     assert.match(sourceHtml, /d\.raw&&sendRawRange\(pid,d\.reqId,buf\)/);
     assert.match(sourceHtml, /dsend\(pid,\{t:"range-data",reqId:d\.reqId,buf:buf\}\)/);
   }
+});
+
+test("phone sharing is visible before app boot and reports real transfer speed", () => {
+  const prepaint = fs.readFileSync(path.join(ROOT, "public", "prepaint-v2.js"), "utf8");
+  assert.match(prepaint, /data-share-companion/);
+  assert.match(appCss, /html\[data-share-companion\] \.companion\{display:flex/);
+  assert.match(publicMarkup, /id="compTransfer"[^>]*aria-live="polite"/);
+  assert.match(publicMarkup, /id="compXferPct"/);
+  assert.match(publicMarkup, /id="compXferMeta"/);
+  assert.match(appJs, /setCompanionTransfer\(tr\("comp_sending"\),pct,meta,"active"\)/);
+  assert.match(appJs, /fmtRate\(presWait\.speed\[slow\]\)/);
+  assert.doesNotMatch(appJs, /compStatus\.textContent=tr\("comp_shared"\)/);
+});
+
+test("slow mobile transfers start on the compatible path without premature timeouts", () => {
+  assert.match(appJs, /if\(!rawCaps\[pid\]\)[\s\S]*return requestRange\(pid,fileId,start,end,false\)/);
+  assert.match(appJs, /\},45000\)\}/);
+  assert.match(appJs, /XFER_CHUNK=256\*1024/);
+  assert.match(appJs, /chunkCount=Math\.ceil\(limit\/XFER_CHUNK\), W=6/);
+  assert.match(appJs, /Date\.now\(\)-run\.lastProgress>60000/);
 });
 
 test("raw file frames reconstruct the requested bytes exactly", () => {

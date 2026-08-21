@@ -23,18 +23,19 @@ const styles = take("main stylesheet", /<style>\r?\n([\s\S]*?)\r?\n<\/style>/);
 const app = take("application script", /  <script>\r?\n  \(function \(\) \{([\s\S]*?)\r?\n  \}\)\(\);\r?\n  <\/script>/);
 
 let html = source;
-html = html.replace(prepaint[0], '<script src="/prepaint-v1.js"></script>');
-html = html.replace(styles[0], '<link rel="stylesheet" href="/samecouch-v2.css" />');
-html = html.replace(app[0], '  <script src="/samecouch-app-v2.js"></script>');
+html = html.replace(prepaint[0], '<script src="/prepaint-v2.js"></script>');
+html = html.replace(styles[0], '<link rel="stylesheet" href="/samecouch-v3.css" />');
+html = html.replace(app[0], '  <script src="/samecouch-app-v3.js"></script>');
 
 const outputs = new Map([
-  [path.join(root, "public", "prepaint-v1.js"), prepaint[1].trim() + "\n"],
-  [path.join(root, "public", "samecouch-v2.css"), styles[1].trim() + "\n"],
-  [path.join(root, "public", "samecouch-app-v2.js"), "(function () {" + app[1] + "\n})();\n"],
+  [path.join(root, "public", "prepaint-v2.js"), prepaint[1].trim() + "\n"],
+  [path.join(root, "public", "samecouch-v3.css"), styles[1].trim() + "\n"],
+  [path.join(root, "public", "samecouch-app-v3.js"), "(function () {" + app[1] + "\n})();\n"],
   [path.join(root, "public", "index.html"), html],
   [path.join(root, "index.html"), html],
   [path.join(root, "public", "vercel.json"), fs.readFileSync(path.join(root, "vercel.json"), "utf8")],
 ]);
+const legacyOutputs = ["prepaint-v1.js", "samecouch-v2.css", "samecouch-app-v2.js"].map(file => path.join(root, "public", file));
 
 const check = process.argv.includes("--check");
 let drift = false;
@@ -48,6 +49,11 @@ for (const [file, contents] of outputs) {
     fs.mkdirSync(path.dirname(file), { recursive: true });
     fs.writeFileSync(file, contents);
   }
+}
+for (const file of legacyOutputs) {
+  if (check) {
+    if (fs.existsSync(file)) { console.error(`Legacy generated frontend still exists: ${path.relative(root, file)}`); drift = true; }
+  } else if (fs.existsSync(file)) fs.unlinkSync(file);
 }
 if (drift) process.exitCode = 1;
 else console.log(check ? "Generated frontend is in sync." : "Built SameCouch frontend from src/index.source.html.");

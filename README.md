@@ -278,8 +278,8 @@ direct/MKV video URLs, not YouTube/Vimeo embeds or the photo/video gallery.
 
 `src/index.source.html` is the single editable room/landing-page source. Running
 `npm run build:frontend` generates the small HTML shell plus
-`public/samecouch-v2.css`, `public/samecouch-app-v2.js` and
-`public/prepaint-v1.js`, and keeps the root/Vercel entrypoint synchronized.
+`public/samecouch-v3.css`, `public/samecouch-app-v3.js` and
+`public/prepaint-v2.js`, and keeps the root/Vercel entrypoint synchronized.
 `npm test` refuses to run when generated files are stale.
 
 If you host `public/` on Vercel/Netlify and the Node server on Render, change
