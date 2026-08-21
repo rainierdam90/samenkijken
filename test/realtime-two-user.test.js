@@ -6,6 +6,7 @@ const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
 const { spawn } = require("node:child_process");
+const http = require("node:http");
 const WebSocket = require("ws");
 
 const ROOT = path.resolve(__dirname, "..");
@@ -32,6 +33,16 @@ function openSocket(url) {
     const ws = new WebSocket(url);
     ws.once("open", () => resolve(ws));
     ws.once("error", reject);
+  });
+}
+
+function rawGet(port, requestPath, headers) {
+  return new Promise((resolve, reject) => {
+    const req = http.get({ host: "127.0.0.1", port, path: requestPath, headers }, res => {
+      res.resume();
+      res.once("end", () => resolve({ status: res.statusCode, headers: res.headers }));
+    });
+    req.once("error", reject);
   });
 }
 
@@ -64,7 +75,7 @@ function startServer(port, dbPath) {
   });
 }
 
-test("participants relay playback, progressive transfer, subtitles, and chat", async t => {
+test("participants relay playback, fast transfer, queue, moments, subtitles, and chat", async t => {
   const port = 19000 + (process.pid % 1000);
   const dbPath = path.join(os.tmpdir(), `samecouch-qa-${process.pid}.db`);
   const server = await startServer(port, dbPath);
@@ -83,9 +94,30 @@ test("participants relay playback, progressive transfer, subtitles, and chat", a
   assert.equal(pageResponse.status, 200);
   const page = await pageResponse.text();
   assert.match(page, /id="ld_name"[^>]*\brequired\b/);
+  const wwwRedirect = await rawGet(port, "/privacy.html?from=qa", { host: "www.samecouch.com" });
+  assert.equal(wwwRedirect.status, 308);
+  assert.equal(wwwRedirect.headers.location, "https://samecouch.com/privacy.html?from=qa");
   const swResponse = await fetch(`http://127.0.0.1:${port}/sw.js`);
   assert.equal(swResponse.status, 200);
   assert.match(swResponse.headers.get("content-type") || "", /javascript/);
+  assert.match(swResponse.headers.get("cache-control") || "", /no-cache/);
+
+  const appResponse = await fetch(`http://127.0.0.1:${port}/samecouch-app-v2.js`, { headers: { "accept-encoding": "gzip" } });
+  assert.equal(appResponse.status, 200);
+  assert.match(appResponse.headers.get("cache-control") || "", /immutable/);
+  assert.equal(appResponse.headers.get("content-encoding"), "gzip");
+
+  const speedDown = await fetch(`http://127.0.0.1:${port}/speed-test?bytes=65536`);
+  assert.equal(speedDown.status, 200);
+  assert.equal((await speedDown.arrayBuffer()).byteLength, 65536);
+  assert.match(speedDown.headers.get("cache-control") || "", /no-store/);
+  assert.equal(speedDown.headers.get("content-encoding"), null);
+  const uploadBytes = Buffer.alloc(192 * 1024, 0x51);
+  const speedUp = await fetch(`http://127.0.0.1:${port}/speed-test`, {
+    method: "POST", headers: { "content-type": "application/octet-stream" }, body: uploadBytes
+  });
+  assert.equal(speedUp.status, 200);
+  assert.deepEqual(await speedUp.json(), { ok: true, bytes: uploadBytes.length });
 
   const host = await openSocket(url); sockets.push(host);
   const hostRoster = waitForMessage(host, "roster");
@@ -99,6 +131,39 @@ test("participants relay playback, progressive transfer, subtitles, and chat", a
   const [roster, arrival] = await Promise.all([guestRoster, joined]);
   assert.equal(arrival.name, "Guest QA");
   assert.ok(roster.peers.some(peer => peer.name === "Host QA"));
+
+  const queueHost = waitForMessage(host, "queue-state");
+  const queueGuest = waitForMessage(guest, "queue-state");
+  host.send(JSON.stringify({ type: "queue-add", title: "Friday pick", url: "https://youtu.be/dQw4w9WgXcQ" }));
+  const [hostQueue, guestQueue] = await Promise.all([queueHost, queueGuest]);
+  assert.equal(hostQueue.items.length, 1);
+  assert.equal(guestQueue.items[0].title, "Friday pick");
+  assert.equal(guestQueue.items[0].votes.length, 1);
+  const queueId = guestQueue.items[0].id;
+
+  const votedHost = waitForMessage(host, "queue-state");
+  const votedGuest = waitForMessage(guest, "queue-state");
+  guest.send(JSON.stringify({ type: "queue-vote", id: queueId }));
+  const [, voted] = await Promise.all([votedHost, votedGuest]);
+  assert.equal(voted.items[0].votes.length, 2);
+
+  const reactionPromise = waitForMessage(guest, "reaction");
+  host.send(JSON.stringify({ type: "reaction", emoji: "❤️", time: 42.25 }));
+  const reaction = await reactionPromise;
+  assert.equal(reaction.time, 42.25);
+  assert.ok(reaction.highlightId);
+
+  const momentPromise = waitForMessage(host, "highlight-add");
+  guest.send(JSON.stringify({ type: "moment-save", time: 87.5, label: "Best scene" }));
+  const moment = await momentPromise;
+  assert.equal(moment.item.kind, "moment");
+  assert.equal(moment.item.time, 87.5);
+
+  const queuePlayPromise = waitForMessage(guest, "queue-play");
+  host.send(JSON.stringify({ type: "queue-play", id: queueId }));
+  const queuedPlay = await queuePlayPromise;
+  assert.equal(queuedPlay.item.url, "https://youtu.be/dQw4w9WgXcQ");
+  assert.equal(queuedPlay.from, "hostqa");
 
   const syncPromise = waitForMessage(host, "sync");
   guest.send(JSON.stringify({ type: "sync", kind: "play", time: 12.5, playing: true }));
@@ -146,7 +211,10 @@ test("participants relay playback, progressive transfer, subtitles, and chat", a
   const lateVideo = waitForMessage(late, "video");
   const lateSubtitle = waitForMessage(late, "subtitle");
   late.send(JSON.stringify({ type: "join", room, name: "Late QA", peerId: "lateqa" }));
-  await lateRoster;
+  const lateState = await lateRoster;
+  assert.equal(lateState.queue.length, 1);
+  assert.ok(lateState.highlights.some(item => item.kind === "reaction" && item.time === 42.25));
+  assert.ok(lateState.highlights.some(item => item.kind === "moment" && item.time === 87.5));
   assert.equal((await lateVideo).url, videoUrl);
   assert.equal((await lateSubtitle).vtt, vtt);
 
@@ -160,4 +228,5 @@ test("participants relay playback, progressive transfer, subtitles, and chat", a
   const csp = pageResponse.headers.get("content-security-policy") || "";
   assert.match(permissions, /screen-wake-lock=\(self\)/);
   assert.match(csp, /media-src[^;]*https:/);
+  assert.doesNotMatch(csp.match(/script-src[^;]*/)[0], /unsafe-inline/);
 });

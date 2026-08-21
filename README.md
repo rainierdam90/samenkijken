@@ -1,17 +1,19 @@
-# WatchMovieTogether
+# SameCouch
 
 Watch any movie together, in sync, while you see and hear each other. One shared
 link → same room → synchronized playback + webcam/mic.
 
 This repo is a **single Node app** that provides everything:
 
-- the front-end (static, in `public/`)
+- the generated front-end (static output in `public/`, editable source in `src/index.source.html`)
 - your **own WebRTC signaling** (self-hosted PeerJS at `/peerjs`)
 - a **realtime control plane** at `/rt` (room roster, play/pause sync, "who is
   talking", and **chat**)
 - an **admin dashboard** at `/admin` (live people-count + **chat monitoring**)
 - **short-lived TURN credentials** at `/turn-credentials`
 - a protected, low-CPU **MKV/opaque-link remuxer** at `/mkv-stream` (FFmpeg stream-copy → fragmented MP4)
+- an opt-in **connection check** (server latency, TURN reachability and bounded speed test)
+- a room-synced **watchlist with voting**, exact-time reactions/bookmarks and an automatic evening recap
 
 ## Privacy model — read this first
 
@@ -100,6 +102,9 @@ ADMIN_PASSWORD=secret123 npm start
 
 # regression checks (includes a two-user realtime room test)
 npm test
+
+# after editing src/index.source.html
+npm run build:frontend
 ```
 
 Camera/mic need **https** (or `localhost`). On a deployed host you're on https
@@ -147,7 +152,7 @@ you provide a **YouTube Data API v3** key.
 2. **Restrict it**: Application restriction → HTTP referrers →
    `https://www.watchmovietogether.com/*` (and your Render URL). API restriction
    → YouTube Data API v3 only. Set a quota cap.
-3. Put it in `public/index.html`: `var YT_API_KEY = "...";`
+3. Set the server environment variable `YT_API_KEY` to the restricted key.
 
 Browser-side keys are always visible in page source — restriction (not secrecy)
 is the protection. Without a key, the button just opens youtube.com so people can
@@ -269,18 +274,25 @@ The remote host must allow browser playback and byte-range requests. H.264 MP4
 is the most compatible choice. Subtitle support here intentionally applies to
 direct/MKV video URLs, not YouTube/Vimeo embeds or the photo/video gallery.
 
-## Split hosting (static front-end elsewhere)
+## Front-end source and split hosting
 
-If you host `public/` on Vercel/Netlify and the Node server on Render, open
-`public/index.html` and set:
+`src/index.source.html` is the single editable room/landing-page source. Running
+`npm run build:frontend` generates the small HTML shell plus
+`public/samecouch-v2.css`, `public/samecouch-app-v2.js` and
+`public/prepaint-v1.js`, and keeps the root/Vercel entrypoint synchronized.
+`npm test` refuses to run when generated files are stale.
+
+If you host `public/` on Vercel/Netlify and the Node server on Render, change
+`REMOTE_BACKEND` in `src/index.source.html`, then rebuild:
 
 ```js
-var SERVER_BASE = "https://<your-name>.onrender.com";
+var REMOTE_BACKEND = "https://<your-name>.onrender.com";
 ```
 
 `/config`, `/turn-credentials`, `/rt` and `/peerjs` will then target the server.
-(Same change in `public/admin.html`.) CORS for the GET endpoints is already
-enabled.
+CORS for the public endpoints is already enabled. PeerJS, QR generation and
+subtitle helpers are version-pinned/local and load only when their feature is
+used; do not replace them with unpinned CDN scripts.
 
 ## Environment variables
 
@@ -295,6 +307,11 @@ enabled.
 | `TURN2_URLS` + (`TURN2_USERNAME`/`TURN2_CREDENTIAL` or `TURN2_SECRET`) | reserve TURN on a **different IP** so two relay-only peers (both on VPN/symmetric NAT) can still connect | *(none — reserve disabled)* |
 | `MAX_ROOM` | max people per room | `8` |
 | `CHAT_KEEP` | chat messages kept in memory per room | `300` |
+| `YT_API_KEY` | server-side YouTube Data API v3 key | *(search disabled)* |
+| `DATABASE_URL` | Postgres persistence for rooms, wall, reminders and room subscriptions | *(SQLite fallback)* |
+| `DB_PATH` | SQLite path when Postgres is not configured | `data/wmt.db` |
+| `VAPID_PUBLIC` / `VAPID_PRIVATE` | Web Push keys for scheduled and room-live notifications | *(push disabled)* |
+| `VAPID_SUBJECT` | Web Push contact URI | `mailto:admin@samecouch.com` |
 | `FFMPEG_PATH` | optional path to a system FFmpeg binary; otherwise `ffmpeg-static` is used | bundled binary |
 | `MKV_TOKEN_SECRET` | shared secret for short-lived stream tickets; set the same value on every app instance | random per process |
 | `MKV_TOKEN_TTL` | stream-ticket lifetime in seconds | `300` |

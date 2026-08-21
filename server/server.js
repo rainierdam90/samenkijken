@@ -29,6 +29,7 @@ const path = require("path");
 const crypto = require("crypto");
 const { spawn, spawnSync } = require("child_process");
 const express = require("express");
+const compression = require("compression");
 const { WebSocketServer } = require("ws");
 const { ExpressPeerServer } = require("peer");
 let webpush = null; try { webpush = require("web-push"); } catch (e) { /* optional */ }
@@ -101,8 +102,8 @@ const VAPID_SUBJECT = process.env.VAPID_SUBJECT || "mailto:admin@samecouch.com";
 const HAS_PUSH = !!(webpush && VAPID_PUBLIC && VAPID_PRIVATE);
 if (HAS_PUSH) { try { webpush.setVapidDetails(VAPID_SUBJECT, VAPID_PUBLIC, VAPID_PRIVATE); } catch (e) { console.warn("[WARN] VAPID setup failed:", e.message); } }
 else console.warn("[WARN] Web Push disabled (set VAPID_PUBLIC + VAPID_PRIVATE; generate with: npx web-push generate-vapid-keys). Calendar reminders still work.");
-// In-memory reminder queue. NOTE: lost on restart — use a DB + an always-on instance for production reliability.
-const reminders = [];   // { sub, at, title, body, url, sent }
+// In-memory fallback; the normal path persists reminders through server restarts.
+const reminders = [];   // { id, sub, at, title, body, url, sent }
 const MAX_REMINDERS = parseInt(process.env.MAX_REMINDERS || "5000", 10);
 const REMINDER_MAX_AHEAD = parseInt(process.env.REMINDER_MAX_AHEAD || String(31 * 24 * 3600 * 1000), 10);
 
@@ -116,20 +117,20 @@ if (!HAS_FFMPEG) console.warn("[WARN] MKV streaming disabled — install ffmpeg-
 
 const app = express();
 app.disable("x-powered-by");
+// Compress text assets and JSON when this process serves the frontend directly.
+// The opt-in speed test stays uncompressed or its Mbps estimate would be false.
+app.use(compression({ filter: (req, res) => req.path !== "/speed-test" && compression.filter(req, res) }));
 
 /* ---- security headers (applied to every response) ----
-   The front-end is a single inline-script/style page that embeds YouTube/Vimeo,
-   loads PeerJS + qrcode from cdnjs and fonts from Google, talks to this backend
-   over https+wss, and lets the host paste any https link to co-watch. The CSP
-   below is the tightest policy that keeps all of that working. Keep it in sync
-   with vercel.json (the production front-end is served from there). */
+   Legacy content pages still contain inline JSON-LD/styles. The room entrypoint
+   has external JavaScript and receives the stricter CSP_APP policy below. */
 const CSP = [
   "default-src 'self'",
   "base-uri 'self'",
   "object-src 'none'",
   "frame-ancestors 'self'",
   "form-action 'self'",
-  "script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://www.youtube.com https://s.ytimg.com https://player.vimeo.com",
+  "script-src 'self' 'unsafe-inline' https://www.youtube.com https://s.ytimg.com https://player.vimeo.com",
   "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
   "font-src 'self' https://fonts.gstatic.com data:",
   "img-src 'self' data: blob: https:",
@@ -139,7 +140,10 @@ const CSP = [
   "worker-src 'self' blob:",
   "manifest-src 'self'"
 ].join("; ");
+const CSP_APP = CSP.replace("script-src 'self' 'unsafe-inline'", "script-src 'self'");
 app.use((req, res, next) => {
+  const requestHost = String(req.headers["x-forwarded-host"] || req.headers.host || "").split(":")[0].toLowerCase();
+  if (requestHost === "www.samecouch.com") return res.redirect(308, "https://samecouch.com" + req.originalUrl);
   res.setHeader("X-Content-Type-Options", "nosniff");
   res.setHeader("X-Frame-Options", "SAMEORIGIN");
   res.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
@@ -150,7 +154,7 @@ app.use((req, res, next) => {
     res.setHeader("Strict-Transport-Security", "max-age=31536000; includeSubDomains");
   // Full CSP only for top-level documents — API responses are JSON and don't need it.
   if (req.method === "GET" && (req.headers.accept || "").indexOf("text/html") !== -1)
-    res.setHeader("Content-Security-Policy", CSP);
+    res.setHeader("Content-Security-Policy", (req.path === "/" || req.path === "/index.html") ? CSP_APP : CSP);
   if (req.method !== "OPTIONS" && req.path !== "/healthz") recordVisit(clientIp(req));   // count unique visitors per day
   next();
 });
@@ -197,6 +201,7 @@ function tooMany(res) { res.setHeader("Retry-After", "60"); res.status(429).json
 
 /* ---- safe remote-video validation + signed stream tickets ---- */
 const mkvPrepareLimiter = makeLimiter(30, 10 * 60 * 1000);
+const speedTestLimiter = makeLimiter(12, 10 * 60 * 1000);   // explicit user-triggered preflight only
 let activeMkvStreams = 0;
 const activeMkvByIp = new Map();
 function mkvError(code, status, message) {
@@ -376,6 +381,24 @@ app.get("/config", (req, res) => {
   });
 });
 
+/* Small, bounded transfer used by the opt-in connection check. It never inspects
+   the bytes and is deliberately capped so it cannot become a generic upload route. */
+const speedRaw = express.raw({ type: "application/octet-stream", limit: "384kb" });
+app.options("/speed-test", (req, res) => { cors(req, res); res.setHeader("Access-Control-Allow-Methods", "GET,POST,OPTIONS"); res.sendStatus(204); });
+app.get("/speed-test", (req, res) => {
+  cors(req, res); res.setHeader("Cache-Control", "no-store"); res.setHeader("Timing-Allow-Origin", "*");
+  if (!speedTestLimiter(clientIp(req))) return tooMany(res);
+  const bytes = Math.max(32 * 1024, Math.min(256 * 1024, parseInt(req.query.bytes || String(256 * 1024), 10) || 0));
+  res.type("application/octet-stream").send(Buffer.alloc(bytes, 0x53));
+});
+app.post("/speed-test", speedRaw, (req, res) => {
+  cors(req, res); res.setHeader("Access-Control-Allow-Methods", "GET,POST,OPTIONS"); res.setHeader("Cache-Control", "no-store");
+  if (!speedTestLimiter(clientIp(req))) return tooMany(res);
+  const bytes = Buffer.isBuffer(req.body) ? req.body.length : 0;
+  if (bytes < 1024 || bytes > 384 * 1024) return res.status(400).json({ error: "bad_size" });
+  res.json({ ok: true, bytes });
+});
+
 /* Broad by default: any public HTTP(S) video host is accepted, including
    redirects and opaque/signed download URLs. MKV_ALLOWED_HOSTS is opt-in. */
 app.get("/mkv-prepare", async (req, res) => {
@@ -534,7 +557,7 @@ app.get("/embed-check", async (req, res) => {
 
 /* ---- Web Push subscribe: store a reminder to fire at a scheduled time ---- */
 app.options("/push-subscribe", (req, res) => { cors(req, res); res.setHeader("Access-Control-Allow-Methods", "POST,OPTIONS"); res.sendStatus(204); });
-app.post("/push-subscribe", (req, res) => {
+app.post("/push-subscribe", async (req, res) => {
   cors(req, res); res.setHeader("Access-Control-Allow-Methods", "POST,OPTIONS");
   if (!httpLimiter(clientIp(req))) return tooMany(res);
   if (!HAS_PUSH) return res.status(503).json({ error: "push_disabled" });
@@ -543,15 +566,17 @@ app.post("/push-subscribe", (req, res) => {
   const at = parseInt(b.at, 10);
   if (!sub || !sub.endpoint || !at) return res.status(400).json({ error: "bad_request" });
   if (at < Date.now() - 60000 || at > Date.now() + REMINDER_MAX_AHEAD) return res.status(400).json({ error: "bad_time" });
-  if (reminders.length >= MAX_REMINDERS) reminders.shift();
-  reminders.push({
+  const reminder = {
+    id: "pr" + crypto.randomBytes(10).toString("hex"),
     sub,
     at,
     title: String(b.title || "SameCouch").slice(0, 80),
     body: String(b.body || "").slice(0, 140),
     url: String(b.url || "/").slice(0, 400),
     sent: false
-  });
+  };
+  const persisted = await store.addReminder(reminder);
+  if (!persisted) { if (reminders.length >= MAX_REMINDERS) reminders.shift(); reminders.push(reminder); }
   res.json({ ok: true });
 });
 
@@ -561,7 +586,7 @@ const roomNotifiedAt = new Map();  // roomCode -> ts (cooldown so we don't spam)
 const MAX_ROOMSUBS = parseInt(process.env.MAX_ROOMSUBS || "20000", 10);
 let roomSubCount = 0;
 app.options("/room-notify", (req, res) => { cors(req, res); res.setHeader("Access-Control-Allow-Methods", "POST,OPTIONS"); res.sendStatus(204); });
-app.post("/room-notify", (req, res) => {
+app.post("/room-notify", async (req, res) => {
   cors(req, res); res.setHeader("Access-Control-Allow-Methods", "POST,OPTIONS");
   if (!httpLimiter(clientIp(req))) return tooMany(res);
   if (!HAS_PUSH) return res.status(503).json({ error: "push_disabled" });
@@ -572,18 +597,22 @@ app.post("/room-notify", (req, res) => {
   let m = roomSubs.get(room); if (!m) { m = new Map(); roomSubs.set(room, m); }
   if (!m.has(sub.endpoint)) roomSubCount++;
   m.set(sub.endpoint, { sub, name: String(b.name || "Someone").slice(0, 40) });
+  await store.addRoomSub(room, String(sub.endpoint).slice(0, 1000), sub, String(b.name || "Someone").slice(0, 40));
   res.json({ ok: true });
 });
-function notifyRoomAlive(room, arriverName) {
+async function notifyRoomAlive(room, arriverName) {
   if (!HAS_PUSH) return;
-  const m = roomSubs.get(room); if (!m || !m.size) return;
+  let m = roomSubs.get(room); if (!m) { m = new Map(); roomSubs.set(room, m); }
+  const stored = await store.getRoomSubs(room);
+  stored.forEach(v => { if (v && v.endpoint && !m.has(v.endpoint)) m.set(v.endpoint, { sub: v.sub, name: v.name }); });
+  if (!m.size) return;
   const last = roomNotifiedAt.get(room) || 0;
   if (Date.now() - last < 60000) return;   // at most once a minute per room
   roomNotifiedAt.set(room, Date.now());
   const url = "/?room=" + encodeURIComponent(room);
   const payload = JSON.stringify({ title: "Your living room is live 🛋️", body: (arriverName || "Someone") + " just arrived — come hang out", url, tag: "wmt-room-" + room });
   m.forEach((v, endpoint) => {
-    webpush.sendNotification(v.sub, payload).catch(() => { m.delete(endpoint); roomSubCount--; });   // drop dead subs
+    webpush.sendNotification(v.sub, payload).catch(() => { m.delete(endpoint); roomSubCount=Math.max(0,roomSubCount-1); store.delRoomSub(room, endpoint); });   // drop dead subs
   });
 }
 
@@ -689,7 +718,13 @@ app.use("/peerjs", peerServer);
 /* ---- static front-end + admin ---- */
 const PUBLIC = path.join(__dirname, "..", "public");
 app.get("/admin", (req, res) => res.sendFile(path.join(PUBLIC, "admin.html")));
-app.use(express.static(PUBLIC, { extensions: ["html"], setHeaders: r => r.setHeader("Cache-Control", "no-cache") }));
+app.use(express.static(PUBLIC, { extensions: ["html"], setHeaders: (res, file) => {
+  const name = path.basename(file);
+  if (name === "sw.js" || /\.html$/i.test(name)) res.setHeader("Cache-Control", "no-cache");
+  else if (/^(samecouch-(?:app-v2\.js|v2\.css|hero-\d+\.(?:avif|webp))|prepaint-v1\.js)$/i.test(name) || file.includes(path.sep + "vendor" + path.sep))
+    res.setHeader("Cache-Control", "public, max-age=31536000, immutable");
+  else res.setHeader("Cache-Control", "public, max-age=3600");
+} }));
 
 /* ============================================================================
  * Realtime control plane (/rt)
@@ -701,7 +736,7 @@ const admins = new Set();
 const rooms = new Map();
 function getRoom(code) {
   let r = rooms.get(code);
-  if (!r) { r = { members: new Map(), chat: [], lastActivity: Date.now(), played: false, pass: null, host: null }; rooms.set(code, r); metrics.roomsCreated++; }
+  if (!r) { r = { members: new Map(), chat: [], queue: [], highlights: [], lastActivity: Date.now(), played: false, pass: null, host: null }; rooms.set(code, r); metrics.roomsCreated++; }
   return r;
 }
 function hashPass(p) { return crypto.createHash("sha256").update("wmt:" + String(p || "")).digest("hex"); }
@@ -721,6 +756,19 @@ function cleanGalleryItems(arr) {
     size: Math.max(0, Math.min(Number((it && it.size)) || 0, 50 * 1024 * 1024 * 1024)),
     mime: String((it && it.mime) || "").slice(0, 60)
   })).filter(it => it.fileId);
+}
+function cleanQueueUrl(value) {
+  const raw = String(value || "").trim().slice(0, 2000);
+  try { const u = new URL(raw); return (u.protocol === "http:" || u.protocol === "https:") ? u.toString() : ""; }
+  catch (e) { return ""; }
+}
+function queueState(room) {
+  return (room.queue || []).map(it => ({ id: it.id, title: it.title, url: it.url, addedBy: it.addedBy, addedName: it.addedName, votes: Array.from(it.votes || []), ts: it.ts }));
+}
+function addHighlight(room, item) {
+  room.highlights = room.highlights || [];
+  room.highlights.push(item);
+  if (room.highlights.length > 100) room.highlights.splice(0, room.highlights.length - 100);
 }
 
 /* ---- lightweight, privacy-friendly growth metrics (aggregate counts only — no personal data) ---- */
@@ -849,11 +897,11 @@ wss.on("connection", (ws) => {
       const hostLive = Array.from(r.members.values()).some(v => v.peerId === r.host);
       if (!hostLive) { r.host = ws._peerId; store.ensureRoom(code, ws._peerId); broadcastRoom(r, { type: "host", peerId: r.host }, ws); }
       if (!r._expiresAt && store.enabled()) r._expiresAt = Date.now() + store.freeDays() * 86400000;   // free wall lifetime
-      if (wasEmpty) notifyRoomAlive(code, ws._name);
+      if (wasEmpty) void notifyRoomAlive(code, ws._name).catch(() => {});
       r.lastActivity = Date.now();
       if (!ws._joinedAt) { ws._joinedAt = Date.now(); metrics.joins++; }   // count this session join once
       // tell the joiner who is already here; tell others someone joined
-      sendJSON(ws, { type: "roster", you: { peerId: ws._peerId, name: ws._name }, peers: rosterArr(r), host: r.host === ws._peerId, hasPass: !!r.pass, expiresAt: PAYWALL_ON ? (r._expiresAt || 0) : 0, theme: r.theme || "", decor: Array.isArray(r.decor) ? r.decor : [], wallKey: wallTokenFor(code) });
+      sendJSON(ws, { type: "roster", you: { peerId: ws._peerId, name: ws._name }, peers: rosterArr(r), host: r.host === ws._peerId, hasPass: !!r.pass, expiresAt: PAYWALL_ON ? (r._expiresAt || 0) : 0, theme: r.theme || "", decor: Array.isArray(r.decor) ? r.decor : [], wallKey: wallTokenFor(code), queue: queueState(r), highlights: (r.highlights || []).slice(-100) });
       broadcastRoom(r, { type: "peer-joined", peerId: ws._peerId, name: ws._name }, ws);
       if (r.gallery && r.gallery.items.length) sendJSON(ws, { type: "gallery", presenter: r.gallery.presenter, items: r.gallery.items, current: r.gallery.current });
       else if (r.media && r.media.url) {
@@ -944,8 +992,40 @@ wss.on("connection", (ws) => {
     }
     if (m.type === MSG.REACT) {
       if (!REACTIONS.includes(m.emoji)) return;   // only allow the known emoji set
-      broadcastRoom(r, { type: "reaction", from: ws._peerId, name: ws._name, emoji: m.emoji }, ws);
+      const time = Math.min(24 * 3600, Math.max(0, Number(m.time) || 0));
+      const highlight = { id: "h" + crypto.randomBytes(6).toString("hex"), kind: "reaction", emoji: m.emoji, name: ws._name, peerId: ws._peerId, time, mediaUrl: r.media ? r.media.url : "", ts: Date.now() };
+      addHighlight(r, highlight);
+      broadcastRoom(r, { type: "reaction", from: ws._peerId, name: ws._name, emoji: m.emoji, time, highlightId: highlight.id }, ws);
       return;
+    }
+    if (m.type === "moment-save") {
+      const time = Math.min(24 * 3600, Math.max(0, Number(m.time) || 0));
+      const highlight = { id: "h" + crypto.randomBytes(6).toString("hex"), kind: "moment", name: ws._name, peerId: ws._peerId, time, label: String(m.label || "").slice(0, 120), mediaUrl: r.media ? r.media.url : "", ts: Date.now() };
+      addHighlight(r, highlight);
+      broadcastRoom(r, { type: "highlight-add", item: highlight });
+      return;
+    }
+    if (m.type === "queue-add") {
+      const url = cleanQueueUrl(m.url); if (!url) return;
+      r.queue = r.queue || [];
+      if (r.queue.length >= 60) r.queue.shift();
+      const item = { id: "q" + crypto.randomBytes(6).toString("hex"), title: String(m.title || "").trim().slice(0, 100) || url.replace(/^https?:\/\//, "").slice(0, 100), url, addedBy: ws._peerId, addedName: ws._name, votes: new Set([ws._peerId]), ts: Date.now() };
+      r.queue.push(item); broadcastRoom(r, { type: "queue-state", items: queueState(r) }); return;
+    }
+    if (m.type === "queue-vote") {
+      const item = (r.queue || []).find(it => it.id === String(m.id || "")); if (!item) return;
+      if (item.votes.has(ws._peerId)) item.votes.delete(ws._peerId); else item.votes.add(ws._peerId);
+      broadcastRoom(r, { type: "queue-state", items: queueState(r) }); return;
+    }
+    if (m.type === "queue-remove") {
+      const id = String(m.id || ""); const item = (r.queue || []).find(it => it.id === id); if (!item) return;
+      if (r.host !== ws._peerId && item.addedBy !== ws._peerId) return;
+      r.queue = r.queue.filter(it => it.id !== id); broadcastRoom(r, { type: "queue-state", items: queueState(r) }); return;
+    }
+    if (m.type === "queue-play") {
+      const item = (r.queue || []).find(it => it.id === String(m.id || "")); if (!item) return;
+      const highlight = { id: "h" + crypto.randomBytes(6).toString("hex"), kind: "played", name: ws._name, peerId: ws._peerId, time: 0, label: item.title, mediaUrl: item.url, ts: Date.now() };
+      addHighlight(r, highlight); broadcastRoom(r, { type: "queue-play", item: { id: item.id, title: item.title, url: item.url }, by: ws._name, from: ws._peerId }); return;
     }
     if (m.type === MSG.TALKING) {
       broadcastRoom(r, { type: "talking", from: ws._peerId, on: !!m.on }, ws);
@@ -1093,20 +1173,27 @@ const ping = setInterval(() => {
 }, 30000);
 wss.on("close", () => clearInterval(ping));
 
-/* fire due watch-party reminders (needs an always-on instance to be reliable) */
+/* Fire due watch-party reminders. The queue is persistent; an always-on instance
+   still gives the most punctual delivery, but restarts no longer lose reminders. */
 if (HAS_PUSH) {
-  setInterval(() => {
-    const now = Date.now();
-    let due = false;
-    reminders.forEach(r => {
-      if (r.sent || r.at > now) return;
-      r.sent = true; due = true;
-      const payload = JSON.stringify({ title: r.title, body: r.body || "Your watch party is starting now! 🍿", url: r.url, tag: "wmt-" + r.at });
-      webpush.sendNotification(r.sub, payload).catch(() => { /* expired/invalid subscription — drop silently */ });
-    });
-    // prune sent or long-expired reminders
-    if (due || reminders.length > 1000) {
+  let reminderSweepBusy = false;
+  setInterval(async () => {
+    if (reminderSweepBusy) return;
+    reminderSweepBusy = true;
+    try {
+      const now = Date.now();
+      const persisted = await store.dueReminders(now, 100);
+      const dueList = persisted.concat(reminders.filter(r => !r.sent && r.at <= now));
+      dueList.forEach(r => {
+        if (r.sent || r.at > now) return;
+        r.sent = true;
+        const payload = JSON.stringify({ title: r.title, body: r.body || "Your watch party is starting now! 🍿", url: r.url, tag: "wmt-" + r.at });
+        webpush.sendNotification(r.sub, payload).catch(() => {}).finally(() => { if (r.id) store.delReminder(r.id); });
+      });
       for (let i = reminders.length - 1; i >= 0; i--) { if (reminders[i].sent || reminders[i].at < now - 3600000) reminders.splice(i, 1); }
+      await store.pruneReminders(now - 3600000);
+    } finally {
+      reminderSweepBusy = false;
     }
   }, 20000).unref();
 }

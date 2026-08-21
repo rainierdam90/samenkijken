@@ -8,12 +8,16 @@
   "scripts": {
     "start": "node server/server.js",
     "dev": "node server/server.js",
+    "build:frontend": "node tools/build-frontend.js",
+    "check:frontend": "node tools/build-frontend.js --check",
+    "pretest": "npm run check:frontend",
     "test": "node --test test/*.test.js"
   },
   "engines": {
     "node": ">=18"
   },
   "dependencies": {
+    "compression": "^1.8.1",
     "express": "^4.19.2",
     "ffmpeg-static": "^5.3.0",
     "peer": "^1.0.2",

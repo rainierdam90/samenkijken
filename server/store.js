@@ -31,6 +31,9 @@ function makePg() {
         CREATE INDEX IF NOT EXISTS idx_wall_room ON wall (room, ts);
         CREATE TABLE IF NOT EXISTS visits (day TEXT, iphash TEXT, PRIMARY KEY (day, iphash));
         CREATE INDEX IF NOT EXISTS idx_visits_day ON visits (day);
+        CREATE TABLE IF NOT EXISTS push_reminders (id TEXT PRIMARY KEY, subscription TEXT NOT NULL, at BIGINT NOT NULL, title TEXT, body TEXT, url TEXT);
+        CREATE INDEX IF NOT EXISTS idx_push_reminders_at ON push_reminders (at);
+        CREATE TABLE IF NOT EXISTS room_subscriptions (room TEXT, endpoint TEXT, subscription TEXT NOT NULL, name TEXT, PRIMARY KEY (room, endpoint));
       `);
       try { await pool.query("ALTER TABLE rooms ADD COLUMN IF NOT EXISTS expiresat BIGINT"); } catch (e) {}
       try { await pool.query("ALTER TABLE rooms ADD COLUMN IF NOT EXISTS theme TEXT"); } catch (e) {}
@@ -64,6 +67,13 @@ function makePg() {
     async recordVisit(day, ipHash) { try { await pool.query("INSERT INTO visits (day, iphash) VALUES ($1,$2) ON CONFLICT DO NOTHING", [day, ipHash]); } catch (e) {} },
     async visitorDays(limit) { try { const r = await pool.query("SELECT day, COUNT(*)::int AS n FROM visits GROUP BY day ORDER BY day DESC LIMIT $1", [limit || 30]); return r.rows.map(x => ({ day: x.day, count: Number(x.n) })); } catch (e) { return []; } },
     async pruneVisits(beforeDay) { try { await pool.query("DELETE FROM visits WHERE day < $1", [beforeDay]); } catch (e) {} },
+    async addReminder(r) { try { await pool.query("INSERT INTO push_reminders (id, subscription, at, title, body, url) VALUES ($1,$2,$3,$4,$5,$6) ON CONFLICT (id) DO UPDATE SET subscription=EXCLUDED.subscription, at=EXCLUDED.at, title=EXCLUDED.title, body=EXCLUDED.body, url=EXCLUDED.url", [r.id, JSON.stringify(r.sub), r.at, r.title, r.body, r.url]); return true; } catch (e) { return false; } },
+    async dueReminders(now, limit) { try { const q=await pool.query("SELECT id, subscription, at, title, body, url FROM push_reminders WHERE at <= $1 ORDER BY at ASC LIMIT $2", [now, limit || 100]); return q.rows.map(x=>({ id:x.id, sub:JSON.parse(x.subscription), at:Number(x.at), title:x.title, body:x.body, url:x.url })); } catch (e) { return []; } },
+    async delReminder(id) { try { await pool.query("DELETE FROM push_reminders WHERE id=$1", [id]); } catch (e) {} },
+    async pruneReminders(before) { try { await pool.query("DELETE FROM push_reminders WHERE at < $1", [before]); } catch (e) {} },
+    async addRoomSub(room, endpoint, sub, name) { try { await pool.query("INSERT INTO room_subscriptions (room, endpoint, subscription, name) VALUES ($1,$2,$3,$4) ON CONFLICT (room,endpoint) DO UPDATE SET subscription=EXCLUDED.subscription, name=EXCLUDED.name", [room, endpoint, JSON.stringify(sub), name]); return true; } catch (e) { return false; } },
+    async getRoomSubs(room) { try { const q=await pool.query("SELECT endpoint, subscription, name FROM room_subscriptions WHERE room=$1", [room]); return q.rows.map(x=>({ endpoint:x.endpoint, sub:JSON.parse(x.subscription), name:x.name })); } catch (e) { return []; } },
+    async delRoomSub(room, endpoint) { try { await pool.query("DELETE FROM room_subscriptions WHERE room=$1 AND endpoint=$2", [room, endpoint]); } catch (e) {} },
     async pruneExpired() { try { const now = Date.now(); await pool.query("DELETE FROM wall WHERE room IN (SELECT code FROM rooms WHERE expiresat IS NOT NULL AND expiresat < $1)", [now]); await pool.query("DELETE FROM rooms WHERE expiresat IS NOT NULL AND expiresat < $1", [now]); } catch (e) {} }
   };
 }
@@ -82,6 +92,9 @@ function makeSqlite() {
     CREATE INDEX IF NOT EXISTS idx_wall_room ON wall (room, ts);
     CREATE TABLE IF NOT EXISTS visits (day TEXT, ipHash TEXT, PRIMARY KEY (day, ipHash));
     CREATE INDEX IF NOT EXISTS idx_visits_day ON visits (day);
+    CREATE TABLE IF NOT EXISTS push_reminders (id TEXT PRIMARY KEY, subscription TEXT NOT NULL, at INTEGER NOT NULL, title TEXT, body TEXT, url TEXT);
+    CREATE INDEX IF NOT EXISTS idx_push_reminders_at ON push_reminders (at);
+    CREATE TABLE IF NOT EXISTS room_subscriptions (room TEXT, endpoint TEXT, subscription TEXT NOT NULL, name TEXT, PRIMARY KEY (room, endpoint));
   `);
   try { db.exec("ALTER TABLE rooms ADD COLUMN expiresAt INTEGER"); } catch (e) {}   // migrate older DBs (no-op if exists)
   try { db.exec("ALTER TABLE rooms ADD COLUMN theme TEXT"); } catch (e) {}          // room ambiance theme
@@ -112,6 +125,13 @@ function makeSqlite() {
     async recordVisit(day, ipHash) { try { db.prepare("INSERT OR IGNORE INTO visits (day, ipHash) VALUES (?, ?)").run(day, ipHash); } catch (e) {} },
     async visitorDays(limit) { try { return db.prepare("SELECT day, COUNT(*) AS count FROM visits GROUP BY day ORDER BY day DESC LIMIT ?").all(limit || 30); } catch (e) { return []; } },
     async pruneVisits(beforeDay) { try { db.prepare("DELETE FROM visits WHERE day < ?").run(beforeDay); } catch (e) {} },
+    async addReminder(r) { try { db.prepare("INSERT INTO push_reminders (id, subscription, at, title, body, url) VALUES (?, ?, ?, ?, ?, ?) ON CONFLICT(id) DO UPDATE SET subscription=excluded.subscription, at=excluded.at, title=excluded.title, body=excluded.body, url=excluded.url").run(r.id, JSON.stringify(r.sub), r.at, r.title, r.body, r.url); return true; } catch (e) { return false; } },
+    async dueReminders(now, limit) { try { return db.prepare("SELECT id, subscription, at, title, body, url FROM push_reminders WHERE at <= ? ORDER BY at ASC LIMIT ?").all(now, limit || 100).map(x=>({ id:x.id, sub:JSON.parse(x.subscription), at:x.at, title:x.title, body:x.body, url:x.url })); } catch (e) { return []; } },
+    async delReminder(id) { try { db.prepare("DELETE FROM push_reminders WHERE id=?").run(id); } catch (e) {} },
+    async pruneReminders(before) { try { db.prepare("DELETE FROM push_reminders WHERE at < ?").run(before); } catch (e) {} },
+    async addRoomSub(room, endpoint, sub, name) { try { db.prepare("INSERT INTO room_subscriptions (room, endpoint, subscription, name) VALUES (?, ?, ?, ?) ON CONFLICT(room,endpoint) DO UPDATE SET subscription=excluded.subscription, name=excluded.name").run(room, endpoint, JSON.stringify(sub), name); return true; } catch (e) { return false; } },
+    async getRoomSubs(room) { try { return db.prepare("SELECT endpoint, subscription, name FROM room_subscriptions WHERE room=?").all(room).map(x=>({ endpoint:x.endpoint, sub:JSON.parse(x.subscription), name:x.name })); } catch (e) { return []; } },
+    async delRoomSub(room, endpoint) { try { db.prepare("DELETE FROM room_subscriptions WHERE room=? AND endpoint=?").run(room, endpoint); } catch (e) {} },
     async pruneExpired() { try { var now = Date.now(); db.prepare("DELETE FROM wall WHERE room IN (SELECT code FROM rooms WHERE expiresAt IS NOT NULL AND expiresAt < ?)").run(now); db.prepare("DELETE FROM rooms WHERE expiresAt IS NOT NULL AND expiresAt < ?").run(now); } catch (e) {} }
   };
 }
@@ -141,5 +161,12 @@ module.exports = {
   recordVisit: (d, h) => impl && impl.recordVisit ? impl.recordVisit(d, h) : noop(),
   visitorDays: (n) => impl && impl.visitorDays ? impl.visitorDays(n) : Promise.resolve([]),
   pruneVisits: (d) => impl && impl.pruneVisits ? impl.pruneVisits(d) : noop(),
+  addReminder: (r) => impl && impl.addReminder ? impl.addReminder(r) : Promise.resolve(false),
+  dueReminders: (n, l) => impl && impl.dueReminders ? impl.dueReminders(n, l) : Promise.resolve([]),
+  delReminder: (id) => impl && impl.delReminder ? impl.delReminder(id) : noop(),
+  pruneReminders: (n) => impl && impl.pruneReminders ? impl.pruneReminders(n) : noop(),
+  addRoomSub: (r, e, s, n) => impl && impl.addRoomSub ? impl.addRoomSub(r, e, s, n) : Promise.resolve(false),
+  getRoomSubs: (r) => impl && impl.getRoomSubs ? impl.getRoomSubs(r) : Promise.resolve([]),
+  delRoomSub: (r, e) => impl && impl.delRoomSub ? impl.delRoomSub(r, e) : noop(),
   pruneExpired: () => impl && impl.pruneExpired ? impl.pruneExpired() : noop()
 };

@@ -7,8 +7,14 @@ const path = require("node:path");
 const vm = require("node:vm");
 
 const ROOT = path.resolve(__dirname, "..");
-const html = fs.readFileSync(path.join(ROOT, "public", "index.html"), "utf8");
-const rootHtml = fs.readFileSync(path.join(ROOT, "index.html"), "utf8");
+const publicMarkup = fs.readFileSync(path.join(ROOT, "public", "index.html"), "utf8");
+const rootMarkup = fs.readFileSync(path.join(ROOT, "index.html"), "utf8");
+const appJs = fs.readFileSync(path.join(ROOT, "public", "samecouch-app-v2.js"), "utf8");
+const appCss = fs.readFileSync(path.join(ROOT, "public", "samecouch-v2.css"), "utf8");
+// Most historical assertions intentionally scan the complete frontend bundle.
+// Markup-specific checks continue to use publicMarkup/rootMarkup below.
+const html = `${publicMarkup}\n${appCss}\n${appJs}`;
+const rootHtml = `${rootMarkup}\n${appCss}\n${appJs}`;
 const serverSource = fs.readFileSync(path.join(ROOT, "server", "server.js"), "utf8");
 const subtitles = require(path.join(ROOT, "public", "subtitles.js"));
 
@@ -24,14 +30,58 @@ function extractFunction(source, name) {
   throw new Error(`unterminated ${name}`);
 }
 
-test("inline application script parses", () => {
-  for (const [entry, sourceHtml] of [["public", html], ["root", rootHtml]]) {
-    const scripts = [...sourceHtml.matchAll(/<script(?:\s[^>]*)?>([\s\S]*?)<\/script>/gi)]
-      .map(match => match[1])
-      .filter(source => source.trim());
-    assert.ok(scripts.length > 0);
-    scripts.forEach((source, index) => new vm.Script(source, { filename: `${entry}-inline-${index + 1}.js` }));
+test("generated frontend is split, synchronized, and parses", () => {
+  assert.equal(publicMarkup, rootMarkup);
+  assert.match(publicMarkup, /<link rel="stylesheet" href="\/samecouch-v2\.css"\s*\/>/);
+  assert.match(publicMarkup, /<script src="\/prepaint-v1\.js"><\/script>/);
+  assert.match(publicMarkup, /<script src="\/samecouch-app-v2\.js"><\/script>/);
+  const inlineScripts = [...publicMarkup.matchAll(/<script(?:\s[^>]*)?>([\s\S]*?)<\/script>/gi)]
+    .map(match => match[1])
+    .filter(source => source.trim());
+  assert.equal(inlineScripts.length, 0);
+  new vm.Script(appJs, { filename: "samecouch-app-v2.js" });
+});
+
+test("critical landing assets are responsive, compressed, and local", () => {
+  assert.match(publicMarkup, /<picture><source type="image\/avif"[^>]*samecouch-hero-480\.avif/);
+  assert.match(publicMarkup, /<source type="image\/webp"[^>]*samecouch-hero-1024\.webp/);
+  assert.doesNotMatch(publicMarkup, /samecouch-hero\.png/);
+  assert.equal(fs.existsSync(path.join(ROOT, "public", "samecouch-hero.png")), false);
+  for (const file of [
+    "samecouch-hero-480.avif", "samecouch-hero-480.webp",
+    "samecouch-hero-768.avif", "samecouch-hero-768.webp",
+    "samecouch-hero-1024.avif", "samecouch-hero-1024.webp"
+  ]) {
+    assert.ok(fs.statSync(path.join(ROOT, "public", file)).size < 100 * 1024, `${file} is unexpectedly large`);
   }
+});
+
+test("heavy room helpers load locally and only when needed", () => {
+  assert.doesNotMatch(publicMarkup, /cdnjs\.cloudflare\.com/);
+  assert.doesNotMatch(publicMarkup, /<script[^>]+(?:peerjs|qrcodejs|subtitles)/i);
+  assert.match(appJs, /function ensurePeerLibrary\(\).*\/vendor\/peerjs-1\.5\.5\.min\.js/);
+  assert.match(appJs, /function ensureQrLibrary\(\).*\/vendor\/qrcodejs-1\.0\.0\.min\.js/);
+  assert.match(appJs, /function ensureSubtitleHelpers\(\).*\/subtitles\.js/);
+});
+
+test("connection check, shared queue, timestamp moments, and recap are wired", () => {
+  assert.match(publicMarkup, /id="ld_connection"/);
+  assert.match(publicMarkup, /id="queueBtn"/);
+  assert.match(publicMarkup, /id="momentBtn"/);
+  assert.match(publicMarkup, /id="wallRecapBtn"/);
+  assert.match(appJs, /function runConnectionCheck\(\)/);
+  assert.match(appJs, /fetch\(httpBase\(\)\+"\/speed-test\?bytes="/);
+  assert.match(appJs, /type:"queue-add"/);
+  assert.match(appJs, /type:"moment-save"/);
+  assert.match(appJs, /function collectRecap\(\)/);
+  assert.match(serverSource, /app\.get\("\/speed-test"/);
+  assert.match(serverSource, /m\.type === "queue-add"/);
+  assert.match(serverSource, /m\.type === "moment-save"/);
+});
+
+test("language controls have accessible names", () => {
+  assert.match(publicMarkup, /id="langSelL"[^>]*aria-label="Language"/);
+  assert.match(publicMarkup, /id="langSel"[^>]*aria-label="Language"/);
 });
 
 test("a participant name is required and has an inline accessible error", () => {
@@ -211,7 +261,7 @@ test("both Vercel entry points redirect www after TLS termination", () => {
     const config = JSON.parse(fs.readFileSync(path.join(ROOT, file), "utf8"));
     assert.ok(config.redirects.some(rule =>
       rule.has && rule.has.some(condition => condition.value === "www.samecouch.com") &&
-      rule.destination === "https://samecouch.com/:path*"
+      rule.source === "/(.*)" && rule.destination === "https://samecouch.com/$1"
     ), `${file} misses the www.samecouch.com redirect`);
   }
 });
@@ -223,6 +273,15 @@ test("deployment policy allows HTTPS video and same-origin wake lock", () => {
   const permissions = headers.find(header => header.key === "Permissions-Policy");
   assert.match(csp.value, /media-src[^;]*https:/);
   assert.match(permissions.value, /screen-wake-lock=\(self\)/);
+  const appPolicies = config.headers
+    .filter(rule => rule.source === "/" || rule.source === "/index.html")
+    .flatMap(rule => rule.headers || [])
+    .filter(header => header.key === "Content-Security-Policy");
+  assert.equal(appPolicies.length, 2);
+  appPolicies.forEach(header => {
+    assert.doesNotMatch(header.value.match(/script-src[^;]*/)[0], /unsafe-inline/);
+    assert.doesNotMatch(header.value, /cdnjs\.cloudflare\.com/);
+  });
 });
 
 test("fullscreen controls return on activity and auto-hide above subtitles", () => {

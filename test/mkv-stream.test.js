@@ -10,7 +10,9 @@ const { once } = require("node:events");
 const { spawn, spawnSync } = require("node:child_process");
 
 const ROOT = path.resolve(__dirname, "..");
-const FFMPEG = process.env.FFMPEG_PATH || "/usr/bin/ffmpeg";
+let bundledFfmpeg = "";
+try { bundledFfmpeg = require("ffmpeg-static"); } catch (_) {}
+const FFMPEG = process.env.FFMPEG_PATH || bundledFfmpeg || "/usr/bin/ffmpeg";
 const FFMPEG_OK = spawnSync(FFMPEG, ["-version"], { stdio: "ignore" }).status === 0;
 
 function listen(server) {
@@ -58,7 +60,6 @@ test("opaque and redirected MKV sources are remuxed to fragmented browser MP4", 
   const temp = fs.mkdtempSync(path.join(os.tmpdir(), "samecouch-mkv-"));
   const fixture = path.join(temp, "fixture.mkv");
   const dbPath = path.join(temp, "qa.db");
-  t.after(() => fs.rmSync(temp, { recursive: true, force: true }));
 
   const made = spawnSync(FFMPEG, [
     "-y", "-hide_banner", "-loglevel", "error",
@@ -89,6 +90,14 @@ test("opaque and redirected MKV sources are remuxed to fragmented browser MP4", 
   });
   t.after(async () => {
     if (app.exitCode === null) { app.kill("SIGTERM"); await once(app, "exit").catch(() => {}); }
+  });
+  // Register filesystem cleanup after servers so Windows no longer sees an open
+  // SQLite/stream handle when removing the temporary directory.
+  t.after(async () => {
+    for (let attempt = 0; attempt < 5; attempt++) {
+      try { fs.rmSync(temp, { recursive: true, force: true }); return; }
+      catch (error) { if (attempt === 4) throw error; await new Promise(resolve => setTimeout(resolve, 100)); }
+    }
   });
 
   const base = "http://127.0.0.1:" + appPort;

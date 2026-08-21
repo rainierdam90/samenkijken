@@ -1,22 +1,58 @@
 {
+  "$schema": "https://openapi.vercel.sh/vercel.json",
   "redirects": [
     {
-      "source": "/:path*",
+      "source": "/(.*)",
       "has": [{ "type": "host", "value": "www.samecouch.com" }],
-      "destination": "https://samecouch.com/:path*",
+      "destination": "https://samecouch.com/$1",
       "permanent": true
     },
     {
-      "source": "/:path*",
+      "source": "/(.*)",
       "has": [{ "type": "host", "value": "watchmovietogether.com" }],
-      "destination": "https://samecouch.com/:path*",
+      "destination": "https://samecouch.com/$1",
       "permanent": true
     },
     {
-      "source": "/:path*",
+      "source": "/(.*)",
       "has": [{ "type": "host", "value": "www.watchmovietogether.com" }],
-      "destination": "https://samecouch.com/:path*",
+      "destination": "https://samecouch.com/$1",
       "permanent": true
+    }
+  ],
+  "headers": [
+    {
+      "source": "/(.*)",
+      "headers": [
+        { "key": "X-Content-Type-Options", "value": "nosniff" },
+        { "key": "X-Frame-Options", "value": "SAMEORIGIN" },
+        { "key": "Referrer-Policy", "value": "strict-origin-when-cross-origin" },
+        { "key": "Permissions-Policy", "value": "camera=(self), microphone=(self), screen-wake-lock=(self), geolocation=(), browsing-topics=()" },
+        { "key": "Cross-Origin-Opener-Policy", "value": "same-origin" },
+        { "key": "X-Permitted-Cross-Domain-Policies", "value": "none" },
+        { "key": "Strict-Transport-Security", "value": "max-age=31536000; includeSubDomains" },
+        { "key": "Content-Security-Policy", "value": "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'self'; form-action 'self'; script-src 'self' 'unsafe-inline' https://www.youtube.com https://s.ytimg.com https://player.vimeo.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: blob: https:; media-src 'self' blob: data: mediastream: https:; connect-src 'self' https://watchmovietogether-j59u.onrender.com wss://watchmovietogether-j59u.onrender.com; frame-src 'self' https:; worker-src 'self' blob:; manifest-src 'self'" }
+      ]
+    },
+    {
+      "source": "/",
+      "headers": [
+        { "key": "Content-Security-Policy", "value": "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'self'; form-action 'self'; script-src 'self' https://www.youtube.com https://s.ytimg.com https://player.vimeo.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: blob: https:; media-src 'self' blob: data: mediastream: https:; connect-src 'self' https://watchmovietogether-j59u.onrender.com wss://watchmovietogether-j59u.onrender.com; frame-src 'self' https:; worker-src 'self' blob:; manifest-src 'self'" }
+      ]
+    },
+    {
+      "source": "/index.html",
+      "headers": [
+        { "key": "Content-Security-Policy", "value": "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'self'; form-action 'self'; script-src 'self' https://www.youtube.com https://s.ytimg.com https://player.vimeo.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: blob: https:; media-src 'self' blob: data: mediastream: https:; connect-src 'self' https://watchmovietogether-j59u.onrender.com wss://watchmovietogether-j59u.onrender.com; frame-src 'self' https:; worker-src 'self' blob:; manifest-src 'self'" }
+      ]
+    },
+    {
+      "source": "/(samecouch-app-v2.js|samecouch-v2.css|prepaint-v1.js|samecouch-hero-.*\\.(avif|webp))",
+      "headers": [{ "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }]
+    },
+    {
+      "source": "/vendor/(.*)",
+      "headers": [{ "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }]
     }
   ]
 }
