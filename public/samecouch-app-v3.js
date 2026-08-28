@@ -808,9 +808,17 @@
       iptvExternalSubs.forEach(function(sub){ addSubChoice(sub.name||"Subtitles",sub.lang||"und",function(){ disableIptvEmbedded(); fetchIptvSubtitle(sub); }); });
       addSubChoice(tr("iptv_sub_own"),"SRT / VTT",function(){ if(subtitleInput) subtitleInput.click(); }); modal.classList.add("show");
     }
+    /* canPlayType("application/vnd.apple.mpegurl") answers "maybe" in Chrome, which is truthy but
+       a lie — Chrome cannot play HLS at all. Decide on Media Source Extensions instead, the same
+       way hls.js does: MSE present (Chrome, Firefox, Edge, desktop Safari) → hls.js; no MSE
+       (iOS Safari) → the browser's own HLS. */
+    function canUseHlsJs(){
+      var MS=window.MediaSource||window.WebKitMediaSource;
+      try{ return !!(MS&&typeof MS.isTypeSupported==="function"&&MS.isTypeSupported('video/mp4; codecs="avc1.42E01E,mp4a.40.2"')); }catch(e){ return false; }
+    }
     function loadHls(url){
       movie.style.display="block"; movieErrored=false;
-      if(movie.canPlayType("application/vnd.apple.mpegurl")){ movie.src=url; movie.load(); setTimeout(function(){ refreshIptvSubtitleTracks(); },500); return; }
+      if(!canUseHlsJs()&&movie.canPlayType("application/vnd.apple.mpegurl")){ movie.src=url; movie.load(); setTimeout(function(){ refreshIptvSubtitleTracks(); },500); return; }
       ensureHlsLibrary().then(function(){
         if(mode!=="hls"||!currentMedia||currentMedia.url!==url) return;
         if(!window.Hls||!window.Hls.isSupported()){ movieErrored=true; toast(tr("iptv_failed"),9000); return; }

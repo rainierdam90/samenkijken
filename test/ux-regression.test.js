@@ -81,6 +81,13 @@ test("IPTV supports secure provider login, shared browsing, HLS and host subtitl
   assert.match(appJs, /return \{ mode:"hls", url:url \}/);
   assert.match(appJs, /mode==="file"\|\|mode==="mkv"\|\|mode==="hls"/);
   assert.match(appJs, /new window\.Hls\(/);
+  /* canPlayType("application/vnd.apple.mpegurl") answers "maybe" in Chrome — truthy, but Chrome
+     cannot play HLS. Trusting it sent the raw playlist to the <video> element, which failed with
+     DEMUXER_ERROR_COULD_NOT_PARSE, i.e. "this IPTV stream could not be played". The native path
+     must be gated on Media Source Extensions being absent. */
+  assert.match(appJs, /function canUseHlsJs\(\)/);
+  assert.match(appJs, /MediaSource/);
+  assert.match(appJs, /if\(!canUseHlsJs\(\)&&movie\.canPlayType\("application\/vnd\.apple\.mpegurl"\)\)/);
   assert.match(appJs, /case "iptv-source"/);
   assert.match(appJs, /case "iptv-nav"/);
   assert.match(iptvJs, /"X-SameCouch-IPTV"/);
