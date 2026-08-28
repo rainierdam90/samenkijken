@@ -84,3 +84,55 @@ test("IPTV credentials stay server-side while catalogs, HLS, VOD, series and sub
   const m3uText=await m3uResponse.text(); assert.equal(m3uResponse.status,200); assert.doesNotMatch(m3uText,/demo|secret/); const m3u=JSON.parse(m3uText);
   const m3uCatalog=await (await fetch(appBase+"/iptv/catalog?kind=live",{headers:{"X-SameCouch-IPTV":m3u.source.token}})).json(); assert.equal(m3uCatalog.items[0].title,"M3U News"); assert.doesNotMatch(JSON.stringify(m3uCatalog),/demo|secret/);
 });
+
+/* Catalogue thumbnails once shared the video pipe's concurrency slots and the API rate limit,
+   so browsing a provider with logos exhausted both and every later call came back as
+   "the IPTV gateway is busy" — including the film the room was trying to start. */
+test("browsing artwork never starves playback or the API budget", async t => {
+  let providerPort;
+  const held = [];
+  const provider = http.createServer((req, res) => {
+    const url = new URL(req.url, `http://127.0.0.1:${providerPort}`);
+    if (url.pathname === "/slow-art.png") { res.setHeader("Content-Type", "image/png"); held.push(res); return; }   // stays open, holding a slot
+    if (url.pathname === "/playlist.m3u") { res.setHeader("Content-Type", "application/x-mpegurl"); res.end(`#EXTM3U\n#EXTINF:-1 tvg-logo="http://127.0.0.1:${providerPort}/slow-art.png",Chan\nhttp://127.0.0.1:${providerPort}/clip.mp4\n`); return; }
+    if (url.pathname === "/clip.mp4") { res.setHeader("Content-Type", "video/mp4"); res.end(Buffer.from("movie-bytes")); return; }
+    res.statusCode = 404; res.end();
+  });
+  providerPort = await listen(provider);
+
+  const before = { trusted: process.env.IPTV_TRUSTED_PRIVATE_HOSTS, ports: process.env.IPTV_ALLOWED_PORTS, art: process.env.IPTV_MAX_ART_PER_IP, streams: process.env.IPTV_MAX_STREAMS_PER_IP };
+  process.env.IPTV_TRUSTED_PRIVATE_HOSTS = "127.0.0.1"; process.env.IPTV_ALLOWED_PORTS = String(providerPort);
+  process.env.IPTV_MAX_ART_PER_IP = "4"; process.env.IPTV_MAX_STREAMS_PER_IP = "2";
+
+  const app = express(); app.use(express.json());
+  const service = createIptvService({ authorizeRoom: (room, key) => room === "qa-room" && key === "qa-key", clientIp: () => "qa", makeLimiter: () => () => true });
+  app.use("/iptv", service.router);
+  const appServer = http.createServer(app), appPort = await listen(appServer), appBase = `http://127.0.0.1:${appPort}`;
+  t.after(async () => {
+    held.forEach(res => { try { res.end(); } catch (_) {} });
+    await Promise.all([close(appServer), close(provider)]);
+    Object.entries({ IPTV_TRUSTED_PRIVATE_HOSTS: before.trusted, IPTV_ALLOWED_PORTS: before.ports, IPTV_MAX_ART_PER_IP: before.art, IPTV_MAX_STREAMS_PER_IP: before.streams })
+      .forEach(([key, value]) => { if (value === undefined) delete process.env[key]; else process.env[key] = value; });
+  });
+
+  const connected = await (await fetch(appBase + "/iptv/connect", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ type: "m3u", room: "qa-room", roomKey: "qa-key", playlistUrl: `http://127.0.0.1:${providerPort}/playlist.m3u` }) })).json();
+  const token = connected.source.token;
+  let catalog = await (await fetch(appBase + "/iptv/catalog?kind=live", { headers: { "X-SameCouch-IPTV": token } })).json();
+  if (!catalog.items.length) catalog = await (await fetch(appBase + "/iptv/catalog?kind=movie", { headers: { "X-SameCouch-IPTV": token } })).json();
+  const artUrl = catalog.items[0] && catalog.items[0].image;
+  assert.ok(artUrl, "the channel should expose a proxied logo");
+
+  // Fill the artwork pool to its per-IP ceiling and leave every request hanging.
+  const pending = Array.from({ length: 4 }, () => fetch(artUrl).catch(() => null));
+  await new Promise(resolve => setTimeout(resolve, 250));
+  assert.equal(held.length, 4, "all four thumbnails should be in flight");
+
+  // Playback must still get through: it has its own slots.
+  const resolved = await (await fetch(appBase + "/iptv/resolve", { method: "POST", headers: { "content-type": "application/json", "X-SameCouch-IPTV": token }, body: JSON.stringify({ id: catalog.items[0].id }) })).json();
+  const play = await fetch(resolved.playback.url);
+  assert.equal(play.status, 200, "artwork must not consume the stream pool");
+  assert.equal(await play.text(), "movie-bytes");
+
+  held.forEach(res => { try { res.end(); } catch (_) {} });
+  await Promise.all(pending);
+});

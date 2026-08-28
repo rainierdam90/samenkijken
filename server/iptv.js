@@ -28,8 +28,14 @@ function createIptvService(options) {
   const maxTickets = Math.max(50, parseInt(process.env.IPTV_MAX_TICKETS || "2000", 10));
   const maxCatalogBytes = Math.max(1024 * 1024, parseInt(process.env.IPTV_MAX_CATALOG_BYTES || String(16 * 1024 * 1024), 10));
   const maxPlaylistBytes = Math.max(256 * 1024, parseInt(process.env.IPTV_MAX_PLAYLIST_BYTES || String(12 * 1024 * 1024), 10));
-  const maxProxyStreams = Math.max(4, parseInt(process.env.IPTV_MAX_STREAMS || "24", 10));
-  const maxProxyStreamsPerIp = Math.max(2, parseInt(process.env.IPTV_MAX_STREAMS_PER_IP || "8", 10));
+  /* Everyone in one household shares a public IP, and a single HLS player keeps several
+     fetches in flight, so the per-IP ceiling has to fit a whole living room, not one viewer. */
+  const maxProxyStreams = Math.max(4, parseInt(process.env.IPTV_MAX_STREAMS || "48", 10));
+  const maxProxyStreamsPerIp = Math.max(2, parseInt(process.env.IPTV_MAX_STREAMS_PER_IP || "16", 10));
+  /* Artwork is its own budget. A catalogue page asks for dozens of thumbnails at once; if those
+     shared the video pipe's slots or the API rate limit, browsing would starve playback. */
+  const maxArt = Math.max(4, parseInt(process.env.IPTV_MAX_ART || "24", 10));
+  const maxArtPerIp = Math.max(2, parseInt(process.env.IPTV_MAX_ART_PER_IP || "12", 10));
   const roomGraceMs = 120000;   // a reload or Wi-Fi blip must not kill an active source
   const allowedPorts = new Set((process.env.IPTV_ALLOWED_PORTS || "80,443,8000,8080,8443,8880,25461").split(",").map(v => v.trim()).filter(Boolean));
   const trustedPrivateHosts = new Set((process.env.IPTV_TRUSTED_PRIVATE_HOSTS || "").split(",").map(v => v.trim().toLowerCase()).filter(Boolean));
@@ -37,11 +43,13 @@ function createIptvService(options) {
   const sessions = new Map();
   const streams = new Map();
   const artwork = new Map();
-  const activeByIp = new Map();
-  let activeStreams = 0;
 
   const allowConnect = options.makeLimiter ? options.makeLimiter(10, 10 * 60 * 1000) : () => true;
   const allowApi = options.makeLimiter ? options.makeLimiter(180, 60 * 1000) : () => true;
+  /* One catalogue page is dozens of thumbnails, so artwork needs its own generous budget —
+     sharing allowApi meant a couple of pages of browsing tripped the limit and every later
+     call came back as "the gateway is busy". */
+  const allowArt = options.makeLimiter ? options.makeLimiter(1500, 60 * 1000) : () => true;
   const clientIp = options.clientIp || (req => (req.socket && req.socket.remoteAddress) || "?");
   const authorizeRoom = options.authorizeRoom || (() => false);
   const roomLive = options.roomLive || (() => true);
@@ -362,16 +370,24 @@ function createIptvService(options) {
       return resourceUrl(req, stream, aliasFor(stream, url));
     }).join("\n");
   }
-  function acquire(ip) {
-    const count = activeByIp.get(ip) || 0;
-    if (activeStreams >= maxProxyStreams || count >= maxProxyStreamsPerIp) return false;
-    activeStreams++; activeByIp.set(ip, count + 1); return true;
+  function makePool(maxTotal, maxPerIp) {
+    const byIp = new Map(); let total = 0;
+    return {
+      acquire(ip) {
+        const count = byIp.get(ip) || 0;
+        if (total >= maxTotal || count >= maxPerIp) return false;
+        total++; byIp.set(ip, count + 1); return true;
+      },
+      release(ip) {
+        total = Math.max(0, total - 1);
+        const left = Math.max(0, (byIp.get(ip) || 1) - 1);
+        if (left) byIp.set(ip, left); else byIp.delete(ip);
+      },
+      active() { return total; }
+    };
   }
-  function release(ip) {
-    activeStreams = Math.max(0, activeStreams - 1);
-    const left = Math.max(0, (activeByIp.get(ip) || 1) - 1);
-    if (left) activeByIp.set(ip, left); else activeByIp.delete(ip);
-  }
+  const streamPool = makePool(maxProxyStreams, maxProxyStreamsPerIp);
+  const artPool = makePool(maxArt, maxArtPerIp);
   function errorResponse(res, error) { if (!res.headersSent) res.status(error.status || 502).json({ error: error.code || "iptv_failed" }); else if (!res.writableEnded) res.end(); }
 
   /* Everything proxied below is served from OUR origin, which also serves the app and /admin.
@@ -506,9 +522,9 @@ function createIptvService(options) {
     const session = touchSession(stream.sessionToken); if (!session) return res.status(403).json({ error: "source_expired" });
     const upstream = stream.aliases.get(String(req.params.alias || "")); if (!upstream) return res.status(404).json({ error: "resource_missing" });
     stream.exp = Math.min(Date.now() + streamTtl * 1000, stream.hardExp);
-    const ip = clientIp(req); if (!acquire(ip)) { res.setHeader("Retry-After", "10"); return res.status(503).json({ error: "iptv_busy" }); }
+    const ip = clientIp(req); if (!streamPool.acquire(ip)) { res.setHeader("Retry-After", "10"); return res.status(503).json({ error: "iptv_busy" }); }
     let source, released = false, finished = false;
-    const done = () => { if (!released) { released = true; release(ip); } };
+    const done = () => { if (!released) { released = true; streamPool.release(ip); } };
     res.once("finish", () => { finished = true; done(); });
     res.once("close", () => { if (!finished && source && !source.destroyed) source.destroy(); done(); });
     try {
@@ -545,12 +561,12 @@ function createIptvService(options) {
   router.get("/resource/:ticket/:alias", proxyResource);
 
   router.get("/art/:id", async (req, res) => {
-    const ip = clientIp(req); if (!allowApi(ip)) return res.status(429).end();
+    const ip = clientIp(req); if (!allowArt(ip)) return res.status(429).end();
     const entry = artwork.get(String(req.params.id || ""));
     if (!entry || entry.exp < Date.now() || !touchSession(entry.sessionToken)) { if (entry) artwork.delete(req.params.id); return res.status(404).end(); }
-    if (!acquire(ip)) { res.setHeader("Retry-After", "5"); return res.status(503).end(); }
+    if (!artPool.acquire(ip)) { res.setHeader("Retry-After", "5"); return res.status(503).end(); }
     let source = null, released = false, finished = false;
-    const done = () => { if (!released) { released = true; release(ip); } };
+    const done = () => { if (!released) { released = true; artPool.release(ip); } };
     res.once("finish", () => { finished = true; done(); });
     res.once("close", () => { if (!finished && source && !source.destroyed) source.destroy(); done(); });   // an aborted thumbnail must not keep fetching upstream
     try {
@@ -580,7 +596,7 @@ function createIptvService(options) {
     hasSession(token) { return !!peekSession(token); },
     sessionRoom(token) { const session = peekSession(token); return session ? session.room : ""; },
     revoke(token) { return dropSession(token); },
-    stats() { return { sessions: sessions.size, streams: streams.size, activeStreams }; }
+    stats() { return { sessions: sessions.size, streams: streams.size, activeStreams: streamPool.active(), activeArt: artPool.active() }; }
   };
 }
 
