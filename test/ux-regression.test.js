@@ -10,6 +10,7 @@ const ROOT = path.resolve(__dirname, "..");
 const publicMarkup = fs.readFileSync(path.join(ROOT, "public", "index.html"), "utf8");
 const rootMarkup = fs.readFileSync(path.join(ROOT, "index.html"), "utf8");
 const appJs = fs.readFileSync(path.join(ROOT, "public", "samecouch-app-v3.js"), "utf8");
+const iptvJs = fs.readFileSync(path.join(ROOT, "public", "iptv-client-v2.js"), "utf8");
 const appCss = fs.readFileSync(path.join(ROOT, "public", "samecouch-v3.css"), "utf8");
 // Most historical assertions intentionally scan the complete frontend bundle.
 // Markup-specific checks continue to use publicMarkup/rootMarkup below.
@@ -35,11 +36,13 @@ test("generated frontend is split, synchronized, and parses", () => {
   assert.match(publicMarkup, /<link rel="stylesheet" href="\/samecouch-v3\.css"\s*\/>/);
   assert.match(publicMarkup, /<script src="\/prepaint-v2\.js"><\/script>/);
   assert.match(publicMarkup, /<script src="\/samecouch-app-v3\.js"><\/script>/);
+  assert.match(publicMarkup, /<script src="\/iptv-client-v2\.js"><\/script>/);
   const inlineScripts = [...publicMarkup.matchAll(/<script(?:\s[^>]*)?>([\s\S]*?)<\/script>/gi)]
     .map(match => match[1])
     .filter(source => source.trim());
   assert.equal(inlineScripts.length, 0);
   new vm.Script(appJs, { filename: "samecouch-app-v3.js" });
+  new vm.Script(iptvJs, { filename: "iptv-client-v1.js" });
   for (const legacy of ["prepaint-v1.js", "samecouch-v2.css", "samecouch-app-v2.js"])
     assert.equal(fs.existsSync(path.join(ROOT, "public", legacy)), false, `${legacy} must not survive a release build`);
 });
@@ -64,6 +67,37 @@ test("heavy room helpers load locally and only when needed", () => {
   assert.match(appJs, /function ensurePeerLibrary\(\).*\/vendor\/peerjs-1\.5\.5\.min\.js/);
   assert.match(appJs, /function ensureQrLibrary\(\).*\/vendor\/qrcodejs-1\.0\.0\.min\.js/);
   assert.match(appJs, /function ensureSubtitleHelpers\(\).*\/subtitles\.js/);
+  assert.match(appJs, /function ensureHlsLibrary\(\).*\/vendor\/hls-1\.6\.16\.min\.js/);
+  assert.ok(fs.statSync(path.join(ROOT, "public", "vendor", "hls-1.6.16.min.js")).size > 100 * 1024);
+});
+
+test("IPTV supports secure provider login, shared browsing, HLS and host subtitles", () => {
+  assert.match(publicMarkup, /id="iptvBtn"/);
+  assert.match(publicMarkup, /id="iptvServer"[^>]*type="url"/);
+  assert.match(publicMarkup, /id="iptvUser"/);
+  assert.match(publicMarkup, /id="iptvPass"[^>]*type="password"/);
+  assert.match(publicMarkup, /id="iptvPlaylist"[^>]*type="url"/);
+  assert.match(publicMarkup, /id="iptvSubModal"/);
+  assert.match(appJs, /return \{ mode:"hls", url:url \}/);
+  assert.match(appJs, /mode==="file"\|\|mode==="mkv"\|\|mode==="hls"/);
+  assert.match(appJs, /new window\.Hls\(/);
+  assert.match(appJs, /case "iptv-source"/);
+  assert.match(appJs, /case "iptv-nav"/);
+  assert.match(iptvJs, /"X-SameCouch-IPTV"/);
+  assert.match(iptvJs, /type:"iptv-source",token:source\.token/);
+  assert.match(iptvJs, /type:"iptv-nav"/);
+  assert.doesNotMatch(iptvJs, /localStorage|sessionStorage/);
+  assert.doesNotMatch(iptvJs, /type:"iptv-source"[^\n]+username|type:"iptv-source"[^\n]+password/);
+});
+
+test("a shared IPTV source reaches the room under its own message type", () => {
+  /* The session payload carries its own `type` ("m3u"/"xtream"). Spreading it into the
+     envelope silently overwrote type:"iptv-source", so guests dropped the message and
+     never saw the host's catalogue. Keep the payload nested. */
+  const serverJs = fs.readFileSync(path.join(ROOT, "server", "server.js"), "utf8");
+  assert.doesNotMatch(serverJs, /\{\s*type:\s*"iptv-source",\s*\.\.\./);
+  assert.match(serverJs, /type:\s*"iptv-source",\s*source:\s*r\.iptvSource/);
+  assert.match(appJs, /case "iptv-source":.*m\.source/);
 });
 
 test("connection check, shared queue, timestamp moments, and recap are wired", () => {
@@ -197,7 +231,10 @@ test("shared playback has one stable clock and never hard-rewinds a smooth viewe
 
   const clockHealthSource = extractFunction(appJs, "syncClockHealthy");
   assert.match(clockHealthSource, /!nativeBuffering&&!movie\.seeking&&movie\.readyState>=3/);
-  assert.match(appJs, /movie\.addEventListener\("seeked",\s*function\(\)\{\s*if\(!consumeRemoteSeek\(\)\) broadcast\("seek"\);\s*\}\)/);
+  assert.match(appJs, /movie\.addEventListener\("seeked"/);
+  assert.match(appJs, /if\(!consumeRemoteSeek\(\)\) broadcast\("seek"\)/);   // a programmatic seek must not echo back as a room seek
+  assert.match(appJs, /function liveStream\(\)\{ return mode==="hls"&&iptvLive; \}/);   // live channels opt out of clock correction entirely
+  assert.match(appJs, /if\(liveStream\(\)\)\{ consumeRemoteSeek\(\); return; \}/);
   assert.match(appJs, /rtSend\(\{type:"sync",kind:on\?"buffering":"buffered-play"/);
   assert.match(serverSource, /kind === "heartbeat" \|\| kind === "buffering" \|\| kind === "buffered-play"/);
   assert.match(serverSource, /r\.host !== ws\._peerId/);

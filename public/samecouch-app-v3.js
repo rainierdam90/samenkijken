@@ -11,7 +11,7 @@
     var servedByBackend = /(^|\.)onrender\.com$/i.test(location.hostname) ||
                           location.hostname === "localhost" || location.hostname === "127.0.0.1";
     var SERVER_BASE = servedByBackend ? "" : REMOTE_BACKEND;
-    var hasYouTube = false, hasMkv = null; // capabilities set by /config
+    var hasYouTube = false, hasMkv = null, hasIptv = false; // capabilities set by /config
 
     /* Expensive room-only libraries are local, version-pinned and loaded only when used. */
     var scriptLoads={};
@@ -29,6 +29,7 @@
     function ensurePeerLibrary(){ return loadScriptOnce("/vendor/peerjs-1.5.5.min.js","Peer"); }
     function ensureQrLibrary(){ return loadScriptOnce("/vendor/qrcodejs-1.0.0.min.js","QRCode"); }
     function ensureSubtitleHelpers(){ return loadScriptOnce("/subtitles.js","SameCouchSubtitles"); }
+    function ensureHlsLibrary(){ return loadScriptOnce("/vendor/hls-1.6.16.min.js","Hls"); }
 
     var $ = function(id){ return document.getElementById(id); };
     function httpBase(){ return SERVER_BASE || location.origin; }
@@ -239,6 +240,11 @@
       nl:{conn_check_btn:"✓ Controleer je verbinding",conn_title:"Verbindingscheck",conn_sub:"Controleer dit apparaat, de kamerserver, TURN-relay en een indicatieve verbindingssnelheid voordat je meedoet.",conn_run:"Controle uitvoeren",conn_running:"Controleren…",conn_done:"Controle klaar. Groen is gereed; oranje kan werken maar mogelijk minder stabiel.",conn_browser:"Browser- en mediaondersteuning",conn_secure:"Beveiligde verbinding",conn_server:"Kamerserver",conn_turn:"TURN-relay",conn_down:"Downloadsnelheid",conn_up:"Uploadsnelheid",conn_devices:"Camera-/microfoon-API",queue_title:"Gezamenlijke kijklijst",queue_sub:"Voeg een video toe, stem samen en speel de winnaar af voor de hele kamer.",queue_name_ph:"Titel (optioneel)",queue_url_ph:"YouTube-, Vimeo- of videolink",queue_add:"Toevoegen",queue_empty:"Nog niets toegevoegd — doe de eerste suggestie.",queue_vote:"Stem",queue_play:"Afspelen",queue_remove:"Verwijderen",queue_started:"startte",queue_bad:"Plak een geldige http(s)-videolink.",queue_added_by:"Toegevoegd door {n}",t_queue:"Gezamenlijke kijklijst",t_moment:"Bewaar dit exacte moment",moment_saved:"bewaarde dit moment",moment_shared:"bewaarde een moment",moment_no_media:"Laad eerst een video zodat het moment een exacte tijd heeft.",recap_btn:"✨ Terugblik",recap_title:"Jullie avond in het kort ✨",recap_sub:"De foto's, notities, reacties en momenten die deze kamer van jullie maakten.",recap_empty:"Zet iets op de herinneringenmuur of reageer tijdens een video — daarna verschijnt hier jullie terugblik.",recap_prev:"Vorige",recap_next:"Volgende",recap_pause:"Pauze",recap_play:"Afspelen",recap_of:"{a} van {b}"}
     };
     Object.keys(NEWFEATURECOPY).forEach(function(k){ if(I18N[k]) Object.keys(NEWFEATURECOPY[k]).forEach(function(j){ I18N[k][j]=NEWFEATURECOPY[k][j]; }); });
+    var IPTVCOPY={
+      en:{iptv_btn:"📺 IPTV",iptv_title:"IPTV together",iptv_setup_title:"Connect your IPTV provider",iptv_setup_sub:"Use your provider's server, username and password, or paste an M3U playlist URL.",iptv_login:"Server login",iptv_m3u:"M3U link",iptv_server:"Server",iptv_user:"Username",iptv_pass:"Password",iptv_playlist:"M3U playlist URL",iptv_connect:"Connect",iptv_connecting:"Connecting…",iptv_privacy:"Your login is held briefly in server memory and is never shared with the room. SameCouch stores nothing in this browser — if your browser offers to save the password, that is its own password manager.",iptv_live:"Live",iptv_movies:"Movies",iptv_series:"Series",iptv_all:"All categories",iptv_search_ph:"Search channels, films or series…",iptv_search_btn:"Search",iptv_more:"Show more",iptv_other:"Other provider",iptv_empty:"Nothing found in this part of the library.",iptv_loading:"Loading the library…",iptv_loading_episodes:"Loading episodes…",iptv_opening:"Opening…",iptv_err_fields:"Fill in all provider details.",iptv_err_auth:"The provider rejected that username or password.",iptv_err_blocked:"This provider address is blocked for safety.",iptv_err_port:"This provider uses a server port that SameCouch does not allow yet.",iptv_err_expired:"The IPTV session expired. Connect the provider again.",iptv_err_room:"This IPTV connection does not belong to an active room.",iptv_err_room_wait:"Wait until the room says Connected, then try again.",iptv_err_busy:"The IPTV gateway is busy. Try again shortly.",iptv_err_playlist:"That link is not a valid M3U playlist.",iptv_err_url:"Enter a complete http(s) provider address.",iptv_err_connect:"SameCouch could not reach this IPTV provider.",iptv_playing:"Now playing: {t}",iptv_failed:"This IPTV stream could not be played.",iptv_sub_title:"Subtitles",iptv_sub_hint:"Choose a subtitle supplied by the IPTV host or add your own SRT/VTT file.",iptv_sub_off:"Off",iptv_sub_own:"Choose SRT/VTT from this device",iptv_sub_shared:"Shared subtitle file",iptv_sub_loading:"Loading subtitles…",iptv_sub_failed:"These provider subtitles could not be opened."},
+      nl:{iptv_btn:"📺 IPTV",iptv_title:"Samen IPTV kijken",iptv_setup_title:"Koppel je IPTV-provider",iptv_setup_sub:"Gebruik de server, gebruikersnaam en het wachtwoord van je provider, of plak een M3U-afspeellijst.",iptv_login:"Serverlogin",iptv_m3u:"M3U-link",iptv_server:"Server",iptv_user:"Gebruikersnaam",iptv_pass:"Wachtwoord",iptv_playlist:"URL van M3U-afspeellijst",iptv_connect:"Verbinden",iptv_connecting:"Verbinden…",iptv_privacy:"Je login staat alleen kort in het servergeheugen en wordt nooit gedeeld met de kamer. SameCouch slaat zelf niets op in deze browser — biedt je browser aan het wachtwoord te bewaren, dan is dat zijn eigen wachtwoordbeheer.",iptv_live:"Live",iptv_movies:"Films",iptv_series:"Series",iptv_all:"Alle categorieën",iptv_search_ph:"Zoek kanalen, films of series…",iptv_search_btn:"Zoeken",iptv_more:"Meer tonen",iptv_other:"Andere provider",iptv_empty:"In dit deel van de bibliotheek is niets gevonden.",iptv_loading:"Bibliotheek laden…",iptv_loading_episodes:"Afleveringen laden…",iptv_opening:"Openen…",iptv_err_fields:"Vul alle providergegevens in.",iptv_err_auth:"De provider wees deze gebruikersnaam of dit wachtwoord af.",iptv_err_blocked:"Dit provideradres is voor de veiligheid geblokkeerd.",iptv_err_port:"Deze provider gebruikt een serverpoort die SameCouch nog niet toestaat.",iptv_err_expired:"De IPTV-sessie is verlopen. Koppel de provider opnieuw.",iptv_err_room:"Deze IPTV-verbinding hoort niet bij een actieve kamer.",iptv_err_room_wait:"Wacht tot de kamer Verbonden aangeeft en probeer het opnieuw.",iptv_err_busy:"De IPTV-gateway is druk. Probeer het zo opnieuw.",iptv_err_playlist:"Deze link is geen geldige M3U-afspeellijst.",iptv_err_url:"Vul een volledig http(s)-provideradres in.",iptv_err_connect:"SameCouch kon deze IPTV-provider niet bereiken.",iptv_playing:"Wordt afgespeeld: {t}",iptv_failed:"Deze IPTV-stream kon niet worden afgespeeld.",iptv_sub_title:"Ondertiteling",iptv_sub_hint:"Kies ondertiteling van de IPTV-host of voeg je eigen SRT/VTT-bestand toe.",iptv_sub_off:"Uit",iptv_sub_own:"Kies SRT/VTT vanaf dit apparaat",iptv_sub_shared:"Gedeeld ondertitelbestand",iptv_sub_loading:"Ondertiteling laden…",iptv_sub_failed:"Deze ondertiteling van de provider kon niet worden geopend."}
+    };
+    Object.keys(IPTVCOPY).forEach(function(k){ if(I18N[k]) Object.keys(IPTVCOPY[k]).forEach(function(j){ I18N[k][j]=IPTVCOPY[k][j]; }); });
     var landingMode="home";
 
     var lang = (function(){ try{ return localStorage.getItem("wmt_lang")||"en"; }catch(e){ return "en"; } })();
@@ -257,7 +263,7 @@
       var nameField=$("ld_name"); if(nameField&&nameField.getAttribute("aria-invalid")==="true") setText("ld_name_error",tr("name_required"));
       setText("fast_noapp",tr("fast_noapp")); setText("fast_private",tr("fast_private")); setText("fast_sync",tr("fast_sync"));
       if(typeof updateLoadBtn==="function") updateLoadBtn(); else setText("loadBtn",tr("load"));
-      setPh("urlInput",tr("url_ph")); setText("shareLbl",tr("share")); setText("browseBtn","\u25B6 "+tr("browse")); if(!copyBusy) setText("copyBtn",tr("copy"));
+      setPh("urlInput",tr("url_ph")); setText("shareLbl",tr("share")); setText("browseBtn","\u25B6 "+tr("browse")); setText("iptvBtn",tr("iptv_btn")); if(!copyBusy) setText("copyBtn",tr("copy"));
       setText("ph_kicker",tr("ph_kicker")); setText("ph_title",tr("ph_title")); setText("ph_roomlbl",tr("room_code")); setText("ph_note",tr("ph_note"));
       setText("ph_sharehint",tr("share_hint")); setText("shareWaTxt",tr("wa")); setText("shareMailTxt",tr("email")); if(!shareCopyBusy) setText("shareCopyTxt",tr("copy_s"));
       setStatus(curStatus); setCamStatus(curCam); setText("selfLabel",tr("you")); setText("peerLabel",tr("others"));
@@ -276,7 +282,7 @@
       var sharedFrame=$("frame"); if(sharedFrame) sharedFrame.title=tr("frame_title");
       setTitle("wallPhotoBtn",tr("wall_add_photo"));
       setText("xferPause",(typeof galleryXfer!=="undefined"&&galleryXfer&&galleryXfer.paused)?tr("xfer_resume"):tr("xfer_pause")); setText("xferRetry",tr("xfer_retry"));
-      if(typeof updateSubtitleUI==="function") updateSubtitleUI();
+      if(typeof updateSubtitleUI==="function") updateSubtitleUI(); if(iptvController&&iptvController.localize) iptvController.localize();
       if(typeof applyLang4==="function") applyLang4();
       updateShareLinks();
     }
@@ -285,7 +291,7 @@
     var landing=$("landing"), stage=$("stage"), movie=$("movie"), ytwrap=$("ytwrap"), framewrap=$("framewrap"), frame=$("frame");
     var placeholder=$("placeholder"), playgate=$("playgate"), playgateBtn=$("playgateBtn");
     var cams=$("cams"), selfVideo=$("selfVideo"), peerVideo=$("peerVideo"), camState=$("camState"), camStateText=$("camStateText"), peerCam=$("peerCam"), selfCam=$("selfCam"), peerWho=$("peerWho");
-    var urlInput=$("urlInput"), loadBtn=$("loadBtn"), copyBtn=$("copyBtn"), linkText=$("linkText"), browseBtn=$("browseBtn");
+    var urlInput=$("urlInput"), loadBtn=$("loadBtn"), copyBtn=$("copyBtn"), linkText=$("linkText"), browseBtn=$("browseBtn"), iptvBtn=$("iptvBtn"), iptvController=null;
     var subtitleBtn=$("subtitleBtn"), subtitleInput=$("subtitleInput"), subtitleSync=$("subtitleSync"), subtitleEarlier=$("subtitleEarlier"), subtitleOffsetEl=$("subtitleOffset"), subtitleLater=$("subtitleLater"), subtitleReplace=$("subtitleReplace"), subtitlePlay=$("subtitlePlay"), subOverlay=$("subOverlay"), subtitleAtEl=$("subtitleAt");
     var statusDot=$("statusDot"), statusText=$("statusText");
     var micBtn=$("micBtn"), camBtn=$("camBtn"), chatBtn=$("chatBtn"), fsBtn=$("fsBtn"), floatctrls=$("floatctrls");
@@ -340,7 +346,7 @@
 
     function loadConfig(){
       return fetch(httpBase()+"/config").then(function(r){ return r.json(); }).then(function(c){
-        peerCfg={ host:c.peerHost||location.hostname, port:c.peerPort||443, path:c.peerPath||"/peerjs", secure:!!c.peerSecure }; hasYouTube=!!c.hasYouTube; hasMkv=!!c.hasMkv; hasPush=!!c.hasPush; vapidPublic=c.vapidPublic||""; hasWall=!!c.hasWall; stripeLink=c.stripeLink||"";
+        peerCfg={ host:c.peerHost||location.hostname, port:c.peerPort||443, path:c.peerPath||"/peerjs", secure:!!c.peerSecure }; hasYouTube=!!c.hasYouTube; hasMkv=!!c.hasMkv; hasIptv=!!c.hasIptv; hasPush=!!c.hasPush; vapidPublic=c.vapidPublic||""; hasWall=!!c.hasWall; stripeLink=c.stripeLink||"";
       }).catch(function(){ /* same-origin defaults already set */ });
     }
     function loadTurn(){
@@ -589,6 +595,10 @@
       rt.onerror=function(){};
     }
     function rtSend(o){ if(rt&&rt.readyState===1){ try{ rt.send(JSON.stringify(o)); }catch(e){} } }
+    function currentMediaMessage(){
+      if(!currentMedia) return {type:"video",mode:"none",url:"",id:""};
+      return {type:"video",mode:currentMedia.mode,url:currentMedia.url,id:currentMedia.id,title:currentMedia.title||"",live:!!currentMedia.live,iptvSubtitles:Array.isArray(currentMedia.iptvSubtitles)?currentMedia.iptvSubtitles:[]};
+    }
     function handleRT(m){
       if(galleryRT(m)) return;
       if(screenRT(m)) return;
@@ -601,7 +611,7 @@
           if(typeof applyTheme==="function"){ roomDecor=Array.isArray(m.decor)?m.decor:roomDecor; applyTheme(m.theme||"classic"); }
           (m.peers||[]).forEach(function(pp){ if(pp.peerId===myPeerId) return; peers[pp.peerId]=peers[pp.peerId]||{}; peers[pp.peerId].name=pp.name||"Guest"; if(shouldInitiate(myPeerId,pp.peerId)) callPeer(pp.peerId); });
           recomputeAuthority(); updatePresenceStatus(); renderCams();
-          if(currentMedia&&(isAuthority||currentMedia.mine)){ rtSend({ type:"video", mode:currentMedia.mode, url:currentMedia.url, id:currentMedia.id }); if(currentSubtitle&&currentSubtitle.url===currentMedia.url){ rtSend({type:"subtitle",url:currentSubtitle.url,name:currentSubtitle.name,lang:currentSubtitle.lang,vtt:currentSubtitle.vtt}); announceSubClock(); } }   // after a reconnect the person who pasted the link re-announces it too
+          if(currentMedia&&(isAuthority||currentMedia.mine)){ rtSend(currentMediaMessage()); if(currentSubtitle&&currentSubtitle.url===currentMedia.url){ rtSend({type:"subtitle",url:currentSubtitle.url,name:currentSubtitle.name,lang:currentSubtitle.lang,vtt:currentSubtitle.vtt}); announceSubClock(); } }   // after a reconnect the person who pasted the link re-announces it too
           break;
         case "need-pass": hideConnecting(); openPassEnter(!!m.wrong); break;
         case "pass-set": if(m.denied){ toast(tr("pass_denied"),5000); } else { roomHasPass=!!m.hasPass; updateHostControls(); toast(m.hasPass?tr("pass_on"):tr("pass_off"),5000); } break;
@@ -616,7 +626,7 @@
           if(shouldInitiate(myPeerId,m.peerId)) callPeer(m.peerId);
           if(screenStream) callScreen(m.peerId);   // late joiner → send them the live screen too
           recomputeAuthority(); updatePresenceStatus(); renderCams();
-          if(isAuthority&&currentMedia){ rtSend({ type:"video", mode:currentMedia.mode, url:currentMedia.url, id:currentMedia.id }); if(currentSubtitle&&currentSubtitle.url===currentMedia.url){ rtSend({type:"subtitle",url:currentSubtitle.url,name:currentSubtitle.name,lang:currentSubtitle.lang,vtt:currentSubtitle.vtt}); announceSubClock(); } if(nativeMode()||mode==="youtube") rtSend({ type:"sync", kind:isPausedMedia()?"pause":"play", time:getTime() }); }
+          if(isAuthority&&currentMedia){ rtSend(currentMediaMessage()); if(currentSubtitle&&currentSubtitle.url===currentMedia.url){ rtSend({type:"subtitle",url:currentSubtitle.url,name:currentSubtitle.name,lang:currentSubtitle.lang,vtt:currentSubtitle.vtt}); announceSubClock(); } if(nativeMode()||mode==="youtube") rtSend({ type:"sync", kind:isPausedMedia()?"pause":"play", time:getTime() }); }
           break;
         case "peer-left": if(peers[m.peerId]) { if(peers[m.peerId].name) toast(peers[m.peerId].name+" left."); } removePeer(m.peerId); if(typeof gameOnPeerLeft==="function") gameOnPeerLeft(m.peerId); if(typeof presWaitPeerLeft==="function") presWaitPeerLeft(m.peerId); break;
         case "chat": if(typeof m.text==="string"){ receiveChat(m.from||tr("others"), m.text); if(typeof gameChatCheck==="function") gameChatCheck(m.peerId, m.from, m.text); } break;
@@ -631,9 +641,12 @@
         case "queue-play": if(m.item&&typeof m.item.url==="string"){ if(m.from===myPeerId){ var qd=detectMedia(m.item.url); applyMedia(qd.mode,qd.url,qd.id); rtSend({type:"video",mode:qd.mode,url:qd.url,id:qd.id}); } toast((m.by||tr("others"))+" "+tr("queue_started")+" “"+(m.item.title||m.item.url)+"”",4500); } break;
         case "subtitle": if(m&&typeof m.vtt==="string"&&typeof m.url==="string"){ if(applySubtitlePayload({url:m.url,name:m.name||"subtitles.srt",lang:m.lang||"und",vtt:m.vtt},false)) toast(tr("sub_received"),4500); } break;
         case "subclock": applySubClock(m); break;
+        case "iptv-source": if(iptvController) iptvController.setSource(m&&m.source&&m.source.token?m.source:null); break;
+        case "iptv-source-error": if(iptvController) iptvController.setSource(null); toast(tr("iptv_err_expired"),6500); break;
+        case "iptv-nav": if(iptvController) iptvController.applyNavigation(m); break;
         case "video": if(typeof m.url==="string"){
           if(m.mode==="none"||!m.url){ if(!gallery&&mode!=="none"&&typeof stopWatchingLocal==="function") stopWatchingLocal(); break; }   // someone pressed Stop → whole room back to the living room
-          if(currentMedia&&currentMedia.url===m.url&&mode===m.mode) break; /* already showing — replays must not reload */ urlInput.value=m.url; applyMedia(m.mode,m.url,m.id); toast((m.from&&peers[m.from]&&peers[m.from].name?peers[m.from].name:tr("others"))+" loaded a video."); } break;
+          if(currentMedia&&currentMedia.url===m.url&&mode===m.mode) break; /* already showing — replays must not reload */ urlInput.value=m.url; applyMedia(m.mode,m.url,m.id,{title:m.title,live:m.live,iptvSubtitles:m.iptvSubtitles}); toast((m.from&&peers[m.from]&&peers[m.from].name?peers[m.from].name:tr("others"))+" loaded a video."); } break;
         case "host": { var meHost=(m.peerId===myPeerId); if(meHost&&!isHost) toast(tr("host_now"),5000); isHost=meHost; recomputeAuthority(); updateHostControls(); if(typeof refreshWallDelButtons==="function") refreshWallDelButtons(); break; }
         case "reneg": if(m.target===myPeerId && m.from && peers[m.from]){ refreshIce().then(function(){ reconnectAsInitiator(m.from); }); } break;
       }
@@ -713,18 +726,23 @@
 
     /* ===================== Media: file / youtube / embed ===================== */
     var mode="none", currentMedia=null, pending=null, closing=false, movieErrored=false;
+    var iptvHls=null, iptvLive=false, iptvExternalSubs=[], iptvEmbeddedSubs=[], iptvSelectedSubtitle=-1;
     var subtitleTrackEl=null, subtitleObjectUrl="", currentSubtitle=null, subtitleEnabled=true, subtitleOffset=0;
     /* embed-subtitle overlay (YouTube/Vimeo excluded): SameCouch renders cues itself and runs its own
        clock, anchored to the 3·2·1 countdown, because a cross-origin iframe exposes no player track or clock. */
     var subCues=null, subClockBase=0, subClockStart=0, subClockRunning=false, subClockStarted=false, subOverlayLastText="";
     function mediaNames(url){ var out=[]; try{ var u=new URL(url); out.push(u.pathname||""); u.searchParams.forEach(function(v){ out.push(v); }); }catch(e){ out.push(String(url||"")); } return out.map(function(v){ try{ return decodeURIComponent(v); }catch(e){ return v; } }).join(" "); }
-    function detectMedia(url,forceDirect){ url=unwrapUrl(url); var yt=parseYouTube(url); if(yt) return { mode:"youtube", id:yt, url:url }; var vim=parseVimeo(url); if(vim) return { mode:"vimeo", id:vim.id, url:url }; var names=mediaNames(url); if(/\.mkv(?:$|[?#&/\s])/i.test(names)) return { mode:"mkv", url:url }; if(/\.(mp4|webm|ogg|ogv|m4v|mov)(?:$|[?#&/\s])/i.test(names)) return { mode:"file", url:url }; if(forceDirect) return { mode:"mkv", url:url, opaque:true }; return { mode:"embed", url:url }; }
+    function detectMedia(url,forceDirect){ url=unwrapUrl(url); var yt=parseYouTube(url); if(yt) return { mode:"youtube", id:yt, url:url }; var vim=parseVimeo(url); if(vim) return { mode:"vimeo", id:vim.id, url:url }; var names=mediaNames(url); if(/\.m3u8(?:$|[?#&/\s])/i.test(names)) return { mode:"hls", url:url }; if(/\.mkv(?:$|[?#&/\s])/i.test(names)) return { mode:"mkv", url:url }; if(/\.(mp4|webm|ogg|ogv|m4v|mov)(?:$|[?#&/\s])/i.test(names)) return { mode:"file", url:url }; if(forceDirect) return { mode:"mkv", url:url, opaque:true }; return { mode:"embed", url:url }; }
     function parseVimeo(url){ try{ var u=new URL(url), h=u.hostname.replace(/^www\./,""); if(h!=="vimeo.com"&&h!=="player.vimeo.com") return null; var m=u.pathname.match(/\/(?:video\/)?(\d+)(?:\/(\w+))?/); if(m) return { id:m[1], h:m[2]||u.searchParams.get("h")||"" }; }catch(e){} return null; }
     /* follow common redirect wrappers (Google results, YouTube description links, Facebook) so detection sees the real video page */
     function unwrapUrl(url){ try{ var u=new URL(url), h=u.hostname.replace(/^www\.|^m\./,""); if((h==="google.com"||/\.google\.com$/.test(h))&&u.pathname==="/url"){ return u.searchParams.get("url")||u.searchParams.get("q")||url; } if((h==="youtube.com"||h==="music.youtube.com")&&u.pathname==="/redirect"){ return u.searchParams.get("q")||url; } if(h==="l.facebook.com"||h==="lm.facebook.com"){ return u.searchParams.get("u")||url; } }catch(e){} return url; }
     function ytHost(url){ try{ var h=new URL(url).hostname.replace(/^www\.|^m\./,""); return h==="youtube.com"||h==="music.youtube.com"||h==="youtube-nocookie.com"||h==="youtu.be"; }catch(e){ return false; } }
     function parseYouTube(url){ try{ var u=new URL(url), h=u.hostname.replace(/^www\.|^m\./,""); if(h==="youtu.be") return u.pathname.slice(1).split("/")[0]||null; if(h==="youtube.com"||h==="music.youtube.com"||h==="youtube-nocookie.com"){ var v=u.searchParams.get("v"); if(v) return v; if(u.pathname==="/attribution_link"){ var a=u.searchParams.get("u")||"", am=a.match(/[?&]v=([^&]+)/); if(am){ try{ return decodeURIComponent(am[1]); }catch(e){ return am[1]; } } } var m=u.pathname.match(/^\/(?:embed|shorts|v|e|live)\/([^\/?#]+)/); if(m) return m[1]; } }catch(e){} return null; }
-    function nativeMode(){ return mode==="file"||mode==="mkv"; }
+    function nativeMode(){ return mode==="file"||mode==="mkv"||mode==="hls"; }
+    /* A live channel has no shared timeline: every viewer's currentTime starts from whatever
+       rolling playlist window they happened to attach to, so "correcting" it just yanks people
+       around. Everyone is already at the live edge — only play/pause is worth syncing. */
+    function liveStream(){ return mode==="hls"&&iptvLive; }
     function embedSubMode(){ return mode==="embed"; }   // generic embedded site → overlay-rendered subtitles (not YouTube/Vimeo)
     function updateStageChrome(){ if(stage) stage.classList.toggle("file-mode", !!(movie && movie.style.display==="block")); }   // lift our controls above the native video bar
     function subtitleEligible(){ return !!((nativeMode()||embedSubMode())&&currentMedia&&/^https?:\/\//i.test(currentMedia.url||"")&&!gallery); }
@@ -736,15 +754,74 @@
     }
     function subtitleOffsetText(){ var n=Math.round(subtitleOffset*10)/10, s=Math.abs(n).toFixed(1); if(lang==="nl") s=s.replace(".",","); return (n>0?"+":n<0?"−":"")+s+"s"; }
     function updateSubtitleUI(){
-      if(!subtitleBtn) return; var ok=subtitleEligible(), has=!!(ok&&currentSubtitle), label=subtitleOffsetText();
-      subtitleBtn.hidden=!ok; subtitleBtn.classList.toggle("on",!!(has&&subtitleEnabled)); subtitleBtn.classList.toggle("off",!!(has&&!subtitleEnabled)); subtitleBtn.textContent=has?"CC":"CC+"; subtitleBtn.setAttribute("aria-pressed",has&&subtitleEnabled?"true":"false");
-      setTitle("subtitleBtn",has?tr(subtitleEnabled?"sub_turn_off":"sub_turn_on"):tr("sub_add"));
+      if(!subtitleBtn) return; var ok=subtitleEligible(), has=!!(ok&&currentSubtitle), choices=mode==="hls"&&(iptvExternalSubs.length||iptvEmbeddedSubs.length), active=!!((has&&subtitleEnabled)||iptvSelectedSubtitle>=0), label=subtitleOffsetText();
+      subtitleBtn.hidden=!ok; subtitleBtn.classList.toggle("on",active); subtitleBtn.classList.toggle("off",!!((has||choices)&&!active)); subtitleBtn.textContent=(has||choices)?"CC":"CC+"; subtitleBtn.setAttribute("aria-pressed",active?"true":"false");
+      setTitle("subtitleBtn",choices?tr("iptv_sub_title"):(has?tr(subtitleEnabled?"sub_turn_off":"sub_turn_on"):tr("sub_add")));
       if(subtitleSync){ subtitleSync.hidden=!has; subtitleSync.setAttribute("aria-label",tr("sub_timing")); }
       if(subtitleOffsetEl){ subtitleOffsetEl.textContent=label; setTitle("subtitleOffset",tr("sub_offset").replace("{n}",label)+" — "+tr("sub_reset")); }
       setTitle("subtitleEarlier",tr("sub_earlier")); setTitle("subtitleLater",tr("sub_later")); setTitle("subtitleReplace",tr("sub_replace_short")); setTitle("subtitleAt",tr("sub_at_title"));
       if(subtitlePlay){ var showPlay=!!(has&&embedSubMode()); subtitlePlay.hidden=!showPlay; subtitlePlay.classList.toggle("paused",!subClockRunning); subtitlePlay.textContent=subClockRunning?"⏸":"▶"; subtitlePlay.setAttribute("aria-pressed",subClockRunning?"false":"true"); setTitle("subtitlePlay",tr(subClockRunning?"sub_embed_pause":"sub_embed_resume")); }
       if(!(has&&embedSubMode())) hideSubOverlay();
       paintSubOverlay();
+    }
+
+    function clearHlsPlayer(){
+      if(iptvHls){ try{ iptvHls.destroy(); }catch(e){} iptvHls=null; }
+      iptvLive=false; iptvExternalSubs=[]; iptvEmbeddedSubs=[]; iptvSelectedSubtitle=-1;
+    }
+    function refreshIptvSubtitleTracks(list){
+      var out=[];
+      if(Array.isArray(list)) list.forEach(function(track,index){ out.push({index:index,name:String(track&&((track.name||track.label)||("Track "+(index+1)))),lang:String(track&&(track.lang||track.language)||"und"),native:false}); });
+      else if(movie&&movie.textTracks) for(var i=0;i<movie.textTracks.length;i++){ var trk=movie.textTracks[i]; if(subtitleTrackEl&&subtitleTrackEl.track===trk) continue; out.push({index:i,name:String(trk.label||("Track "+(i+1))),lang:String(trk.language||"und"),native:true}); }
+      iptvEmbeddedSubs=out; updateSubtitleUI();
+    }
+    function disableIptvEmbedded(){
+      if(iptvHls){ try{ iptvHls.subtitleDisplay=false; iptvHls.subtitleTrack=-1; }catch(e){} }
+      if(movie&&movie.textTracks) for(var i=0;i<movie.textTracks.length;i++){ try{ if(!subtitleTrackEl||movie.textTracks[i]!==subtitleTrackEl.track) movie.textTracks[i].mode="disabled"; }catch(e){} }
+      iptvSelectedSubtitle=-1;
+    }
+    function chooseIptvEmbedded(track){
+      disableIptvEmbedded(); if(currentSubtitle) setSubtitleEnabled(false);
+      try{
+        if(track.native&&movie.textTracks[track.index]) movie.textTracks[track.index].mode="showing";
+        else if(iptvHls){ iptvHls.subtitleDisplay=true; iptvHls.subtitleTrack=track.index; }
+        iptvSelectedSubtitle=track.index; updateSubtitleUI();
+      }catch(e){ toast(tr("iptv_sub_failed"),5500); }
+    }
+    function addSubChoice(label,lang,action){
+      var list=$("iptvSubList"), button=document.createElement("button"); button.type="button"; var name=document.createElement("span"); name.textContent=label; button.appendChild(name);
+      if(lang){ var small=document.createElement("small"); small.textContent=lang; button.appendChild(small); }
+      button.addEventListener("click",function(){ action(); var modal=$("iptvSubModal"); if(modal) modal.classList.remove("show"); }); list.appendChild(button);
+    }
+    function fetchIptvSubtitle(sub){
+      var mediaUrl=currentMedia&&currentMedia.url; toast(tr("iptv_sub_loading"),3500);
+      ensureSubtitleHelpers().then(function(){ return fetch(sub.url); }).then(function(response){
+        var size=parseInt(response.headers.get("content-length")||"0",10); if(!response.ok||size>512*1024) throw new Error("subtitle"); return response.arrayBuffer();
+      }).then(function(buffer){ if(buffer.byteLength>512*1024||!currentMedia||currentMedia.url!==mediaUrl) throw new Error("subtitle"); var vtt=srtToVtt(buffer); if(!vtt||!applySubtitlePayload({url:mediaUrl,name:sub.name||"subtitles.srt",lang:sub.lang||"und",vtt:vtt},true)) throw new Error("subtitle"); toast(tr("sub_loaded"),4500); }).catch(function(){ toast(tr("iptv_sub_failed"),6500); });
+    }
+    function openIptvSubtitleMenu(){
+      var modal=$("iptvSubModal"), list=$("iptvSubList"); if(!modal||!list) return; list.innerHTML="";
+      setText("iptvSubTitle",tr("iptv_sub_title")); setText("iptvSubHint",tr("iptv_sub_hint"));
+      addSubChoice(tr("iptv_sub_off"),"",function(){ disableIptvEmbedded(); if(currentSubtitle) setSubtitleEnabled(false); updateSubtitleUI(); });
+      if(currentSubtitle) addSubChoice(tr("iptv_sub_shared")+" — "+currentSubtitle.name,currentSubtitle.lang,function(){ disableIptvEmbedded(); setSubtitleEnabled(true); });
+      iptvEmbeddedSubs.forEach(function(track){ addSubChoice(track.name,track.lang,function(){ chooseIptvEmbedded(track); }); });
+      iptvExternalSubs.forEach(function(sub){ addSubChoice(sub.name||"Subtitles",sub.lang||"und",function(){ disableIptvEmbedded(); fetchIptvSubtitle(sub); }); });
+      addSubChoice(tr("iptv_sub_own"),"SRT / VTT",function(){ if(subtitleInput) subtitleInput.click(); }); modal.classList.add("show");
+    }
+    function loadHls(url){
+      movie.style.display="block"; movieErrored=false;
+      if(movie.canPlayType("application/vnd.apple.mpegurl")){ movie.src=url; movie.load(); setTimeout(function(){ refreshIptvSubtitleTracks(); },500); return; }
+      ensureHlsLibrary().then(function(){
+        if(mode!=="hls"||!currentMedia||currentMedia.url!==url) return;
+        if(!window.Hls||!window.Hls.isSupported()){ movieErrored=true; toast(tr("iptv_failed"),9000); return; }
+        var hls=new window.Hls({enableWorker:true,lowLatencyMode:true,backBufferLength:60,maxBufferLength:30,maxMaxBufferLength:60,liveSyncDurationCount:3,liveMaxLatencyDurationCount:7}); iptvHls=hls;
+        hls.on(window.Hls.Events.MEDIA_ATTACHED,function(){ if(iptvHls===hls) hls.loadSource(url); });
+        hls.on(window.Hls.Events.MANIFEST_PARSED,function(){ if(iptvHls===hls){ refreshIptvSubtitleTracks(hls.subtitleTracks||[]); applyPending(); applyUserVolume(); } });
+        hls.on(window.Hls.Events.SUBTITLE_TRACKS_UPDATED,function(_event,data){ if(iptvHls===hls) refreshIptvSubtitleTracks((data&&data.subtitleTracks)||hls.subtitleTracks||[]); });
+        hls.on(window.Hls.Events.LEVEL_LOADED,function(_event,data){ if(currentMedia&&data&&data.details){ iptvLive=!!data.details.live; currentMedia.live=iptvLive; } });
+        hls.on(window.Hls.Events.ERROR,function(_event,data){ if(!data||!data.fatal||iptvHls!==hls) return; if(data.type===window.Hls.ErrorTypes.NETWORK_ERROR) hls.startLoad(); else if(data.type===window.Hls.ErrorTypes.MEDIA_ERROR) hls.recoverMediaError(); else { movieErrored=true; hls.destroy(); iptvHls=null; toast(tr("iptv_failed"),9000); } });
+        hls.attachMedia(movie);
+      }).catch(function(){ movieErrored=true; toast(tr("iptv_failed"),9000); });
     }
     /* lift cues off the very bottom edge (and clear of the controls) by giving each cue a line: setting if it lacks one */
     function liftVttCues(vtt){ return String(vtt||"").replace(/^([^\n]*-->[^\n]*)$/gm, function(line){ return /\bline:/.test(line) ? line : line.replace(/\s+$/,"")+" line:84% align:center"; }); }
@@ -900,22 +977,29 @@
       movie.addEventListener("canplay",directReady); movie.addEventListener("error",fallback); timer=setTimeout(fallback,8000);
       movie.src=url; movie.load();
     }
-    function clearPlayers(){ if(typeof resetSyncCorrection==="function") resetSyncCorrection(); clearMkvPreparation(); try{ movie.pause(); }catch(e){} clearSubtitleLocal(); try{ movie.removeAttribute("src"); movie.load(); }catch(e){} movie.style.display="none"; if(galleryImg) galleryImg.style.display="none"; if(typeof screenVideo!=="undefined"&&screenVideo) screenVideo.style.display="none"; if(ytPlayer){ try{ ytPlayer.destroy(); }catch(e){} ytPlayer=null; } if(vimPlayer){ try{ vimPlayer.destroy(); }catch(e){} vimPlayer=null; vimReady=false; vimBuffering=false; } ytwrap.style.display="none"; ytwrap.innerHTML=""; try{ frame.src="about:blank"; }catch(e){} framewrap.style.display="none"; clearTimeout(gateCheckTimer); clearTimeout(gateFallbackTimer); gateDismissed=false; playgate.hidden=true; pending=null; movieErrored=false; updateStageChrome(); updateWakeLock(); }
+    function clearPlayers(){ if(typeof resetSyncCorrection==="function") resetSyncCorrection(); clearMkvPreparation(); clearHlsPlayer(); try{ movie.pause(); }catch(e){} clearSubtitleLocal(); try{ movie.removeAttribute("src"); movie.load(); }catch(e){} movie.style.display="none"; if(galleryImg) galleryImg.style.display="none"; if(typeof screenVideo!=="undefined"&&screenVideo) screenVideo.style.display="none"; if(ytPlayer){ try{ ytPlayer.destroy(); }catch(e){} ytPlayer=null; } if(vimPlayer){ try{ vimPlayer.destroy(); }catch(e){} vimPlayer=null; vimReady=false; vimBuffering=false; } ytwrap.style.display="none"; ytwrap.innerHTML=""; try{ frame.src="about:blank"; }catch(e){} framewrap.style.display="none"; clearTimeout(gateCheckTimer); clearTimeout(gateFallbackTimer); gateDismissed=false; playgate.hidden=true; pending=null; movieErrored=false; updateStageChrome(); updateWakeLock(); }
     function setEmbedUI(on){ cdwidget.hidden=!on; if(!on){ clearInterval(cdTimer); cdNum.textContent="\u25B6"; cdNum.classList.remove("go"); cdBtn.disabled=false; cdBusy=false; } }
     /* only ever hand the player/iframe a safe scheme — a malicious peer could push a "video" with a javascript:/data: url */
     function safeUrl(u){ u=String(u||""); return (/^https?:\/\//i.test(u)||/^blob:/i.test(u))?u:""; }
     /* strip anything that could break out of an attribute when we build a "new room" link via innerHTML */
     function safePath(){ return String(location.pathname||"/").replace(/[^a-zA-Z0-9/_.\-]/g,"")||"/"; }
-    function applyMedia(m,url,id){
-      url=safeUrl(url); id=String(id||"").replace(/[^a-zA-Z0-9_-]/g,"").slice(0,40);
+    function applyMedia(m,url,id,meta){
+      url=safeUrl(url); id=String(id||"").replace(/[^a-zA-Z0-9_:-]/g,"").slice(0,64); meta=meta||{};
       if(typeof screenStream!=="undefined"&&screenStream) stopScreenShare();   // a loaded video replaces a live screen share
       if(gallery){ if(amPresenter()) stopSharing(); else galleryClearLocal(); }
-      clearPlayers(); ducked=false; mode=m; currentMedia={ mode:m, url:url, id:id }; placeholder.style.display="none"; updateLoadBtn();
-      if(m==="file"||m==="mkv"){ setEmbedUI(false); movie.style.display="block"; if(m==="mkv") prepareMkv(url); else if(url){ movie.src=url; movie.load(); } }
+      clearPlayers(); ducked=false; mode=m; iptvExternalSubs=Array.isArray(meta.iptvSubtitles)?meta.iptvSubtitles.slice(0,20).filter(function(sub){ return sub&&/^https?:\/\//i.test(sub.url||""); }).map(function(sub){ return {name:String(sub.name||"Subtitles").slice(0,80),lang:String(sub.lang||"und").slice(0,12),url:String(sub.url).slice(0,2000)}; }):[]; iptvLive=!!meta.live;
+      currentMedia={ mode:m, url:url, id:id, title:String(meta.title||"").slice(0,180), live:iptvLive, iptvSubtitles:iptvExternalSubs.slice() }; placeholder.style.display="none"; updateLoadBtn();
+      if(m==="file"||m==="mkv"||m==="hls"){ setEmbedUI(false); movie.style.display="block"; if(m==="mkv") prepareMkv(url); else if(m==="hls") loadHls(url); else if(url){ movie.src=url; movie.load(); } }
       else if(m==="youtube"){ setEmbedUI(false); ytwrap.style.display="block"; loadYouTube(id); }
       else if(m==="vimeo"){ setEmbedUI(false); ytwrap.style.display="block"; loadVimeo(url); }
       else { setEmbedUI(true); framewrap.style.display="flex"; try{ frame.src=url||"about:blank"; }catch(e){} openTab.href=url||"#"; }
       updateStageChrome(); updateSubtitleUI(); if(typeof updateRoomView==="function") updateRoomView(); renderCams();
+    }
+    function applyIptvPlayback(data){
+      if(!data||!data.playback||!data.item) return; var playback=data.playback, item=data.item;
+      applyMedia(playback.mode,playback.url,item.id,{title:item.title,live:playback.live,iptvSubtitles:playback.subtitles||[]});
+      if(currentMedia){ currentMedia.mine=true; rtSend(currentMediaMessage()); }
+      if(urlInput) urlInput.value=playback.url; toast(tr("iptv_playing").replace("{t}",item.title||"IPTV"),5000);
     }
     /* the iframe can't tell us why a site failed to show (cross-origin) — ask the room server to
        follow the link: many "video pages" are wrappers that redirect to YouTube (which refuses
@@ -992,7 +1076,8 @@
     if($("pickSearch")) $("pickSearch").addEventListener("click", function(){ pickerEl.classList.remove("show"); if(browseBtn) browseBtn.click(); });
     if($("pickFileBtn")) $("pickFileBtn").addEventListener("click", function(){ if(fileInput){ try{ fileInput.accept="video/*,image/*"; }catch(e){} pickerEl.classList.remove("show"); fileInput.click(); } });
     urlInput.addEventListener("keydown", function(e){ if(e.key==="Enter") loadBtn.click(); });
-    if(subtitleBtn) subtitleBtn.addEventListener("click",function(){ if(!subtitleEligible()) return; if(currentSubtitle) setSubtitleEnabled(!subtitleEnabled); else if(subtitleInput) subtitleInput.click(); });
+    if(subtitleBtn) subtitleBtn.addEventListener("click",function(){ if(!subtitleEligible()) return; if(mode==="hls"&&(iptvExternalSubs.length||iptvEmbeddedSubs.length||currentSubtitle)) openIptvSubtitleMenu(); else if(currentSubtitle) setSubtitleEnabled(!subtitleEnabled); else if(subtitleInput) subtitleInput.click(); });
+    if($("iptvSubX")) $("iptvSubX").addEventListener("click",function(){ $("iptvSubModal").classList.remove("show"); });
     if(subtitleEarlier) subtitleEarlier.addEventListener("click",function(){ setSubtitleOffset(subtitleOffset-0.5); });
     if(subtitleLater) subtitleLater.addEventListener("click",function(){ setSubtitleOffset(subtitleOffset+0.5); });
     if(subtitleOffsetEl) subtitleOffsetEl.addEventListener("click",function(){ setSubtitleOffset(0); });
@@ -1012,7 +1097,7 @@
         reader.readAsArrayBuffer(f);
       });
     });
-    movie.addEventListener("error", function(){ if(mkvDirectTrying||!nativeMode()||!movie.src) return; movieErrored=true; try{ playgate.hidden=true; }catch(e){} toast(mode==="mkv"?tr("mkv_failed"):tr("vid_fail"),10000); });
+    movie.addEventListener("error", function(){ if(mkvDirectTrying||!nativeMode()||!movie.src) return; movieErrored=true; try{ playgate.hidden=true; }catch(e){} toast(mode==="mkv"?tr("mkv_failed"):mode==="hls"?tr("iptv_failed"):tr("vid_fail"),10000); });
 
     var ytApiReady=false, ytApiLoading=false, ytPlayer=null, ytPending=null;
     function ensureYTApi(cb){ if(ytApiReady){ cb(); return; } ytPending=cb; if(ytApiLoading) return; ytApiLoading=true; window.onYouTubeIframeAPIReady=function(){ ytApiReady=true; if(ytPending){ var f=ytPending; ytPending=null; f(); } }; var s=document.createElement("script"); s.src="https://www.youtube.com/iframe_api"; document.head.appendChild(s); }
@@ -1082,6 +1167,12 @@
     }
     function applyHeartbeat(data){
       var drift=data.time-getTime(), native= nativeMode(), plan;
+      if(liveStream()){   // live: mirror play/pause only, never the clock
+        clearSyncHold(); restoreSyncRate();
+        if(!data.playing){ if(!isPausedMedia()){ markApplying(); pauseMedia(); } }
+        else if(isPausedMedia()){ markApplying(); playMedia(); }
+        return;
+      }
       if(!data.playing){ clearSyncHold(); restoreSyncRate(); markApplying(); if(Math.abs(drift)>1) remoteSetTime(data.time); if(!isPausedMedia()) pauseMedia(); return; }
       plan=heartbeatCorrection(drift,native,mode==="mkv");
       if(plan.hold){ holdForAuthority(plan.hold); return; }
@@ -1100,17 +1191,18 @@
     movie.addEventListener("stalled", function(){ setNativeBuffering(true); });
     movie.addEventListener("pause", function(){ restoreSyncRate(); updateWakeLock(); broadcast("pause"); });
     movie.addEventListener("ended", updateWakeLock);
-    movie.addEventListener("seeked", function(){ if(!consumeRemoteSeek()) broadcast("seek"); });
-    movie.addEventListener("loadedmetadata", function(){ nativeBuffering=false; applyPending(); applyUserVolume(); });
-    function applyPending(){ if(pending&&mediaReady()){ markApplying(); if(typeof pending.time==="number") remoteSetTime(pending.time); if(pending.play) playMedia(); pending=null; } }
+    movie.addEventListener("seeked", function(){ if(liveStream()){ consumeRemoteSeek(); return; } if(!consumeRemoteSeek()) broadcast("seek"); });   // a live-edge nudge is local, never a room seek
+    movie.addEventListener("loadedmetadata", function(){ nativeBuffering=false; if(mode==="hls"&&!iptvHls) refreshIptvSubtitleTracks(); applyPending(); applyUserVolume(); });
+    if(movie.textTracks&&movie.textTracks.addEventListener) movie.textTracks.addEventListener("addtrack",function(){ if(mode==="hls"&&!iptvHls) setTimeout(function(){ refreshIptvSubtitleTracks(); },0); });
+    function applyPending(){ if(pending&&mediaReady()){ markApplying(); if(typeof pending.time==="number"&&!liveStream()) remoteSetTime(pending.time); if(pending.play) playMedia(); pending=null; } }
     function applyRemote(data){
       if(mode==="embed"||mode==="none") return; if(!data||typeof data.time!=="number") return;
       if(data.seq&&data.seq<=lastSyncSeq) return; if(data.seq) lastSyncSeq=data.seq;
       if(!mediaReady()){ var wp=(data.kind==="play"||(data.kind==="heartbeat"&&data.playing)); pending={ time:data.time, play: wp||(pending&&pending.play)||false }; return; }
       switch(data.kind){
-        case "play": lastActionAt=Date.now(); resetSyncCorrection(); markApplying(); if(Math.abs(getTime()-data.time)>0.5) remoteSetTime(data.time); playMedia(); break;
-        case "pause": lastActionAt=Date.now(); resetSyncCorrection(); markApplying(); if(Math.abs(getTime()-data.time)>0.5) remoteSetTime(data.time); pauseMedia(); break;
-        case "seek": lastActionAt=Date.now(); resetSyncCorrection(); markApplying(); if(Math.abs(getTime()-data.time)>0.3) remoteSetTime(data.time); if(typeof data.playing==="boolean"){ if(data.playing&&isPausedMedia()) playMedia(); else if(!data.playing&&!isPausedMedia()) pauseMedia(); } break;
+        case "play": lastActionAt=Date.now(); resetSyncCorrection(); markApplying(); if(!liveStream()&&Math.abs(getTime()-data.time)>0.5) remoteSetTime(data.time); playMedia(); break;
+        case "pause": lastActionAt=Date.now(); resetSyncCorrection(); markApplying(); if(!liveStream()&&Math.abs(getTime()-data.time)>0.5) remoteSetTime(data.time); pauseMedia(); break;
+        case "seek": lastActionAt=Date.now(); resetSyncCorrection(); markApplying(); if(!liveStream()&&Math.abs(getTime()-data.time)>0.3) remoteSetTime(data.time); if(typeof data.playing==="boolean"){ if(data.playing&&isPausedMedia()) playMedia(); else if(!data.playing&&!isPausedMedia()) pauseMedia(); } break;
         case "buffering": lastActionAt=Date.now(); clearSyncHold(); restoreSyncRate(); markApplying(); if(!isPausedMedia()) pauseMedia(); break;
         case "buffered-play": lastActionAt=Date.now(); applyHeartbeat({time:data.time,playing:true}); break;
         // heartbeat keeps latecomers/drifters aligned, but never fights a fresh local/remote action (grace window avoids resume-after-pause races)
@@ -1220,13 +1312,37 @@
 
     /* ===================== Camera / mic ===================== */
     var localStream=null;
+    /* The permission prompt has no timeout of its own, so a slow (or ignored) answer used to
+       hold up the whole room. We stop waiting after a few seconds and join without media — but
+       the request stays alive, and whatever the browser finally grants is adopted below. */
+    function getUserMediaTimed(constraints,timeoutMs,onLate){
+      var expired=false, timer;
+      var guarded=navigator.mediaDevices.getUserMedia(constraints).then(function(stream){
+        clearTimeout(timer);
+        if(!expired) return stream;
+        if(onLate) onLate(stream); else { try{ stream.getTracks().forEach(function(track){ track.stop(); }); }catch(e){} }
+        return new Promise(function(){});   // the race is already decided; never settle this branch
+      },function(error){ clearTimeout(timer); throw error; });
+      var timeout=new Promise(function(_resolve,reject){ timer=setTimeout(function(){ expired=true; reject(new Error("media-timeout")); },timeoutMs); });
+      return Promise.race([guarded,timeout]);
+    }
+    function adoptLateStream(stream){   // they said "Allow" after we had already joined without them
+      if(!stream) return;
+      if(localStream){ try{ stream.getTracks().forEach(function(track){ track.stop(); }); }catch(e){} return; }
+      localStream=stream; try{ selfVideo.srcObject=stream; selfVideo.classList.remove("camoff"); }catch(e){}
+      var at=stream.getAudioTracks()[0], vt=stream.getVideoTracks()[0];
+      micBtn.classList.toggle("off", !(at&&at.enabled)); camBtn.classList.toggle("off", !(vt&&vt.enabled));
+      micBtn.title=tr("t_mic"); camBtn.title=tr("t_cam");
+      Object.keys(peers).forEach(function(pid){ if(shouldInitiate(myPeerId,pid)) reconnectAsInitiator(pid); else rtSend({ type:"reneg", target:pid }); });   // push the new stream into calls already running
+    }
     function setupMedia(){
       if(shareMode){ localStream=null; try{ micBtn.classList.add("off"); micBtn.disabled=true; camBtn.classList.add("off"); camBtn.disabled=true; movie.muted=true; }catch(e){} return Promise.resolve(); }   // phone companion: join without camera/mic, stay silent
       var full={ video:{ width:{ideal:640}, height:{ideal:480} }, audio:{ echoCancellation:true, noiseSuppression:true, autoGainControl:true } };
-      return navigator.mediaDevices.getUserMedia(full)
-        .catch(function(){ return navigator.mediaDevices.getUserMedia({ audio:{ echoCancellation:true } }).then(function(s){ toast(tr("no_cam"),5000); camBtn.classList.add("off"); return s; }); })
+      var stillDeciding=false;
+      return getUserMediaTimed(full,10000,adoptLateStream)
+        .catch(function(error){ if(error&&error.message==="media-timeout"){ stillDeciding=true; throw error; } return getUserMediaTimed({ audio:{ echoCancellation:true } },7000,adoptLateStream).then(function(s){ toast(tr("no_cam"),5000); camBtn.classList.add("off"); return s; }); })
         .then(function(stream){ localStream=stream; selfVideo.srcObject=stream; micBtn.title=tr("t_mic"); camBtn.title=tr("t_cam"); })
-        .catch(function(){ localStream=null; toast(tr("media_denied"),9000); micBtn.classList.add("off"); camBtn.classList.add("off"); micBtn.title=tr("media_retry_t"); camBtn.title=tr("media_retry_t"); });   // NOT disabled — the button now retries
+        .catch(function(){ localStream=null; if(!stillDeciding) toast(tr("media_denied"),9000); micBtn.classList.add("off"); camBtn.classList.add("off"); micBtn.title=tr("media_retry_t"); camBtn.title=tr("media_retry_t"); });   // NOT disabled — the button now retries
     }
     var mediaRetrying=false;
     function retryMedia(){   // after a denied/absent camera: ask again and push the fresh stream into every call
@@ -3024,8 +3140,22 @@
     }
     if(compChoose) compChoose.addEventListener("click", function(){ if(fileInput) fileInput.click(); });
 
+    function setupIptvClient(){
+      if(!window.SameCouchIPTV||iptvController) return;
+      iptvController=window.SameCouchIPTV.create({
+        base:httpBase,
+        room:function(){ return roomCode||""; },
+        roomKey:function(){ return wallKey||""; },
+        send:rtSend,
+        play:applyIptvPlayback,
+        toast:toast,
+        tr:tr
+      });
+      if(iptvBtn) iptvBtn.addEventListener("click",function(){ if(iptvController) iptvController.open(); });
+    }
+
     (function start(){
-      fillLangSelect($("langSel")); fillLangSelect($("langSelL")); applyLang(); applyCamSize();
+      fillLangSelect($("langSel")); fillLangSelect($("langSelL")); applyLang(); applyCamSize(); setupIptvClient();
       if(ldName&&myName) ldName.value=myName;
       // phone companion via scanned QR: join this room without a camera, go straight to sharing
       if(roomCode && params.get("share")==="1"){

@@ -101,6 +101,7 @@
       </div>
     </div>
     <button type="button" class="btn ghost" id="browseBtn">&#9654; YouTube</button>
+    <button type="button" class="btn ghost" id="iptvBtn">📺 IPTV</button>
     <button type="button" class="btn ghost" id="shareMediaBtn">&#128247; Share</button>
     <button type="button" class="btn ghost" id="screenBtn">&#128421; <span id="screenBtnTxt">Browse together</span></button>
     <input id="fileInput" type="file" accept="image/*,video/*" multiple style="display:none" />
@@ -296,6 +297,42 @@
       </div>
       <div class="ytb-grid" id="ytbGrid"><div class="ytb-msg" id="ytbMsg">Search above to find a video to watch together.</div></div>
     </div>
+
+    <section class="iptv" id="iptv" aria-labelledby="iptvTitle">
+      <div class="iptv-head">
+        <h3 id="iptvTitle">IPTV together</h3><span class="iptv-source" id="iptvSourceName"></span><span class="iptv-spacer"></span>
+        <button type="button" class="btn" id="iptvDisconnect" hidden>Other provider</button>
+        <button type="button" class="btn" id="iptvClose" aria-label="Close">✕</button>
+      </div>
+      <div class="iptv-body">
+        <div class="iptv-setup" id="iptvSetup">
+          <h4 id="iptvSetupTitle">Connect your IPTV provider</h4>
+          <p id="iptvSetupSub">Use your provider's server, username and password, or paste an M3U playlist URL.</p>
+          <div class="iptv-mode"><button type="button" class="active" data-iptv-mode="xtream" id="iptvModeXtream">Server login</button><button type="button" data-iptv-mode="m3u" id="iptvModeM3u">M3U link</button></div>
+          <div class="iptv-fields" id="iptvXtreamFields">
+            <label><span id="iptvServerLbl">Server</span><input id="iptvServer" type="url" inputmode="url" autocomplete="url" placeholder="http://provider.example:8080" /></label>
+            <label><span id="iptvUserLbl">Username</span><input id="iptvUser" type="text" autocomplete="off" data-1p-ignore data-lpignore="true" data-form-type="other" /></label>
+            <label><span id="iptvPassLbl">Password</span><input id="iptvPass" type="password" autocomplete="new-password" data-1p-ignore data-lpignore="true" data-form-type="other" /></label>
+          </div>
+          <div class="iptv-fields" id="iptvM3uFields" hidden>
+            <label><span id="iptvPlaylistLbl">M3U playlist URL</span><input id="iptvPlaylist" type="url" inputmode="url" autocomplete="off" placeholder="https://provider.example/get.php?..." /></label>
+          </div>
+          <button type="button" class="btn primary iptv-connect" id="iptvConnect">Connect</button>
+          <div class="iptv-error" id="iptvError" role="alert" aria-live="polite"></div>
+          <p class="iptv-privacy" id="iptvPrivacy">Your login is held briefly in server memory and is never shared with the room. SameCouch stores nothing in this browser — if your browser offers to save the password, that is its own password manager.</p>
+        </div>
+        <div class="iptv-browser" id="iptvBrowser">
+          <div class="iptv-toolbar">
+            <button type="button" class="btn iptv-back" id="iptvBack">← Series</button>
+            <div class="iptv-kinds" id="iptvKinds"><button type="button" class="active" data-kind="live">Live</button><button type="button" data-kind="movie">Movies</button><button type="button" data-kind="series">Series</button></div>
+            <select id="iptvCategory" aria-label="Category"></select>
+            <div class="iptv-search"><input type="search" id="iptvSearch" placeholder="Search channels, films or series…" /><button type="button" class="btn primary" id="iptvSearchBtn">Search</button></div>
+          </div>
+          <div class="iptv-grid" id="iptvGrid"><div class="iptv-msg" id="iptvMsg">Choose a category or search the library.</div></div>
+          <button type="button" class="btn iptv-more" id="iptvMore" hidden>Show more</button>
+        </div>
+      </div>
+    </section>
   </main>
 
   <!-- Reaction clip result -->
@@ -461,6 +498,15 @@
     </div>
   </div>
 
+  <div class="modal" id="iptvSubModal" role="dialog" aria-modal="true" aria-labelledby="iptvSubTitle">
+    <div class="modal-card" style="max-width:520px">
+      <button type="button" class="modal-x" id="iptvSubX" aria-label="Close">×</button>
+      <h3 id="iptvSubTitle">Subtitles</h3>
+      <p class="m-sub" id="iptvSubHint">Choose an IPTV subtitle track or add your own SRT/VTT file.</p>
+      <div class="subchoice" id="iptvSubList"></div>
+    </div>
+  </div>
+
   <!-- Shared, room-synchronised watchlist -->
   <div class="modal" id="queueModal" role="dialog" aria-modal="true" aria-labelledby="queueTitle">
     <div class="modal-card" style="max-width:760px">
@@ -488,6 +534,7 @@
 
   <div class="toast" id="toast" role="status" aria-live="polite" aria-atomic="true"></div>
 
+  <script src="/iptv-client-v2.js"></script>
   <script src="/samecouch-app-v3.js"></script>
 </body>
 </html>

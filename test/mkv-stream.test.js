@@ -40,7 +40,7 @@ function startApp(port, env) {
     const timer = setTimeout(() => {
       child.kill("SIGTERM");
       reject(new Error("Server did not start:\n" + output));
-    }, 10000);
+    }, 30000);   // test files run in parallel; a cold Node + ffmpeg probe can be slow under that load
     function inspect(chunk) {
       output += String(chunk);
       if (!output.includes("SameCouch server on :" + port)) return;

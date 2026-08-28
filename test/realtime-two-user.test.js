@@ -91,7 +91,7 @@ function startServer(port, dbPath) {
     const timer = setTimeout(() => {
       child.kill("SIGTERM");
       reject(new Error(`Server did not start:\n${output}`));
-    }, 8000);
+    }, 30000);   // test files run in parallel; a cold Node + SQLite start can be slow under that load
     function inspect(chunk) {
       output += String(chunk);
       if (!output.includes(`SameCouch server on :${port}`)) return;
@@ -256,11 +256,14 @@ test("participants relay playback, fast transfer, queue, moments, subtitles, and
   assert.equal(failure.from, "guestqa");
 
   const videoUrl = "https://media.example.test/movie.mkv";
+  const providerSubtitles = [{ name: "Provider NL", lang: "nl", url: "https://media.example.test/subtitles.nl.vtt" }];
   const videoPromise = waitForMessage(guest, "video");
-  host.send(JSON.stringify({ type: "video", mode: "mkv", url: videoUrl, id: "" }));
+  host.send(JSON.stringify({ type: "video", mode: "mkv", url: videoUrl, id: "", title: "IPTV Film", live: false, iptvSubtitles: providerSubtitles }));
   const relayedVideo = await videoPromise;
   assert.equal(relayedVideo.url, videoUrl);
   assert.equal(relayedVideo.mode, "mkv");
+  assert.equal(relayedVideo.title, "IPTV Film");
+  assert.deepEqual(relayedVideo.iptvSubtitles, providerSubtitles);
 
   const vtt = "WEBVTT\n\n00:00:01.000 --> 00:00:03.000\n" + "Movie night!\n".repeat(24000);
   assert.ok(Buffer.byteLength(vtt) > 256 * 1024, "subtitle regression payload must exceed the old WebSocket limit");
@@ -280,7 +283,10 @@ test("participants relay playback, fast transfer, queue, moments, subtitles, and
   assert.equal(lateState.queue.length, 1);
   assert.ok(lateState.highlights.some(item => item.kind === "reaction" && item.time === 42.25));
   assert.ok(lateState.highlights.some(item => item.kind === "moment" && item.time === 87.5));
-  assert.equal((await lateVideo).url, videoUrl);
+  const lateMedia = await lateVideo;
+  assert.equal(lateMedia.url, videoUrl);
+  assert.equal(lateMedia.title, "IPTV Film");
+  assert.deepEqual(lateMedia.iptvSubtitles, providerSubtitles);
   assert.equal((await lateSubtitle).vtt, vtt);
 
   const chatPromise = waitForMessage(guest, "chat");

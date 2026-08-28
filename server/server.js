@@ -372,6 +372,7 @@ app.get("/config", (req, res) => {
     hasTurn: HAS_TURN,
     hasYouTube: !!YT_API_KEY,
     hasMkv: HAS_FFMPEG,
+    hasIptv: true,
     mkvMode: MKV_COPY_AUDIO ? "remux-copy" : "remux-aac",
     hasPush: HAS_PUSH,
     vapidPublic: HAS_PUSH ? VAPID_PUBLIC : "",
@@ -720,7 +721,7 @@ const PUBLIC = path.join(__dirname, "..", "public");
 app.get("/admin", (req, res) => res.sendFile(path.join(PUBLIC, "admin.html")));
 app.use(express.static(PUBLIC, { extensions: ["html"], setHeaders: (res, file) => {
   const name = path.basename(file);
-  if (name === "sw.js" || /\.html$/i.test(name) || /^(?:samecouch-app-v3\.js|samecouch-v3\.css|prepaint-v2\.js)$/i.test(name)) res.setHeader("Cache-Control", "no-cache");
+  if (name === "sw.js" || /\.html$/i.test(name) || /^(?:samecouch-app-v3\.js|samecouch-v3\.css|prepaint-v2\.js|iptv-client-v2\.js)$/i.test(name)) res.setHeader("Cache-Control", "no-cache");
   else if (/^samecouch-hero-\d+\.(?:avif|webp)$/i.test(name) || file.includes(path.sep + "vendor" + path.sep))
     res.setHeader("Cache-Control", "public, max-age=31536000, immutable");
   else res.setHeader("Cache-Control", "public, max-age=3600");
@@ -739,6 +740,17 @@ function getRoom(code) {
   if (!r) { r = { members: new Map(), chat: [], queue: [], highlights: [], lastActivity: Date.now(), played: false, pass: null, host: null, syncSeq: 0 }; rooms.set(code, r); metrics.roomsCreated++; }
   return r;
 }
+const { createIptvService } = require("./iptv");
+const iptvService = createIptvService({
+  clientIp,
+  makeLimiter,
+  authorizeRoom(room, key) {
+    const current = rooms.get(String(room || ""));
+    return !!(current && current.members.size && safeEqual(String(key || ""), wallTokenFor(room)));
+  },
+  roomLive(room) { const current = rooms.get(String(room || "")); return !!(current && current.members.size); }   // a provider session dies with the room it was opened for
+});
+app.use("/iptv", iptvService.router);
 function hashPass(p) { return crypto.createHash("sha256").update("wmt:" + String(p || "")).digest("hex"); }
 // constant-time string compare (hash first so unequal lengths neither throw nor leak length via timing)
 function safeEqual(a, b) {
@@ -811,6 +823,10 @@ function leaveRoom(ws) {
     r.members.delete(ws);
     if (me) broadcastRoom(r, { type: "peer-left", peerId: me.peerId, name: me.name });
     if (me && r.gallery && r.gallery.presenter === me.peerId) { r.gallery = null; broadcastRoom(r, { type: "gallery-clear", gone: true }); }   // gone:true → viewers keep what they already fully downloaded
+    /* Whoever supplied the IPTV login takes it with them; an empty room retires it too, so a
+       copied token cannot outlive the evening it was shared in. */
+    if (me && r.iptvSource && r.iptvSource.peerId === me.peerId) { iptvService.revoke(r.iptvSource.token); r.iptvSource = null; r.iptvNav = null; broadcastRoom(r, { type: "iptv-source", source: null }); }
+    if (r.members.size === 0 && r.iptvSource) { iptvService.revoke(r.iptvSource.token); r.iptvSource = null; r.iptvNav = null; }
     if (me && r.host === me.peerId && r.members.size) {   // host left → promote the longest-present member
       const next = r.members.values().next().value;
       if (next) { r.host = next.peerId; broadcastRoom(r, { type: "host", peerId: r.host }); }
@@ -825,7 +841,7 @@ function leaveRoom(ws) {
 
 const MSG = { JOIN: "join", LEAVE: "leave", CHAT: "chat", SYNC: "sync", TALKING: "talking", VIDEO: "video", REACT: "reaction" };
 /* modes that can carry room-shared subtitles: native players use a <track>, embedded sites get an overlay the client draws itself */
-const SUBTITLE_MODES = new Set(["file", "mkv", "embed"]);
+const SUBTITLE_MODES = new Set(["file", "mkv", "hls", "embed"]);
 const SYNC_KINDS = new Set(["play", "pause", "seek", "heartbeat", "buffering", "buffered-play", "countdown"]);
 const REACTIONS = ["❤️", "😂", "😮", "😢", "🔥", "👏", "👍", "🎉"];   // server validates emoji to keep the channel clean
 
@@ -904,9 +920,12 @@ wss.on("connection", (ws) => {
       // tell the joiner who is already here; tell others someone joined
       sendJSON(ws, { type: "roster", you: { peerId: ws._peerId, name: ws._name }, peers: rosterArr(r), host: r.host === ws._peerId, hasPass: !!r.pass, expiresAt: PAYWALL_ON ? (r._expiresAt || 0) : 0, theme: r.theme || "", decor: Array.isArray(r.decor) ? r.decor : [], wallKey: wallTokenFor(code), queue: queueState(r), highlights: (r.highlights || []).slice(-100) });
       broadcastRoom(r, { type: "peer-joined", peerId: ws._peerId, name: ws._name }, ws);
+      if (r.iptvSource && iptvService.hasSession(r.iptvSource.token)) sendJSON(ws, { type: "iptv-source", source: r.iptvSource });   // hasSession, not publicSession: a join must not renew the TTL
+      else if (r.iptvSource) { r.iptvSource = null; r.iptvNav = null; }
+      if (r.iptvSource && r.iptvNav) sendJSON(ws, { type: "iptv-nav", ...r.iptvNav });
       if (r.gallery && r.gallery.items.length) sendJSON(ws, { type: "gallery", presenter: r.gallery.presenter, items: r.gallery.items, current: r.gallery.current });
       else if (r.media && r.media.url) {
-        sendJSON(ws, { type: "video", from: "", mode: r.media.mode, url: r.media.url, id: r.media.id });   // replay the active link to (re)joiners
+        sendJSON(ws, { type: "video", from: "", ...r.media });   // replay the active link to (re)joiners
         if (r.subtitle && r.subtitle.url === r.media.url) {
           sendJSON(ws, { type: "subtitle", ...r.subtitle });
           if (r.subclock && r.subclock.started) {                       // hand a late joiner the running subtitle clock
@@ -1090,13 +1109,50 @@ wss.on("connection", (ws) => {
       broadcastRoom(r, { type: "game", from: ws._peerId, data: m.data }, ws);
       return;
     }
+    if (m.type === "iptv-source") {
+      const token = String(m.token || "").slice(0, 120);
+      if (!token) {   // the host or whoever supplied it may take the source away again
+        if (r.host === ws._peerId || (r.iptvSource && r.iptvSource.peerId === ws._peerId)) {
+          if (r.iptvSource) iptvService.revoke(r.iptvSource.token);
+          r.iptvSource = null; r.iptvNav = null; broadcastRoom(r, { type: "iptv-source", source: null });
+        }
+        return;
+      }
+      if (iptvService.sessionRoom(token) !== ws._room) { sendJSON(ws, { type: "iptv-source-error", error: "source_expired" }); return; }   // a token minted for another room is not usable here
+      const source = iptvService.publicSession(token);
+      if (!source) { sendJSON(ws, { type: "iptv-source-error", error: "source_expired" }); return; }
+      if (r.iptvSource && r.iptvSource.token !== source.token) iptvService.revoke(r.iptvSource.token);   // replacing a source retires the old login
+      r.iptvSource = { token: source.token, type: source.type, name: source.name, expiresAt: source.expiresAt, by: ws._name, peerId: ws._peerId };
+      r.iptvNav = null;
+      broadcastRoom(r, { type: "iptv-source", source: r.iptvSource });   // nested: a flat spread would let source.type ("m3u"/"xtream") overwrite the envelope type
+      return;
+    }
+    if (m.type === "iptv-nav") {
+      if (!r.iptvSource) return;
+      const view = m.view === "series" ? "series" : "catalog";
+      const kind = m.kind === "movie" || m.kind === "series" ? m.kind : "live";
+      const id = String(m.id || "").replace(/[^a-zA-Z0-9_:-]/g, "").slice(0, 140);
+      const title = String(m.title || "").slice(0, 180);
+      const category = String(m.category || "").slice(0, 120);
+      const q = String(m.q || "").slice(0, 120);
+      r.iptvNav = { view, kind, id, title, category, q, by: ws._name };
+      broadcastRoom(r, { type: "iptv-nav", from: ws._peerId, ...r.iptvNav }, ws);
+      return;
+    }
     if (m.type === MSG.VIDEO) {
       const mode = String(m.mode || "").slice(0, 16);
       const url = String(m.url || "").slice(0, 2000);
       const id = String(m.id || "").slice(0, 64);
+      const title = String(m.title || "").slice(0, 180);
+      const live = !!m.live;
+      const iptvSubtitles = Array.isArray(m.iptvSubtitles) ? m.iptvSubtitles.slice(0, 20).map(sub => ({
+        name: String(sub && sub.name || "Subtitles").slice(0, 80),
+        lang: String(sub && sub.lang || "und").replace(/[^a-zA-Z0-9-]/g, "").slice(0, 12) || "und",
+        url: String(sub && sub.url || "").slice(0, 2000)
+      })).filter(sub => /^https?:\/\//i.test(sub.url)) : [];
       if (!r.media || r.media.url !== url || !SUBTITLE_MODES.has(mode)) { r.subtitle = null; r.subclock = null; }
-      r.media = url ? { mode, url, id } : null;   // remember what's playing → replay to (re)joiners so a missed link never stays blank
-      broadcastRoom(r, { type: "video", from: ws._peerId, mode, url, id }, ws);
+      r.media = url ? { mode, url, id, title, live, iptvSubtitles } : null;   // remember what's playing → replay to (re)joiners so a missed link never stays blank
+      broadcastRoom(r, { type: "video", from: ws._peerId, mode, url, id, title, live, iptvSubtitles }, ws);
       return;
     }
 

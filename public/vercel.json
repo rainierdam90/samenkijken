@@ -47,7 +47,7 @@
       ]
     },
     {
-      "source": "/(samecouch-app-v3.js|samecouch-v3.css|prepaint-v2.js)",
+      "source": "/(samecouch-app-v3.js|samecouch-v3.css|prepaint-v2.js|iptv-client-v2.js)",
       "headers": [{ "key": "Cache-Control", "value": "public, max-age=0, must-revalidate" }]
     },
     {

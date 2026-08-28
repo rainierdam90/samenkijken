@@ -248,6 +248,45 @@ encode cost but reduces compatibility.
 `ffmpeg-static` is distributed under GPL-3.0-or-later. Anyone operating or
 redistributing this build is responsible for complying with that licence.
 
+## IPTV: browse and watch together
+
+The in-room **IPTV** button supports two provider types:
+
+- an Xtream-compatible server login (server URL, username and password); and
+- an M3U playlist URL, including a provider URL whose query contains credentials.
+
+After one room member connects a source, everybody in that room receives only an
+opaque, temporary source token. Library tab, category, search and series navigation
+are relayed to the other participants, so an open IPTV library follows along while
+the room browses. Choosing a live channel, film or episode loads one opaque playback
+URL for everybody and uses the existing room play/pause/seek clock. HLS is handled
+by native Safari playback where available and the local, pinned `hls.js` build in
+other modern browsers.
+
+Provider credentials are never put in room messages, generated media URLs,
+browser storage or application logs. They remain in the Node process memory for
+`IPTV_SOURCE_TTL` seconds after the last use. The gateway rewrites HLS manifests,
+including variants, media segments, encryption-key URLs and subtitle renditions,
+so original credential-bearing provider URLs do not reach browsers.
+
+Embedded HLS subtitle tracks appear under **CC**. SameCouch also detects common
+provider-supplied external SRT/VTT fields. When somebody selects an external file,
+it is converted to WebVTT and shared through the existing room subtitle path;
+subtitle language choices and timing adjustments remain available per viewer.
+
+Operational limits:
+
+- IPTV video, audio, manifest, artwork and provider-subtitle bytes pass through
+  the SameCouch Node/VPS gateway. Budget outbound VPS bandwidth for every viewer;
+  unlike files shared from a device, IPTV is not peer-to-peer.
+- The source provider must permit concurrent streams for the number of viewers.
+- DRM-protected services are not bypassed. A provider-specific browser DRM licence
+  integration would be required and is intentionally outside this gateway.
+- Private/reserved destinations, URL user-info and unapproved ports are blocked.
+  Restrict public providers further with `IPTV_ALLOWED_HOSTS` if desired.
+- Users must have permission from their provider and the rights to watch/share the
+  selected content. SameCouch does not supply channels or subscriptions.
+
 ## Subtitles for a pasted video URL
 
 Paste a direct video link ending in `.mp4`, `.webm`, `.ogg`, `.m4v`, `.mov` or
@@ -322,6 +361,14 @@ used; do not replace them with unpinned CDN scripts.
 | `MKV_TRUSTED_PRIVATE_HOSTS` | exact source hosts you own that may resolve privately, without restricting other public hosts | *(none)* |
 | `MKV_ALLOWED_PORTS` | source ports allowed by the fetcher | `80,443,8080,8443` |
 | `MKV_ALLOW_PRIVATE` | test/private-infrastructure escape hatch; also requires an explicit host allowlist | `0` |
+| `IPTV_SOURCE_TTL` / `IPTV_STREAM_TTL` | idle lifetime for in-memory provider sessions and opaque playback tickets (seconds) | `21600` |
+| `IPTV_MAX_SESSIONS` | maximum short-lived provider sessions per app instance | `250` |
+| `IPTV_MAX_CATALOG_BYTES` / `IPTV_MAX_PLAYLIST_BYTES` | bounded provider API and M3U response sizes | `33554432` / `12582912` |
+| `IPTV_MAX_STREAMS` / `IPTV_MAX_STREAMS_PER_IP` | simultaneous proxied IPTV resources globally/per viewer IP | `80` / `24` |
+| `IPTV_ALLOWED_HOSTS` | optional comma-separated exact/`*.suffix` provider allowlist | *(all public hosts)* |
+| `IPTV_TRUSTED_PRIVATE_HOSTS` | exact provider hosts you operate that may resolve to a private address | *(none)* |
+| `IPTV_ALLOWED_PORTS` | provider ports accepted by the gateway | `80,443,8000,8080,8443,8880,25461` |
+| `IPTV_PUBLIC_BASE` | optional explicit public Node origin for generated proxy URLs | forwarded request origin |
 
 ## What still needs you / honest limitations
 

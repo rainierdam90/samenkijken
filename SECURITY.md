@@ -15,6 +15,13 @@ video stream-copy; audio is converted to AAC by default. Their source URL and
 film bytes are visible to the server process while the stream is active, but are
 not stored by the application.
 
+IPTV provider credentials are submitted to the app server over HTTPS and retained
+only in a short-lived in-memory session. The browser and room control channel see
+an opaque source token, never the original username/password or credential-bearing
+M3U URL. IPTV catalog, artwork, stream, HLS key and provider-subtitle traffic is
+proxied by the server and is therefore visible in transit to the server process,
+but is not persisted by the application.
+
 **Consequence:** chat and selected subtitle text are **not end-to-end encrypted**.
 Anyone with server access can technically read those in-memory room payloads;
 the admin dashboard exposes chat only.
@@ -29,6 +36,7 @@ What is and isn't visible to you/the server:
 | Chat messages | relayed via `/rt` | **Yes** — stored + shown in `/admin` |
 | Selected SRT/VTT subtitle text | relayed via `/rt` | **Yes** — active-room memory, not shown in `/admin` |
 | Remote MKV/opaque direct-video bytes | direct source → viewer, or source → `/mkv-stream` → viewer | **Only while remuxing** — not stored |
+| IPTV login and media | provider → `/iptv` gateway → viewers | **Yes, while active** — credentials in short-lived memory; media not stored |
 | Room code | sent to `/rt` to group people | Yes |
 | Which video is loaded | relayed via `/rt` | Yes |
 
@@ -52,6 +60,13 @@ private destinations blocked without narrowing normal public-source support.
 This is a remuxer for direct media bytes, not a DRM/login bypass or webpage
 extractor. Keep FFmpeg and `ffmpeg-static` patched, monitor bandwidth abuse,
 and review GPL-3.0-or-later compliance before redistribution.
+
+The IPTV gateway applies the same DNS pinning, redirect validation, public-address
+and allowed-port controls to every provider API, manifest, key, segment, artwork
+and subtitle request. Opaque source/stream tickets prevent credentials from
+appearing in browser URLs. Size, rate and concurrent-stream caps limit abuse.
+Keep `IPTV_TRUSTED_PRIVATE_HOSTS` empty unless you operate the exact internal host,
+and use `IPTV_ALLOWED_HOSTS` when the deployment should serve only known providers.
 
 ## Your obligations as the operator (you have a compliance background — this is the short version)
 

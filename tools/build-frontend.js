@@ -31,11 +31,13 @@ const outputs = new Map([
   [path.join(root, "public", "prepaint-v2.js"), prepaint[1].trim() + "\n"],
   [path.join(root, "public", "samecouch-v3.css"), styles[1].trim() + "\n"],
   [path.join(root, "public", "samecouch-app-v3.js"), "(function () {" + app[1] + "\n})();\n"],
+  [path.join(root, "public", "iptv-client-v2.js"), fs.readFileSync(path.join(root, "src", "iptv-client.js"), "utf8")],
+  [path.join(root, "public", "vendor", "hls-1.6.16.min.js"), fs.readFileSync(path.join(root, "node_modules", "hls.js", "dist", "hls.min.js"), "utf8")],
   [path.join(root, "public", "index.html"), html],
   [path.join(root, "index.html"), html],
   [path.join(root, "public", "vercel.json"), fs.readFileSync(path.join(root, "vercel.json"), "utf8")],
 ]);
-const legacyOutputs = ["prepaint-v1.js", "samecouch-v2.css", "samecouch-app-v2.js"].map(file => path.join(root, "public", file));
+const legacyOutputs = ["prepaint-v1.js", "samecouch-v2.css", "samecouch-app-v2.js", "iptv-client-v1.js"].map(file => path.join(root, "public", file));
 
 const check = process.argv.includes("--check");
 let drift = false;
