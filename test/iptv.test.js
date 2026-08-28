@@ -136,3 +136,60 @@ test("browsing artwork never starves playback or the API budget", async t => {
   held.forEach(res => { try { res.end(); } catch (_) {} });
   await Promise.all(pending);
 });
+
+/* Fallback for codecs the browser can't decode (AC-3 etc.): /remux hands the player a
+   /mkv-stream path. Its token is only base64+HMAC — readable — so it must wrap the OPAQUE
+   resource URL, never the credentialed provider URL. And live must use the pipe-able TS variant. */
+test("the remux fallback returns an opaque, credential-free stream path", async t => {
+  let providerPort;
+  const seen = [];
+  const provider = http.createServer((req, res) => {
+    const url = new URL(req.url, `http://127.0.0.1:${providerPort}`);
+    seen.push(url.pathname);
+    const json = value => { res.setHeader("Content-Type", "application/json"); res.end(JSON.stringify(value)); };
+    if (url.pathname === "/player_api.php") {
+      if (url.searchParams.get("username") !== "demo" || url.searchParams.get("password") !== "secret") { res.statusCode = 401; return res.end(); }
+      const action = url.searchParams.get("action");
+      if (!action) return json({ user_info: { auth: 1, status: "Active", exp_date: "1999999999" } });
+      if (action === "get_live_categories") return json([{ category_id: "1", category_name: "News" }]);
+      if (action === "get_live_streams") return json([{ stream_id: 10, name: "News", category_id: "1" }]);
+      return json([]);
+    }
+    if (url.pathname === "/live/demo/secret/10.ts") { res.setHeader("Content-Type", "video/mp2t"); return res.end(Buffer.from("ts-bytes")); }
+    res.statusCode = 404; res.end();
+  });
+  providerPort = await listen(provider);
+
+  const before = { trusted: process.env.IPTV_TRUSTED_PRIVATE_HOSTS, ports: process.env.IPTV_ALLOWED_PORTS };
+  process.env.IPTV_TRUSTED_PRIVATE_HOSTS = "127.0.0.1"; process.env.IPTV_ALLOWED_PORTS = String(providerPort);
+  const app = express(); app.use(express.json());
+  const service = createIptvService({
+    authorizeRoom: (room, key) => room === "qa-room" && key === "qa-key",
+    clientIp: () => "qa", makeLimiter: () => () => true,
+    makeStreamToken: url => "tok." + Buffer.from(url).toString("base64url")   // stub mirroring the real base64+HMAC shape
+  });
+  app.use("/iptv", service.router);
+  const appServer = http.createServer(app), appPort = await listen(appServer), appBase = `http://127.0.0.1:${appPort}`;
+  t.after(async () => {
+    await Promise.all([close(appServer), close(provider)]);
+    if (before.trusted === undefined) delete process.env.IPTV_TRUSTED_PRIVATE_HOSTS; else process.env.IPTV_TRUSTED_PRIVATE_HOSTS = before.trusted;
+    if (before.ports === undefined) delete process.env.IPTV_ALLOWED_PORTS; else process.env.IPTV_ALLOWED_PORTS = before.ports;
+  });
+
+  const connected = await (await fetch(appBase + "/iptv/connect", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ type: "xtream", room: "qa-room", roomKey: "qa-key", server: `http://127.0.0.1:${providerPort}`, username: "demo", password: "secret" }) })).json();
+  const token = connected.source.token;
+  const catalog = await (await fetch(appBase + "/iptv/catalog?kind=live", { headers: { "X-SameCouch-IPTV": token } })).json();
+
+  const remux = await (await fetch(appBase + "/iptv/remux", { method: "POST", headers: { "X-SameCouch-IPTV": token, "content-type": "application/json" }, body: JSON.stringify({ id: catalog.items[0].id }) })).json();
+  assert.match(remux.streamPath, /^\/mkv-stream\?token=/, "remux returns a /mkv-stream path");
+  assert.equal(remux.live, true);
+
+  const wrapped = Buffer.from(decodeURIComponent(remux.streamPath.split("token=")[1]).slice(4), "base64url").toString("utf8");
+  assert.doesNotMatch(wrapped, /demo|secret/, "the token must not carry the provider credentials");
+  assert.match(wrapped, /\/iptv\/resource\//, "the token wraps the opaque resource URL");
+
+  // and that opaque URL, when fetched, streams the credentialed TS variant server-side
+  const opaque = wrapped.replace(/^"?url"?:?/, "").match(/https?:\/\/[^"]+/)[0];
+  assert.equal(await (await fetch(opaque)).text(), "ts-bytes");
+  assert.ok(seen.includes("/live/demo/secret/10.ts"), "live remux must pull the pipe-able .ts variant, not the .m3u8");
+});

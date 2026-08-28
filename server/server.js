@@ -748,7 +748,8 @@ const iptvService = createIptvService({
     const current = rooms.get(String(room || ""));
     return !!(current && current.members.size && safeEqual(String(key || ""), wallTokenFor(room)));
   },
-  roomLive(room) { const current = rooms.get(String(room || "")); return !!(current && current.members.size); }   // a provider session dies with the room it was opened for
+  roomLive(room) { const current = rooms.get(String(room || "")); return !!(current && current.members.size); },   // a provider session dies with the room it was opened for
+  makeStreamToken: HAS_FFMPEG ? makeMkvToken : null   // lets the IPTV remux fallback reuse the /mkv-stream transcoder
 });
 app.use("/iptv", iptvService.router);
 function hashPass(p) { return crypto.createHash("sha256").update("wmt:" + String(p || "")).digest("hex"); }

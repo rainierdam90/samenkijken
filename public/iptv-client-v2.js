@@ -153,6 +153,15 @@
       else { setKind(nav.kind, false, false); category.value = String(nav.category||""); search.value = String(nav.q||""); loadCatalog(false); }
       applyingNav = false;
     }
+    /* The player calls this when the browser cannot decode a title directly; the server hands
+       back a /mkv-stream path that copies the video and re-encodes the audio to AAC. */
+    async function remux(itemId) {
+      if (!source || !itemId) return null;
+      try {
+        const data = await responseJson(await fetch(api("/remux"), { method:"POST", headers:headers(true), body:JSON.stringify({ id:itemId }) }));
+        return data && data.streamPath ? data.streamPath : null;
+      } catch (_) { return null; }
+    }
     function open() { if (!root) return; root.classList.add("show"); source ? showBrowser() : showSetup(); if (source && pendingNav) { const nav=pendingNav; pendingNav=null; applyNavigation(nav); } else if (source && !grid.querySelector(".iptv-card")) loadCatalog(false); }
     function close() { if (root) root.classList.remove("show"); }
     function disconnect() { if (options.send) options.send({type:"iptv-source",token:""}); setSource(null); }
@@ -171,7 +180,7 @@
     [byId("iptvServer"),byId("iptvUser"),byId("iptvPass"),byId("iptvPlaylist")].forEach(input => input.addEventListener("keydown", event => { if (event.key === "Enter") connect(); }));
     document.addEventListener("keydown", event => { if (event.key === "Escape" && root.classList.contains("show")) close(); });
     localize(); showSetup();
-    return { open, close, setSource, applyNavigation, source:() => source, localize };
+    return { open, close, setSource, applyNavigation, remux, source:() => source, localize };
   }
 
   global.SameCouchIPTV = { create };

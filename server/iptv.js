@@ -53,6 +53,7 @@ function createIptvService(options) {
   const clientIp = options.clientIp || (req => (req.socket && req.socket.remoteAddress) || "?");
   const authorizeRoom = options.authorizeRoom || (() => false);
   const roomLive = options.roomLive || (() => true);
+  const makeStreamToken = typeof options.makeStreamToken === "function" ? options.makeStreamToken : null;   // wraps a credentialed upstream URL for the remuxer, opaque to the browser
 
   function cors(res) {
     res.setHeader("Access-Control-Allow-Origin", "*");
@@ -513,6 +514,27 @@ function createIptvService(options) {
       });
       subtitles.forEach(sub => { delete sub._raw; });
       res.json({ item: publicItem(req, session, item), playback: { url: resourceUrl(req, stream, "root"), mode, live: item.kind === "live", subtitles } });
+    } catch (error) { errorResponse(res, error); }
+  });
+
+  /* Fallback when the browser cannot decode a channel/film directly (e.g. AC-3/E-AC-3 audio,
+     which Chrome refuses): hand the remuxer a pipe-able source — the raw MPEG-TS variant for
+     live, the direct file for VOD — and it copies the video and re-encodes audio to AAC. The
+     credentialed URL is wrapped in an opaque signed token, so it never reaches the browser. */
+  router.post("/remux", async (req, res) => {
+    const ip = clientIp(req); if (!allowApi(ip)) return res.status(429).json({ error: "rate_limited" });
+    if (!makeStreamToken) return res.status(503).json({ error: "iptv_unavailable" });
+    const session = touchSession(sourceToken(req)); if (!session) return res.status(403).json({ error: "source_expired" });
+    const item = session.items.get(safeText((req.body || {}).id, 140)); if (!item || item.kind === "series") return res.status(404).json({ error: "item_not_found" });
+    try {
+      const upstream = streamUrl(session, item, item.kind === "live" ? "ts" : "file");   // TS (live) and progressive files pipe into ffmpeg; an .m3u8 cannot
+      await validateTarget(upstream);
+      /* The remuxer's token is only base64+HMAC, i.e. readable — so it must NOT carry the
+         credentialed provider URL. Wrap the OPAQUE same-origin resource URL instead; the IPTV
+         proxy adds the credentials server-side when the remuxer fetches it. */
+      const stream = createStream(session, upstream);
+      const opaqueUrl = resourceUrl(req, stream, "root");
+      res.json({ streamPath: "/mkv-stream?token=" + encodeURIComponent(makeStreamToken(opaqueUrl)), live: item.kind === "live" });
     } catch (error) { errorResponse(res, error); }
   });
 

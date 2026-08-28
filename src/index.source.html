@@ -2088,7 +2088,7 @@
 
     /* ===================== Media: file / youtube / embed ===================== */
     var mode="none", currentMedia=null, pending=null, closing=false, movieErrored=false;
-    var iptvHls=null, iptvLive=false, iptvExternalSubs=[], iptvEmbeddedSubs=[], iptvSelectedSubtitle=-1;
+    var iptvHls=null, iptvLive=false, iptvExternalSubs=[], iptvEmbeddedSubs=[], iptvSelectedSubtitle=-1, iptvRemuxTried=false;
     var subtitleTrackEl=null, subtitleObjectUrl="", currentSubtitle=null, subtitleEnabled=true, subtitleOffset=0;
     /* embed-subtitle overlay (YouTube/Vimeo excluded): SameCouch renders cues itself and runs its own
        clock, anchored to the 3·2·1 countdown, because a cross-origin iframe exposes no player track or clock. */
@@ -2189,7 +2189,17 @@
         hls.on(window.Hls.Events.MANIFEST_PARSED,function(){ if(iptvHls===hls){ refreshIptvSubtitleTracks(hls.subtitleTracks||[]); applyPending(); applyUserVolume(); } });
         hls.on(window.Hls.Events.SUBTITLE_TRACKS_UPDATED,function(_event,data){ if(iptvHls===hls) refreshIptvSubtitleTracks((data&&data.subtitleTracks)||hls.subtitleTracks||[]); });
         hls.on(window.Hls.Events.LEVEL_LOADED,function(_event,data){ if(currentMedia&&data&&data.details){ iptvLive=!!data.details.live; currentMedia.live=iptvLive; } });
-        hls.on(window.Hls.Events.ERROR,function(_event,data){ if(!data||!data.fatal||iptvHls!==hls) return; if(data.type===window.Hls.ErrorTypes.NETWORK_ERROR) hls.startLoad(); else if(data.type===window.Hls.ErrorTypes.MEDIA_ERROR) hls.recoverMediaError(); else { movieErrored=true; hls.destroy(); iptvHls=null; toast(tr("iptv_failed"),9000); } });
+        hls.on(window.Hls.Events.ERROR,function(_event,data){
+          if(!data||iptvHls!==hls) return;
+          var D=window.Hls.ErrorDetails;
+          /* MSE cannot take this codec (e.g. AC-3/E-AC-3 audio) → hls.js can never play it; fall
+             straight through to the server remuxer instead of retrying into a black screen. */
+          if(data.details===D.BUFFER_INCOMPATIBLE_CODECS_ERROR||data.details===D.MANIFEST_INCOMPATIBLE_CODECS_ERROR){ if(currentMedia&&currentMedia.iptv&&remuxIptvCurrent()) return; }
+          if(!data.fatal) return;
+          if(data.type===window.Hls.ErrorTypes.NETWORK_ERROR) hls.startLoad();
+          else if(data.type===window.Hls.ErrorTypes.MEDIA_ERROR){ if(currentMedia&&currentMedia.iptv&&remuxIptvCurrent()) return; hls.recoverMediaError(); }
+          else { if(currentMedia&&currentMedia.iptv&&remuxIptvCurrent()) return; movieErrored=true; hls.destroy(); iptvHls=null; toast(tr("iptv_failed"),9000); }
+        });
         hls.attachMedia(movie);
       }).catch(function(){ movieErrored=true; toast(tr("iptv_failed"),9000); });
     }
@@ -2357,7 +2367,7 @@
       url=safeUrl(url); id=String(id||"").replace(/[^a-zA-Z0-9_:-]/g,"").slice(0,64); meta=meta||{};
       if(typeof screenStream!=="undefined"&&screenStream) stopScreenShare();   // a loaded video replaces a live screen share
       if(gallery){ if(amPresenter()) stopSharing(); else galleryClearLocal(); }
-      clearPlayers(); ducked=false; mode=m; iptvExternalSubs=Array.isArray(meta.iptvSubtitles)?meta.iptvSubtitles.slice(0,20).filter(function(sub){ return sub&&/^https?:\/\//i.test(sub.url||""); }).map(function(sub){ return {name:String(sub.name||"Subtitles").slice(0,80),lang:String(sub.lang||"und").slice(0,12),url:String(sub.url).slice(0,2000)}; }):[]; iptvLive=!!meta.live;
+      clearPlayers(); ducked=false; mode=m; iptvRemuxTried=false; iptvExternalSubs=Array.isArray(meta.iptvSubtitles)?meta.iptvSubtitles.slice(0,20).filter(function(sub){ return sub&&/^https?:\/\//i.test(sub.url||""); }).map(function(sub){ return {name:String(sub.name||"Subtitles").slice(0,80),lang:String(sub.lang||"und").slice(0,12),url:String(sub.url).slice(0,2000)}; }):[]; iptvLive=!!meta.live;
       currentMedia={ mode:m, url:url, id:id, title:String(meta.title||"").slice(0,180), live:iptvLive, iptvSubtitles:iptvExternalSubs.slice() }; placeholder.style.display="none"; updateLoadBtn();
       if(m==="file"||m==="mkv"||m==="hls"){ setEmbedUI(false); movie.style.display="block"; if(m==="mkv") prepareMkv(url); else if(m==="hls") loadHls(url); else if(url){ movie.src=url; movie.load(); } }
       else if(m==="youtube"){ setEmbedUI(false); ytwrap.style.display="block"; loadYouTube(id); }
@@ -2368,7 +2378,7 @@
     function applyIptvPlayback(data){
       if(!data||!data.playback||!data.item) return; var playback=data.playback, item=data.item;
       applyMedia(playback.mode,playback.url,item.id,{title:item.title,live:playback.live,iptvSubtitles:playback.subtitles||[]});
-      if(currentMedia){ currentMedia.mine=true; rtSend(currentMediaMessage()); }
+      if(currentMedia){ currentMedia.mine=true; currentMedia.iptv=true; rtSend(currentMediaMessage()); }
       if(urlInput) urlInput.value=playback.url; toast(tr("iptv_playing").replace("{t}",item.title||"IPTV"),5000);
     }
     /* the iframe can't tell us why a site failed to show (cross-origin) — ask the room server to
@@ -2467,7 +2477,30 @@
         reader.readAsArrayBuffer(f);
       });
     });
-    movie.addEventListener("error", function(){ if(mkvDirectTrying||!nativeMode()||!movie.src) return; movieErrored=true; try{ playgate.hidden=true; }catch(e){} toast(mode==="mkv"?tr("mkv_failed"):mode==="hls"?tr("iptv_failed"):tr("vid_fail"),10000); });
+    /* Many IPTV channels and films are H.264 video with AC-3/E-AC-3/DTS audio (very common on EU
+       providers). Chrome cannot decode that audio: a film errors with a codec error, and a live
+       channel plays "nothing" because hls.js cannot build an MSE buffer for it. The server can
+       recover both — it copies the video and re-encodes only the audio to AAC (cheap; no video
+       transcode) from a pipe-able source (the MPEG-TS variant for live, the direct file for VOD). */
+    function remuxIptvCurrent(){
+      if(iptvRemuxTried||!currentMedia||!currentMedia.iptv||!iptvController||!iptvController.remux) return false;
+      iptvRemuxTried=true; var target=currentMedia, wantLive=iptvLive;
+      clearHlsPlayer(); movieErrored=false; try{ movie.pause(); movie.removeAttribute("src"); movie.load(); }catch(e){}
+      if(typeof showXfer==="function") showXfer(tr("mkv_preparing"),18,"",{});
+      iptvController.remux(target.id).then(function(streamPath){
+        if(!currentMedia||currentMedia!==target) return;   // the room moved on
+        if(!streamPath||String(streamPath).indexOf("/mkv-stream?")!==0){ movieErrored=true; if(typeof hideXfer==="function") hideXfer(); toast(tr("iptv_failed"),10000); return; }
+        mode="file"; iptvLive=false;   // the remuxed output is a plain progressive stream, even for a live channel
+        movie.style.display="block"; movie.src=httpBase()+streamPath; movie.load();
+        if(typeof hideXfer==="function") hideXfer(); toast(tr("mkv_ready"),4500);
+      });
+      return true;
+    }
+    movie.addEventListener("error", function(){
+      if(mkvDirectTrying||!nativeMode()||!movie.src) return;
+      if((mode==="file"||mode==="hls")&&currentMedia&&currentMedia.iptv&&remuxIptvCurrent()) return;   // codec the browser can't decode → let the server remux it
+      movieErrored=true; try{ playgate.hidden=true; }catch(e){} toast(mode==="mkv"?tr("mkv_failed"):mode==="hls"?tr("iptv_failed"):tr("vid_fail"),10000);
+    });
 
     var ytApiReady=false, ytApiLoading=false, ytPlayer=null, ytPending=null;
     function ensureYTApi(cb){ if(ytApiReady){ cb(); return; } ytPending=cb; if(ytApiLoading) return; ytApiLoading=true; window.onYouTubeIframeAPIReady=function(){ ytApiReady=true; if(ytPending){ var f=ytPending; ytPending=null; f(); } }; var s=document.createElement("script"); s.src="https://www.youtube.com/iframe_api"; document.head.appendChild(s); }
