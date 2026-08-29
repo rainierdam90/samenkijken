@@ -263,6 +263,13 @@ URL for everybody and uses the existing room play/pause/seek clock. HLS is handl
 by native Safari playback where available and the local, pinned `hls.js` build in
 other modern browsers.
 
+For browser-incompatible IPTV codecs, playback escalates in two steps. AC-3,
+E-AC-3 and DTS audio are converted to AAC while H.264 video is copied unchanged.
+If the video itself is HEVC/H.265, one tightly limited FFmpeg process converts it
+to H.264 at up to 720p; simultaneous viewers of the same title share that process
+instead of encoding the same frames repeatedly. Live channels keep live semantics
+after either fallback, so the room clock never seeks or rewinds separate live edges.
+
 Provider credentials are never put in room messages, generated media URLs,
 browser storage or application logs. They remain in the Node process memory for
 `IPTV_SOURCE_TTL` seconds after the last use. The gateway rewrites HLS manifests,
@@ -356,6 +363,9 @@ used; do not replace them with unpinned CDN scripts.
 | `MKV_TOKEN_TTL` | stream-ticket lifetime in seconds | `300` |
 | `MKV_MAX_STREAMS` | maximum simultaneous lightweight FFmpeg remux streams per app instance | `4` |
 | `MKV_MAX_STREAMS_PER_IP` | simultaneous remux streams per viewer IP | `2` |
+| `MKV_MAX_TRANSCODES` / `MKV_MAX_TRANSCODES_PER_IP` | concurrent CPU-heavy HEVC→H.264 IPTV jobs (one job can feed multiple simultaneous viewers) | `1` / `1` |
+| `MKV_TRANSCODE_THREADS` | FFmpeg threads per HEVC→H.264 IPTV job | `1` |
+| `MKV_SHARED_BACKLOG` | initial transcoded bytes retained so simultaneous room viewers can attach to the shared job | `8388608` |
 | `MKV_COPY_AUDIO` | copy audio too (lowest CPU, but only browser-compatible audio works) | `0` |
 | `MKV_ALLOWED_HOSTS` | optional comma-separated exact/`*.suffix` allowlist; empty deliberately permits all public hosts | *(all public hosts)* |
 | `MKV_TRUSTED_PRIVATE_HOSTS` | exact source hosts you own that may resolve privately, without restricting other public hosts | *(none)* |

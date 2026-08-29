@@ -93,6 +93,12 @@ test("IPTV supports secure provider login, shared browsing, HLS and host subtitl
   assert.match(iptvJs, /"X-SameCouch-IPTV"/);
   assert.match(iptvJs, /type:"iptv-source",token:source\.token/);
   assert.match(iptvJs, /type:"iptv-nav"/);
+  assert.match(appJs, /iptv:!!currentMedia\.iptv/);   // every viewer must know it may use the IPTV fallback
+  assert.match(appJs, /Events\.BUFFER_CODECS/);
+  assert.match(appJs, /remuxIptvCurrent\("h264"\)/);
+  assert.match(appJs, /savedSubs=iptvExternalSubs\.slice\(\)/);   // provider subtitles survive remux/transcode
+  assert.match(serverSource, /streamTicket\.url\.startsWith\("iptv:"\)/);   // no public-domain hairpin
+  assert.match(serverSource, /const iptv = !!m\.iptv && !!r\.iptvSource/);
   assert.doesNotMatch(iptvJs, /localStorage|sessionStorage/);
   assert.doesNotMatch(iptvJs, /type:"iptv-source"[^\n]+username|type:"iptv-source"[^\n]+password/);
 });
@@ -240,7 +246,7 @@ test("shared playback has one stable clock and never hard-rewinds a smooth viewe
   assert.match(clockHealthSource, /!nativeBuffering&&!movie\.seeking&&movie\.readyState>=3/);
   assert.match(appJs, /movie\.addEventListener\("seeked"/);
   assert.match(appJs, /if\(!consumeRemoteSeek\(\)\) broadcast\("seek"\)/);   // a programmatic seek must not echo back as a room seek
-  assert.match(appJs, /function liveStream\(\)\{ return mode==="hls"&&iptvLive; \}/);   // live channels opt out of clock correction entirely
+  assert.match(appJs, /function liveStream\(\)\{ return nativeMode\(\)&&iptvLive; \}/);   // remuxed live channels also opt out of clock correction entirely
   assert.match(appJs, /if\(liveStream\(\)\)\{ consumeRemoteSeek\(\); return; \}/);
   assert.match(appJs, /rtSend\(\{type:"sync",kind:on\?"buffering":"buffered-play"/);
   assert.match(serverSource, /kind === "heartbeat" \|\| kind === "buffering" \|\| kind === "buffered-play"/);
@@ -311,7 +317,8 @@ test("MKV and opaque direct links prefer native playback and use low-CPU remuxin
   assert.match(serverSource, /app\.get\("\/mkv-stream"/);
   assert.match(serverSource, /frag_keyframe\+empty_moov\+default_base_moof/);
   assert.match(serverSource, /"-c:v", "copy"/);
-  assert.doesNotMatch(serverSource, /"-c:v", "libx264"/);
+  assert.match(serverSource, /transcodeVideo[\s\S]*"-c:v", "libx264"/);
+  assert.match(serverSource, /process\.env\.MKV_MAX_TRANSCODES \|\| "1"/);
   assert.match(serverSource, /maxPayload: 2 \* 1024 \* 1024/);
   assert.match(serverSource, /MKV_ALLOWED_PORTS \|\| "80,443,8080,8443"/);
   assert.match(serverSource, /MKV_TRUSTED_PRIVATE_HOSTS/);
@@ -340,7 +347,7 @@ test("MKV and opaque direct links use native controls and a remux fallback", () 
   assert.match(serverSource, /app\.get\("\/mkv-stream"/);
   assert.match(serverSource, /frag_keyframe\+empty_moov\+default_base_moof/);
   assert.match(serverSource, /"-c:v", "copy"/);
-  assert.doesNotMatch(serverSource, /"-c:v", "libx264"/);
+  assert.match(serverSource, /transcodeVideo[\s\S]*"-c:v", "libx264"/);
   assert.match(serverSource, /maxPayload: 2 \* 1024 \* 1024/);
 });
 

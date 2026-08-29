@@ -8,6 +8,7 @@ const os = require("node:os");
 const path = require("node:path");
 const { once } = require("node:events");
 const { spawn, spawnSync } = require("node:child_process");
+const WebSocket = require("ws");
 
 const ROOT = path.resolve(__dirname, "..");
 let bundledFfmpeg = "";
@@ -53,6 +54,25 @@ function startApp(port, env) {
         clearTimeout(timer); reject(new Error("Server exited with " + code + ":\n" + output));
       }
     });
+  });
+}
+
+function openSocket(url) {
+  return new Promise((resolve, reject) => {
+    const ws = new WebSocket(url);
+    ws.once("open", () => resolve(ws)); ws.once("error", reject);
+  });
+}
+
+function waitForMessage(ws, type, timeoutMs) {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => { ws.off("message", onMessage); reject(new Error("Timed out waiting for " + type)); }, timeoutMs || 5000);
+    function onMessage(raw) {
+      let message; try { message = JSON.parse(raw); } catch (_) { return; }
+      if (message.type !== type) return;
+      clearTimeout(timer); ws.off("message", onMessage); resolve(message);
+    }
+    ws.on("message", onMessage);
   });
 }
 
@@ -136,4 +156,127 @@ test("opaque and redirected MKV sources are remuxed to fragmented browser MP4", 
   const tokenParts = token.split("."), signature = tokenParts[1];
   streamUrl.searchParams.set("token", tokenParts[0] + "." + (signature[0] === "A" ? "B" : "A") + signature.slice(1));
   assert.equal((await fetch(streamUrl)).status, 403);
+});
+
+test("IPTV remux is credential-opaque, room-wide, audible for AC-3 and H.264-compatible for HEVC", { skip: !FFMPEG_OK }, async t => {
+  const temp = fs.mkdtempSync(path.join(os.tmpdir(), "samecouch-iptv-remux-"));
+  const liveFile = path.join(temp, "live.ts"), hevcFile = path.join(temp, "hevc.mp4"), dbPath = path.join(temp, "qa.db");
+  const liveMade = spawnSync(FFMPEG, [
+    "-y", "-hide_banner", "-loglevel", "error",
+    "-f", "lavfi", "-i", "testsrc2=s=160x90:r=12",
+    "-f", "lavfi", "-i", "sine=frequency=523:sample_rate=48000",
+    "-t", "1.5", "-shortest", "-c:v", "libx264", "-preset", "ultrafast", "-pix_fmt", "yuv420p",
+    "-c:a", "ac3", "-b:a", "128k", "-f", "mpegts", liveFile
+  ], { encoding: "utf8" });
+  assert.equal(liveMade.status, 0, liveMade.stderr || "could not create AC-3 live fixture");
+  const hevcMade = spawnSync(FFMPEG, [
+    "-y", "-hide_banner", "-loglevel", "error",
+    "-f", "lavfi", "-i", "testsrc2=s=160x90:r=12",
+    "-f", "lavfi", "-i", "sine=frequency=659:sample_rate=48000",
+    "-t", "1.5", "-shortest", "-c:v", "libx265", "-preset", "ultrafast", "-tag:v", "hvc1", "-pix_fmt", "yuv420p",
+    "-c:a", "ac3", "-b:a", "128k", "-f", "mp4", hevcFile
+  ], { encoding: "utf8" });
+  assert.equal(hevcMade.status, 0, hevcMade.stderr || "could not create HEVC fixture");
+
+  let providerPort = 0;
+  const seen = [];
+  function sendFile(req, res, file, contentType) {
+    const stat = fs.statSync(file); let start = 0, end = stat.size - 1;
+    const match = String(req.headers.range || "").match(/^bytes=(\d+)-(\d*)$/);
+    if (match) {
+      start = Math.min(end, Number(match[1])); if (match[2]) end = Math.min(end, Number(match[2]));
+      res.statusCode = 206; res.setHeader("Content-Range", `bytes ${start}-${end}/${stat.size}`);
+    }
+    res.setHeader("Accept-Ranges", "bytes"); res.setHeader("Content-Type", contentType); res.setHeader("Content-Length", String(end - start + 1));
+    fs.createReadStream(file, { start, end }).pipe(res);
+  }
+  const provider = http.createServer((req, res) => {
+    const url = new URL(req.url, "http://127.0.0.1:" + providerPort); seen.push(url.pathname);
+    const json = value => { res.setHeader("Content-Type", "application/json"); res.end(JSON.stringify(value)); };
+    if (url.pathname === "/player_api.php") {
+      if (url.searchParams.get("username") !== "demo" || url.searchParams.get("password") !== "secret") { res.statusCode = 401; return res.end(); }
+      const action = url.searchParams.get("action");
+      if (!action) return json({ user_info: { auth: 1, status: "Active", exp_date: "1999999999" } });
+      if (action === "get_live_categories") return json([{ category_id: "1", category_name: "Live" }]);
+      if (action === "get_vod_categories") return json([{ category_id: "2", category_name: "Movies" }]);
+      if (action === "get_series_categories" || action === "get_series") return json([]);
+      if (action === "get_live_streams") return json([{ stream_id: 10, name: "AC3 Live", category_id: "1" }]);
+      if (action === "get_vod_streams") return json([{ stream_id: 20, name: "HEVC Film", category_id: "2", container_extension: "mp4" }]);
+      if (action === "get_vod_info") return json({ info: {} });
+      return json([]);
+    }
+    if (url.pathname === "/live/demo/secret/10.ts") return sendFile(req, res, liveFile, "video/mp2t");
+    if (url.pathname === "/movie/demo/secret/20.mp4") return sendFile(req, res, hevcFile, "video/mp4");
+    res.statusCode = 404; res.end();
+  });
+  providerPort = await listen(provider);
+
+  const appPort = await freePort();
+  const app = await startApp(appPort, {
+    DB_PATH: dbPath, FFMPEG_PATH: FFMPEG,
+    IPTV_ALLOWED_PORTS: String(providerPort), IPTV_TRUSTED_PRIVATE_HOSTS: "127.0.0.1",
+    MKV_ALLOWED_PORTS: String(providerPort), MKV_TRUSTED_PRIVATE_HOSTS: "127.0.0.1",
+    MKV_MAX_STREAMS_PER_IP: "3"
+  });
+  const sockets = [];
+  t.after(async () => {
+    sockets.forEach(ws => { try { ws.close(); } catch (_) {} });
+    if (app.exitCode === null) { app.kill("SIGTERM"); await once(app, "exit").catch(() => {}); }
+    await new Promise(resolve => provider.close(resolve));
+    for (let attempt = 0; attempt < 5; attempt++) {
+      try { fs.rmSync(temp, { recursive: true, force: true }); break; }
+      catch (error) { if (attempt === 4) throw error; await new Promise(resolve => setTimeout(resolve, 100)); }
+    }
+  });
+
+  const base = "http://127.0.0.1:" + appPort, wsBase = "ws://127.0.0.1:" + appPort + "/rt", room = "iptv-remux-qa";
+  const host = await openSocket(wsBase); sockets.push(host);
+  const rosterPromise = waitForMessage(host, "roster");
+  host.send(JSON.stringify({ type: "join", room, name: "Host", peerId: "host" }));
+  const roster = await rosterPromise;
+  const connected = await (await fetch(base + "/iptv/connect", {
+    method: "POST", headers: { "content-type": "application/json" },
+    body: JSON.stringify({ type: "xtream", room, roomKey: roster.wallKey, server: "http://127.0.0.1:" + providerPort, username: "demo", password: "secret" })
+  })).json();
+  const sourceToken = connected.source.token;
+  const sourceEcho = waitForMessage(host, "iptv-source"); host.send(JSON.stringify({ type: "iptv-source", token: sourceToken }));
+  assert.equal((await sourceEcho).source.token, sourceToken);
+
+  const guest = await openSocket(wsBase); sockets.push(guest);
+  const guestRoster = waitForMessage(guest, "roster"), guestSource = waitForMessage(guest, "iptv-source");
+  guest.send(JSON.stringify({ type: "join", room, name: "Guest", peerId: "guest" })); await guestRoster;
+  assert.equal((await guestSource).source.token, sourceToken, "late joiner receives the provider session");
+
+  const headers = { "X-SameCouch-IPTV": sourceToken, "content-type": "application/json" };
+  const liveCatalog = await (await fetch(base + "/iptv/catalog?kind=live", { headers })).json();
+  const liveRemux = await (await fetch(base + "/iptv/remux", { method: "POST", headers, body: JSON.stringify({ id: liveCatalog.items[0].id, video: "copy" }) })).json();
+  const liveUrl = new URL(liveRemux.streamPath, base), livePayload = JSON.parse(Buffer.from(liveUrl.searchParams.get("token").split(".")[0], "base64url").toString("utf8"));
+  assert.match(livePayload.url, /^iptv:[A-Za-z0-9_-]+$/); assert.equal(livePayload.video, "copy");
+  assert.doesNotMatch(JSON.stringify(livePayload), /demo|secret|\/live\//);
+  const liveMp4 = Buffer.from(await (await fetch(liveUrl)).arrayBuffer());
+  assert.ok(liveMp4.includes(Buffer.from("avc1")), "live keeps H.264 video");
+  assert.ok(liveMp4.includes(Buffer.from("mp4a")), "AC-3 live audio becomes AAC");
+  assert.ok(seen.includes("/live/demo/secret/10.ts"));
+
+  const movieCatalog = await (await fetch(base + "/iptv/catalog?kind=movie", { headers })).json();
+  const resolved = await (await fetch(base + "/iptv/resolve", { method: "POST", headers, body: JSON.stringify({ id: movieCatalog.items[0].id }) })).json();
+  assert.equal(resolved.playback.fallback, "h264", "HEVC is detected before the browser gets a black player");
+  const movieRemux = await (await fetch(base + "/iptv/remux", { method: "POST", headers, body: JSON.stringify({ id: movieCatalog.items[0].id, video: "h264" }) })).json();
+  const guestMovieRemux = await (await fetch(base + "/iptv/remux", { method: "POST", headers, body: JSON.stringify({ id: movieCatalog.items[0].id, video: "h264" }) })).json();
+  const movieUrl = new URL(movieRemux.streamPath, base), moviePayload = JSON.parse(Buffer.from(movieUrl.searchParams.get("token").split(".")[0], "base64url").toString("utf8"));
+  const guestMovieUrl = new URL(guestMovieRemux.streamPath, base), guestMoviePayload = JSON.parse(Buffer.from(guestMovieUrl.searchParams.get("token").split(".")[0], "base64url").toString("utf8"));
+  assert.equal(moviePayload.video, "h264"); assert.doesNotMatch(JSON.stringify(moviePayload), /demo|secret|\/movie\//);
+  assert.equal(guestMoviePayload.url, moviePayload.url, "viewers share one HEVC-to-H.264 process");
+  const [movieResponse, guestMovieResponse] = await Promise.all([fetch(movieUrl), fetch(guestMovieUrl)]);
+  assert.equal(movieResponse.status, 200); assert.equal(guestMovieResponse.status, 200);
+  const [movieMp4, guestMovieMp4] = await Promise.all([movieResponse.arrayBuffer(), guestMovieResponse.arrayBuffer()].map(async value => Buffer.from(await value)));
+  assert.ok(movieMp4.includes(Buffer.from("avc1")), "HEVC video becomes browser-safe H.264");
+  assert.ok(movieMp4.includes(Buffer.from("mp4a")), "HEVC film audio becomes AAC");
+  assert.ok(!movieMp4.includes(Buffer.from("hvc1")), "HEVC track is not copied through");
+  assert.deepEqual(guestMovieMp4, movieMp4, "both viewers receive the same complete transcoded stream");
+
+  const sharedVideo = waitForMessage(guest, "video");
+  host.send(JSON.stringify({ type: "video", mode: "file", url: resolved.playback.url, id: movieCatalog.items[0].id, title: "HEVC Film", live: false, iptv: true, iptvFallback: "h264" }));
+  const relayed = await sharedVideo;
+  assert.equal(relayed.iptv, true); assert.equal(relayed.iptvFallback, "h264");
 });

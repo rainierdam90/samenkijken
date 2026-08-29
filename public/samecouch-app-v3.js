@@ -597,7 +597,7 @@
     function rtSend(o){ if(rt&&rt.readyState===1){ try{ rt.send(JSON.stringify(o)); }catch(e){} } }
     function currentMediaMessage(){
       if(!currentMedia) return {type:"video",mode:"none",url:"",id:""};
-      return {type:"video",mode:currentMedia.mode,url:currentMedia.url,id:currentMedia.id,title:currentMedia.title||"",live:!!currentMedia.live,iptvSubtitles:Array.isArray(currentMedia.iptvSubtitles)?currentMedia.iptvSubtitles:[]};
+      return {type:"video",mode:currentMedia.mode,url:currentMedia.url,id:currentMedia.id,title:currentMedia.title||"",live:!!currentMedia.live,iptv:!!currentMedia.iptv,iptvFallback:currentMedia.iptvFallback||"",iptvSubtitles:Array.isArray(currentMedia.iptvSubtitles)?currentMedia.iptvSubtitles:[]};
     }
     function handleRT(m){
       if(galleryRT(m)) return;
@@ -646,7 +646,7 @@
         case "iptv-nav": if(iptvController) iptvController.applyNavigation(m); break;
         case "video": if(typeof m.url==="string"){
           if(m.mode==="none"||!m.url){ if(!gallery&&mode!=="none"&&typeof stopWatchingLocal==="function") stopWatchingLocal(); break; }   // someone pressed Stop → whole room back to the living room
-          if(currentMedia&&currentMedia.url===m.url&&mode===m.mode) break; /* already showing — replays must not reload */ urlInput.value=m.url; applyMedia(m.mode,m.url,m.id,{title:m.title,live:m.live,iptvSubtitles:m.iptvSubtitles}); toast((m.from&&peers[m.from]&&peers[m.from].name?peers[m.from].name:tr("others"))+" loaded a video."); } break;
+          if(currentMedia&&currentMedia.url===m.url&&mode===m.mode) break; /* already showing — replays must not reload */ urlInput.value=m.url; applyMedia(m.mode,m.url,m.id,{title:m.title,live:m.live,iptv:m.iptv,iptvFallback:m.iptvFallback,iptvSubtitles:m.iptvSubtitles}); toast((m.from&&peers[m.from]&&peers[m.from].name?peers[m.from].name:tr("others"))+" loaded a video."); } break;
         case "host": { var meHost=(m.peerId===myPeerId); if(meHost&&!isHost) toast(tr("host_now"),5000); isHost=meHost; recomputeAuthority(); updateHostControls(); if(typeof refreshWallDelButtons==="function") refreshWallDelButtons(); break; }
         case "reneg": if(m.target===myPeerId && m.from && peers[m.from]){ refreshIce().then(function(){ reconnectAsInitiator(m.from); }); } break;
       }
@@ -726,7 +726,7 @@
 
     /* ===================== Media: file / youtube / embed ===================== */
     var mode="none", currentMedia=null, pending=null, closing=false, movieErrored=false;
-    var iptvHls=null, iptvLive=false, iptvExternalSubs=[], iptvEmbeddedSubs=[], iptvSelectedSubtitle=-1, iptvRemuxTried=false;
+    var iptvHls=null, iptvHlsWatchdog=null, iptvLive=false, iptvExternalSubs=[], iptvEmbeddedSubs=[], iptvSelectedSubtitle=-1, iptvRemuxLevel=0;
     var subtitleTrackEl=null, subtitleObjectUrl="", currentSubtitle=null, subtitleEnabled=true, subtitleOffset=0;
     /* embed-subtitle overlay (YouTube/Vimeo excluded): SameCouch renders cues itself and runs its own
        clock, anchored to the 3·2·1 countdown, because a cross-origin iframe exposes no player track or clock. */
@@ -742,7 +742,7 @@
     /* A live channel has no shared timeline: every viewer's currentTime starts from whatever
        rolling playlist window they happened to attach to, so "correcting" it just yanks people
        around. Everyone is already at the live edge — only play/pause is worth syncing. */
-    function liveStream(){ return mode==="hls"&&iptvLive; }
+    function liveStream(){ return nativeMode()&&iptvLive; }
     function embedSubMode(){ return mode==="embed"; }   // generic embedded site → overlay-rendered subtitles (not YouTube/Vimeo)
     function updateStageChrome(){ if(stage) stage.classList.toggle("file-mode", !!(movie && movie.style.display==="block")); }   // lift our controls above the native video bar
     function subtitleEligible(){ return !!((nativeMode()||embedSubMode())&&currentMedia&&/^https?:\/\//i.test(currentMedia.url||"")&&!gallery); }
@@ -754,7 +754,7 @@
     }
     function subtitleOffsetText(){ var n=Math.round(subtitleOffset*10)/10, s=Math.abs(n).toFixed(1); if(lang==="nl") s=s.replace(".",","); return (n>0?"+":n<0?"−":"")+s+"s"; }
     function updateSubtitleUI(){
-      if(!subtitleBtn) return; var ok=subtitleEligible(), has=!!(ok&&currentSubtitle), choices=mode==="hls"&&(iptvExternalSubs.length||iptvEmbeddedSubs.length), active=!!((has&&subtitleEnabled)||iptvSelectedSubtitle>=0), label=subtitleOffsetText();
+      if(!subtitleBtn) return; var ok=subtitleEligible(), has=!!(ok&&currentSubtitle), choices=!!(currentMedia&&currentMedia.iptv&&(iptvExternalSubs.length||iptvEmbeddedSubs.length)), active=!!((has&&subtitleEnabled)||iptvSelectedSubtitle>=0), label=subtitleOffsetText();
       subtitleBtn.hidden=!ok; subtitleBtn.classList.toggle("on",active); subtitleBtn.classList.toggle("off",!!((has||choices)&&!active)); subtitleBtn.textContent=(has||choices)?"CC":"CC+"; subtitleBtn.setAttribute("aria-pressed",active?"true":"false");
       setTitle("subtitleBtn",choices?tr("iptv_sub_title"):(has?tr(subtitleEnabled?"sub_turn_off":"sub_turn_on"):tr("sub_add")));
       if(subtitleSync){ subtitleSync.hidden=!has; subtitleSync.setAttribute("aria-label",tr("sub_timing")); }
@@ -766,6 +766,7 @@
     }
 
     function clearHlsPlayer(){
+      clearTimeout(iptvHlsWatchdog); iptvHlsWatchdog=null;
       if(iptvHls){ try{ iptvHls.destroy(); }catch(e){} iptvHls=null; }
       iptvLive=false; iptvExternalSubs=[]; iptvEmbeddedSubs=[]; iptvSelectedSubtitle=-1;
     }
@@ -818,7 +819,7 @@
     }
     function loadHls(url){
       movie.style.display="block"; movieErrored=false;
-      if(!canUseHlsJs()&&movie.canPlayType("application/vnd.apple.mpegurl")){ movie.src=url; movie.load(); setTimeout(function(){ refreshIptvSubtitleTracks(); },500); return; }
+      if(!canUseHlsJs()&&movie.canPlayType("application/vnd.apple.mpegurl")){ movie.src=url; movie.load(); setTimeout(function(){ refreshIptvSubtitleTracks(); },500); iptvHlsWatchdog=setTimeout(function(){ if(mode==="hls"&&currentMedia&&currentMedia.url===url&&currentMedia.iptv&&(movie.readyState<2||!movie.videoWidth)) remuxIptvCurrent(); },12000); return; }
       ensureHlsLibrary().then(function(){
         if(mode!=="hls"||!currentMedia||currentMedia.url!==url) return;
         if(!window.Hls||!window.Hls.isSupported()){ movieErrored=true; toast(tr("iptv_failed"),9000); return; }
@@ -827,19 +828,28 @@
         hls.on(window.Hls.Events.MANIFEST_PARSED,function(){ if(iptvHls===hls){ refreshIptvSubtitleTracks(hls.subtitleTracks||[]); applyPending(); applyUserVolume(); } });
         hls.on(window.Hls.Events.SUBTITLE_TRACKS_UPDATED,function(_event,data){ if(iptvHls===hls) refreshIptvSubtitleTracks((data&&data.subtitleTracks)||hls.subtitleTracks||[]); });
         hls.on(window.Hls.Events.LEVEL_LOADED,function(_event,data){ if(currentMedia&&data&&data.details){ iptvLive=!!data.details.live; currentMedia.live=iptvLive; } });
+        hls.on(window.Hls.Events.BUFFER_CODECS,function(_event,data){
+          if(!currentMedia||!currentMedia.iptv||iptvHls!==hls) return;
+          var tracks=(data&&data.tracks)||data||{}, codecs=[];
+          Object.keys(tracks).forEach(function(key){ var track=tracks[key]||{}; codecs.push(String(track.codec||""),String(track.levelCodec||""),String(track.container||"")); });
+          var found=codecs.join(" ").toLowerCase();
+          if(/(?:hvc1|hev1|hevc|h\.265)/.test(found)){ remuxIptvCurrent("h264"); return; }
+          if(/(?:ac-3|ec-3|eac3|dts)/.test(found)) remuxIptvCurrent("copy");
+        });
         hls.on(window.Hls.Events.ERROR,function(_event,data){
           if(!data||iptvHls!==hls) return;
           var D=window.Hls.ErrorDetails;
           /* MSE cannot take this codec (e.g. AC-3/E-AC-3 audio) → hls.js can never play it; fall
              straight through to the server remuxer instead of retrying into a black screen. */
-          if(data.details===D.BUFFER_INCOMPATIBLE_CODECS_ERROR||data.details===D.MANIFEST_INCOMPATIBLE_CODECS_ERROR){ if(currentMedia&&currentMedia.iptv&&remuxIptvCurrent()) return; }
+          if(data.details===D.BUFFER_INCOMPATIBLE_CODECS_ERROR||data.details===D.BUFFER_ADD_CODEC_ERROR||data.details===D.MANIFEST_INCOMPATIBLE_CODECS_ERROR){ if(currentMedia&&currentMedia.iptv&&remuxIptvCurrent()) return; }
           if(!data.fatal) return;
           if(data.type===window.Hls.ErrorTypes.NETWORK_ERROR) hls.startLoad();
           else if(data.type===window.Hls.ErrorTypes.MEDIA_ERROR){ if(currentMedia&&currentMedia.iptv&&remuxIptvCurrent()) return; hls.recoverMediaError(); }
           else { if(currentMedia&&currentMedia.iptv&&remuxIptvCurrent()) return; movieErrored=true; hls.destroy(); iptvHls=null; toast(tr("iptv_failed"),9000); }
         });
         hls.attachMedia(movie);
-      }).catch(function(){ movieErrored=true; toast(tr("iptv_failed"),9000); });
+        iptvHlsWatchdog=setTimeout(function(){ if(iptvHls===hls&&mode==="hls"&&currentMedia&&currentMedia.url===url&&currentMedia.iptv&&(movie.readyState<2||!movie.videoWidth)) remuxIptvCurrent(); },12000);
+      }).catch(function(){ if(currentMedia&&currentMedia.iptv&&remuxIptvCurrent()) return; movieErrored=true; toast(tr("iptv_failed"),9000); });
     }
     /* lift cues off the very bottom edge (and clear of the controls) by giving each cue a line: setting if it lacks one */
     function liftVttCues(vtt){ return String(vtt||"").replace(/^([^\n]*-->[^\n]*)$/gm, function(line){ return /\bline:/.test(line) ? line : line.replace(/\s+$/,"")+" line:84% align:center"; }); }
@@ -1005,18 +1015,20 @@
       url=safeUrl(url); id=String(id||"").replace(/[^a-zA-Z0-9_:-]/g,"").slice(0,64); meta=meta||{};
       if(typeof screenStream!=="undefined"&&screenStream) stopScreenShare();   // a loaded video replaces a live screen share
       if(gallery){ if(amPresenter()) stopSharing(); else galleryClearLocal(); }
-      clearPlayers(); ducked=false; mode=m; iptvRemuxTried=false; iptvExternalSubs=Array.isArray(meta.iptvSubtitles)?meta.iptvSubtitles.slice(0,20).filter(function(sub){ return sub&&/^https?:\/\//i.test(sub.url||""); }).map(function(sub){ return {name:String(sub.name||"Subtitles").slice(0,80),lang:String(sub.lang||"und").slice(0,12),url:String(sub.url).slice(0,2000)}; }):[]; iptvLive=!!meta.live;
-      currentMedia={ mode:m, url:url, id:id, title:String(meta.title||"").slice(0,180), live:iptvLive, iptvSubtitles:iptvExternalSubs.slice() }; placeholder.style.display="none"; updateLoadBtn();
-      if(m==="file"||m==="mkv"||m==="hls"){ setEmbedUI(false); movie.style.display="block"; if(m==="mkv") prepareMkv(url); else if(m==="hls") loadHls(url); else if(url){ movie.src=url; movie.load(); } }
+      clearPlayers(); ducked=false; mode=m; iptvRemuxLevel=0; iptvExternalSubs=Array.isArray(meta.iptvSubtitles)?meta.iptvSubtitles.slice(0,20).filter(function(sub){ return sub&&/^https?:\/\//i.test(sub.url||""); }).map(function(sub){ return {name:String(sub.name||"Subtitles").slice(0,80),lang:String(sub.lang||"und").slice(0,12),url:String(sub.url).slice(0,2000)}; }):[]; iptvLive=!!meta.live;
+      var fallback=meta.iptvFallback==="h264"?"h264":meta.iptvFallback==="copy"?"copy":"";
+      currentMedia={ mode:m, url:url, id:id, title:String(meta.title||"").slice(0,180), live:iptvLive, iptv:!!meta.iptv, iptvFallback:fallback, iptvSubtitles:iptvExternalSubs.slice() }; placeholder.style.display="none"; updateLoadBtn();
+      if(m==="file"||m==="mkv"||m==="hls"){ setEmbedUI(false); movie.style.display="block"; if(m==="mkv"){ if(!(meta.iptv&&fallback)) prepareMkv(url); } else if(m==="hls") loadHls(url); else if(url){ movie.src=url; movie.load(); } }
       else if(m==="youtube"){ setEmbedUI(false); ytwrap.style.display="block"; loadYouTube(id); }
       else if(m==="vimeo"){ setEmbedUI(false); ytwrap.style.display="block"; loadVimeo(url); }
       else { setEmbedUI(true); framewrap.style.display="flex"; try{ frame.src=url||"about:blank"; }catch(e){} openTab.href=url||"#"; }
       updateStageChrome(); updateSubtitleUI(); if(typeof updateRoomView==="function") updateRoomView(); renderCams();
+      if(fallback) setTimeout(function(){ if(currentMedia&&currentMedia.url===url&&currentMedia.id===id) remuxIptvCurrent(fallback); },0);
     }
     function applyIptvPlayback(data){
       if(!data||!data.playback||!data.item) return; var playback=data.playback, item=data.item;
-      applyMedia(playback.mode,playback.url,item.id,{title:item.title,live:playback.live,iptvSubtitles:playback.subtitles||[]});
-      if(currentMedia){ currentMedia.mine=true; currentMedia.iptv=true; rtSend(currentMediaMessage()); }
+      applyMedia(playback.mode,playback.url,item.id,{title:item.title,live:playback.live,iptv:true,iptvFallback:playback.fallback||"",iptvSubtitles:playback.subtitles||[]});
+      if(currentMedia){ currentMedia.mine=true; rtSend(currentMediaMessage()); }
       if(urlInput) urlInput.value=playback.url; toast(tr("iptv_playing").replace("{t}",item.title||"IPTV"),5000);
     }
     /* the iframe can't tell us why a site failed to show (cross-origin) — ask the room server to
@@ -1094,7 +1106,7 @@
     if($("pickSearch")) $("pickSearch").addEventListener("click", function(){ pickerEl.classList.remove("show"); if(browseBtn) browseBtn.click(); });
     if($("pickFileBtn")) $("pickFileBtn").addEventListener("click", function(){ if(fileInput){ try{ fileInput.accept="video/*,image/*"; }catch(e){} pickerEl.classList.remove("show"); fileInput.click(); } });
     urlInput.addEventListener("keydown", function(e){ if(e.key==="Enter") loadBtn.click(); });
-    if(subtitleBtn) subtitleBtn.addEventListener("click",function(){ if(!subtitleEligible()) return; if(mode==="hls"&&(iptvExternalSubs.length||iptvEmbeddedSubs.length||currentSubtitle)) openIptvSubtitleMenu(); else if(currentSubtitle) setSubtitleEnabled(!subtitleEnabled); else if(subtitleInput) subtitleInput.click(); });
+    if(subtitleBtn) subtitleBtn.addEventListener("click",function(){ if(!subtitleEligible()) return; if(currentMedia&&currentMedia.iptv&&(iptvExternalSubs.length||iptvEmbeddedSubs.length||currentSubtitle)) openIptvSubtitleMenu(); else if(currentSubtitle) setSubtitleEnabled(!subtitleEnabled); else if(subtitleInput) subtitleInput.click(); });
     if($("iptvSubX")) $("iptvSubX").addEventListener("click",function(){ $("iptvSubModal").classList.remove("show"); });
     if(subtitleEarlier) subtitleEarlier.addEventListener("click",function(){ setSubtitleOffset(subtitleOffset-0.5); });
     if(subtitleLater) subtitleLater.addEventListener("click",function(){ setSubtitleOffset(subtitleOffset+0.5); });
@@ -1115,20 +1127,21 @@
         reader.readAsArrayBuffer(f);
       });
     });
-    /* Many IPTV channels and films are H.264 video with AC-3/E-AC-3/DTS audio (very common on EU
-       providers). Chrome cannot decode that audio: a film errors with a codec error, and a live
-       channel plays "nothing" because hls.js cannot build an MSE buffer for it. The server can
-       recover both — it copies the video and re-encodes only the audio to AAC (cheap; no video
-       transcode) from a pipe-able source (the MPEG-TS variant for live, the direct file for VOD). */
-    function remuxIptvCurrent(){
-      if(iptvRemuxTried||!currentMedia||!currentMedia.iptv||!iptvController||!iptvController.remux) return false;
-      iptvRemuxTried=true; var target=currentMedia, wantLive=iptvLive;
+    /* Tier 1 copies the video and converts incompatible audio to AAC. If that output still cannot
+       play (normally HEVC/H.265), tier 2 converts video to browser-safe H.264. Tier 2 is tightly
+       limited server-side because it is the only CPU-heavy path. */
+    function remuxIptvCurrent(requested){
+      if(!currentMedia||!currentMedia.iptv||!iptvController||!iptvController.remux) return false;
+      var video=requested==="h264"?"h264":iptvRemuxLevel>=1?"h264":"copy";
+      var nextLevel=video==="h264"?2:1; if(iptvRemuxLevel>=nextLevel) return false;
+      iptvRemuxLevel=nextLevel; var target=currentMedia, wantLive=!!currentMedia.live, savedSubs=iptvExternalSubs.slice();
       clearHlsPlayer(); movieErrored=false; try{ movie.pause(); movie.removeAttribute("src"); movie.load(); }catch(e){}
+      iptvExternalSubs=savedSubs;
       if(typeof showXfer==="function") showXfer(tr("mkv_preparing"),18,"",{});
-      iptvController.remux(target.id).then(function(streamPath){
+      iptvController.remux(target.id,video).then(function(streamPath){
         if(!currentMedia||currentMedia!==target) return;   // the room moved on
         if(!streamPath||String(streamPath).indexOf("/mkv-stream?")!==0){ movieErrored=true; if(typeof hideXfer==="function") hideXfer(); toast(tr("iptv_failed"),10000); return; }
-        mode="file"; iptvLive=false;   // the remuxed output is a plain progressive stream, even for a live channel
+        mode="file"; iptvLive=wantLive; currentMedia.live=wantLive;   // keep live semantics: never seek/rewind separate live edges
         movie.style.display="block"; movie.src=httpBase()+streamPath; movie.load();
         if(typeof hideXfer==="function") hideXfer(); toast(tr("mkv_ready"),4500);
       });
@@ -1136,7 +1149,7 @@
     }
     movie.addEventListener("error", function(){
       if(mkvDirectTrying||!nativeMode()||!movie.src) return;
-      if((mode==="file"||mode==="hls")&&currentMedia&&currentMedia.iptv&&remuxIptvCurrent()) return;   // codec the browser can't decode → let the server remux it
+      if(nativeMode()&&currentMedia&&currentMedia.iptv&&remuxIptvCurrent()) return;   // audio remux first; a second error escalates HEVC to H.264
       movieErrored=true; try{ playgate.hidden=true; }catch(e){} toast(mode==="mkv"?tr("mkv_failed"):mode==="hls"?tr("iptv_failed"):tr("vid_fail"),10000);
     });
 
@@ -1215,7 +1228,7 @@
         return;
       }
       if(!data.playing){ clearSyncHold(); restoreSyncRate(); markApplying(); if(Math.abs(drift)>1) remoteSetTime(data.time); if(!isPausedMedia()) pauseMedia(); return; }
-      plan=heartbeatCorrection(drift,native,mode==="mkv");
+      plan=heartbeatCorrection(drift,native,mode==="mkv"||iptvRemuxLevel>0);
       if(plan.hold){ holdForAuthority(plan.hold); return; }
       if(syncHoldTimer){ clearSyncHold(); markApplying(); if(isPausedMedia()) playMedia(); }
       if(plan.seek){ markApplying(); remoteSetTime(data.time); }
@@ -1234,6 +1247,7 @@
     movie.addEventListener("ended", updateWakeLock);
     movie.addEventListener("seeked", function(){ if(liveStream()){ consumeRemoteSeek(); return; } if(!consumeRemoteSeek()) broadcast("seek"); });   // a live-edge nudge is local, never a room seek
     movie.addEventListener("loadedmetadata", function(){ nativeBuffering=false; if(mode==="hls"&&!iptvHls) refreshIptvSubtitleTracks(); applyPending(); applyUserVolume(); });
+    movie.addEventListener("loadeddata", function(){ if(movie.readyState>=2&&movie.videoWidth){ clearTimeout(iptvHlsWatchdog); iptvHlsWatchdog=null; } });
     if(movie.textTracks&&movie.textTracks.addEventListener) movie.textTracks.addEventListener("addtrack",function(){ if(mode==="hls"&&!iptvHls) setTimeout(function(){ refreshIptvSubtitleTracks(); },0); });
     function applyPending(){ if(pending&&mediaReady()){ markApplying(); if(typeof pending.time==="number"&&!liveStream()) remoteSetTime(pending.time); if(pending.play) playMedia(); pending=null; } }
     function applyRemote(data){

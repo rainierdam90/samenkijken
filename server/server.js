@@ -73,6 +73,11 @@ const MKV_ALLOWED_PORTS = new Set((process.env.MKV_ALLOWED_PORTS || "80,443,8080
 const MKV_ALLOW_PRIVATE = process.env.MKV_ALLOW_PRIVATE === "1";
 const MKV_MAX_STREAMS = Math.max(1, parseInt(process.env.MKV_MAX_STREAMS || "4", 10));
 const MKV_MAX_STREAMS_PER_IP = Math.max(1, parseInt(process.env.MKV_MAX_STREAMS_PER_IP || "2", 10));
+/* Video transcoding is the expensive last resort for HEVC/H.265. Keep it much tighter than
+   the audio-only remux pool so one difficult channel cannot starve calls or the room server. */
+const MKV_MAX_TRANSCODES = Math.max(1, parseInt(process.env.MKV_MAX_TRANSCODES || "1", 10));
+const MKV_MAX_TRANSCODES_PER_IP = Math.max(1, parseInt(process.env.MKV_MAX_TRANSCODES_PER_IP || "1", 10));
+const MKV_TRANSCODE_THREADS = Math.max(1, Math.min(4, parseInt(process.env.MKV_TRANSCODE_THREADS || "1", 10)));
 const MKV_COPY_AUDIO = process.env.MKV_COPY_AUDIO === "1";
 function resolveFfmpeg() {
   if (process.env.FFMPEG_PATH) return process.env.FFMPEG_PATH;
@@ -204,6 +209,8 @@ const mkvPrepareLimiter = makeLimiter(30, 10 * 60 * 1000);
 const speedTestLimiter = makeLimiter(12, 10 * 60 * 1000);   // explicit user-triggered preflight only
 let activeMkvStreams = 0;
 const activeMkvByIp = new Map();
+let activeMkvTranscodes = 0;
+const activeMkvTranscodesByIp = new Map();
 function mkvError(code, status, message) {
   const error = new Error(message || code); error.code = code; error.status = status; return error;
 }
@@ -278,8 +285,9 @@ async function openMkvSource(raw, redirects) {
     req.once("error", error => reject(error && error.code ? error : mkvError("upstream_failed", 502)));
   });
 }
-function makeMkvToken(url) {
-  const payload = Buffer.from(JSON.stringify({ url, exp: Math.floor(Date.now() / 1000) + MKV_TOKEN_TTL })).toString("base64url");
+function makeMkvToken(url, options) {
+  const video = options && options.video === "h264" ? "h264" : "copy";
+  const payload = Buffer.from(JSON.stringify({ url, video, exp: Math.floor(Date.now() / 1000) + MKV_TOKEN_TTL })).toString("base64url");
   const signature = crypto.createHmac("sha256", MKV_TOKEN_SECRET).update(payload).digest("base64url");
   return payload + "." + signature;
 }
@@ -291,7 +299,7 @@ function readMkvToken(token) {
   if (supplied.length !== expected.length || !crypto.timingSafeEqual(supplied, expected)) throw mkvError("bad_token", 403);
   let payload; try { payload = JSON.parse(Buffer.from(parts[0], "base64url").toString("utf8")); } catch (_) { throw mkvError("bad_token", 403); }
   if (!payload || typeof payload.url !== "string" || !payload.exp || payload.exp < Math.floor(Date.now() / 1000)) throw mkvError("expired_token", 403);
-  return payload.url;
+  return { url: payload.url, video: payload.video === "h264" ? "h264" : "copy" };
 }
 function acquireMkvSlot(ip) {
   const byIp = activeMkvByIp.get(ip) || 0;
@@ -302,6 +310,16 @@ function releaseMkvSlot(ip) {
   activeMkvStreams = Math.max(0, activeMkvStreams - 1);
   const left = Math.max(0, (activeMkvByIp.get(ip) || 1) - 1);
   if (left) activeMkvByIp.set(ip, left); else activeMkvByIp.delete(ip);
+}
+function acquireMkvTranscodeSlot(ip) {
+  const byIp = activeMkvTranscodesByIp.get(ip) || 0;
+  if (activeMkvTranscodes >= MKV_MAX_TRANSCODES || byIp >= MKV_MAX_TRANSCODES_PER_IP) return false;
+  activeMkvTranscodes++; activeMkvTranscodesByIp.set(ip, byIp + 1); return true;
+}
+function releaseMkvTranscodeSlot(ip) {
+  activeMkvTranscodes = Math.max(0, activeMkvTranscodes - 1);
+  const left = Math.max(0, (activeMkvTranscodesByIp.get(ip) || 1) - 1);
+  if (left) activeMkvTranscodesByIp.set(ip, left); else activeMkvTranscodesByIp.delete(ip);
 }
 
 /* ---- daily unique visitors (counted per IP; we only ever store a salted hash, never the raw IP) ---- */
@@ -413,36 +431,130 @@ app.get("/mkv-prepare", async (req, res) => {
   } catch (error) { res.status(error.status || 502).json({ error: error.code || "mkv_source_failed" }); }
 });
 
-app.get("/mkv-stream", async (req, res) => {
-  cors(req, res); res.setHeader("Cache-Control", "no-store"); res.setHeader("Cross-Origin-Resource-Policy", "cross-origin");
-  if (!HAS_FFMPEG) return res.status(503).json({ error: "mkv_unavailable" });
-  let sourceUrl;
-  try { sourceUrl = readMkvToken(req.query.token); }
-  catch (error) { return res.status(error.status || 403).json({ error: error.code || "bad_token" }); }
-  const ip = clientIp(req);
-  if (!acquireMkvSlot(ip)) { res.setHeader("Retry-After", "20"); return res.status(503).json({ error: "mkv_busy" }); }
+/* Assigned after the realtime room helpers are initialized. The route handlers run later, so
+   IPTV remux tickets can be resolved directly in-process instead of hairpinning through the
+   public SameCouch domain (which was slow and unreliable on a single VPS instance). */
+let iptvService = null;
+const activeSharedTranscodes = new Map();
+const MKV_SHARED_BACKLOG = Math.max(1024 * 1024, parseInt(process.env.MKV_SHARED_BACKLOG || String(8 * 1024 * 1024), 10));
 
-  let source = null, ffmpeg = null, released = false, finished = false;
-  function release() { if (!released) { released = true; releaseMkvSlot(ip); } }
-  function stop() { if (source && !source.destroyed) source.destroy(); if (ffmpeg && !ffmpeg.killed) { try { ffmpeg.kill("SIGKILL"); } catch (_) {} } release(); }
-  res.once("finish", () => { finished = true; release(); });
-  res.once("close", () => { if (!finished) stop(); });
-  try { source = await openMkvSource(sourceUrl); }
-  catch (error) { release(); return res.status(error.status || 502).json({ error: error.code || "mkv_source_failed" }); }
-  if (res.destroyed) { stop(); return; }
-
+function mkvFfmpegArgs(transcodeVideo) {
   const audioArgs = MKV_COPY_AUDIO
     ? ["-c:a", "copy"]
     : ["-c:a", "aac", "-b:a", "192k", "-ac", "2", "-ar", "48000", "-af", "aresample=async=1000:first_pts=0"];
-  const ffmpegArgs = [
+  const videoArgs = transcodeVideo
+    ? ["-c:v", "libx264", "-preset", "ultrafast", "-tune", "zerolatency", "-crf", "25", "-pix_fmt", "yuv420p", "-vf", "scale=w=-2:h=min(720\\,ih)", "-threads", String(MKV_TRANSCODE_THREADS), "-g", "60", "-keyint_min", "30", "-sc_threshold", "0"]
+    : ["-c:v", "copy"];
+  return [
     "-hide_banner", "-loglevel", "warning", "-fflags", "+genpts",
     "-probesize", "5M", "-analyzeduration", "5000000", "-i", "pipe:0",
     "-map", "0:v:0", "-map", "0:a:0?", "-sn",
-    "-c:v", "copy", ...audioArgs,
+    ...videoArgs, ...audioArgs,
     "-max_muxing_queue_size", "1024", "-avoid_negative_ts", "make_zero",
     "-movflags", "+frag_keyframe+empty_moov+default_base_moof", "-frag_duration", "1000000",
     "-f", "mp4", "pipe:1"
   ];
+}
+async function openMkvTicketSource(streamTicket) {
+  if (streamTicket.url.startsWith("iptv:")) {
+    if (!iptvService) throw mkvError("iptv_unavailable", 503);
+    return iptvService.openRemuxSource(streamTicket.url.slice(5));
+  }
+  return openMkvSource(streamTicket.url);
+}
+function setMkvStreamHeaders(res) {
+  res.status(200); res.setHeader("Content-Type", "video/mp4"); res.setHeader("Content-Disposition", "inline; filename=\"samecouch-stream.mp4\""); res.setHeader("Accept-Ranges", "none");
+}
+
+function createSharedTranscode(key, streamTicket, ip) {
+  let readyResolve;
+  const state = { key, clients: new Set(), backlog: [], backlogBytes: 0, overflow: false, done: false, error: null, source: null, ffmpeg: null, stderr: "", ready: new Promise(resolve => { readyResolve = resolve; }), readyResolve, released: false, mkvSlot: false, transcodeSlot: false };
+  activeSharedTranscodes.set(key, state);
+  const release = () => {
+    if (state.released) return; state.released = true; if (state.mkvSlot) releaseMkvSlot(ip); if (state.transcodeSlot) releaseMkvTranscodeSlot(ip);
+  };
+  const fail = (code, status) => {
+    if (state.done) return; state.error = { code, status }; state.done = true; state.readyResolve();
+    state.clients.forEach(client => { if (!client.headersSent) client.status(status).json({ error: code }); else if (!client.writableEnded) client.end(); });
+    state.clients.clear(); activeSharedTranscodes.delete(key); release();
+  };
+  if (!acquireMkvSlot(ip)) { fail("mkv_busy", 503); return state; }
+  state.mkvSlot = true;
+  if (!acquireMkvTranscodeSlot(ip)) { fail("mkv_transcode_busy", 503); return state; }
+  state.transcodeSlot = true;
+  (async () => {
+    try { state.source = await openMkvTicketSource(streamTicket); }
+    catch (error) { fail(error.code || "mkv_source_failed", error.status || 502); return; }
+    state.ffmpeg = spawn(FFMPEG_PATH, mkvFfmpegArgs(true), { stdio: ["pipe", "pipe", "pipe"] });
+    state.ffmpeg.stderr.on("data", chunk => { state.stderr = (state.stderr + String(chunk)).slice(-8000); });
+    state.ffmpeg.stdin.on("error", () => {});
+    state.source.once("error", () => { if (state.ffmpeg && !state.ffmpeg.killed) state.ffmpeg.kill("SIGKILL"); });
+    state.ffmpeg.once("error", () => fail("mkv_remux_failed", 502));
+    state.ffmpeg.stdout.on("data", chunk => {
+      if (!state.overflow && state.backlogBytes + chunk.length <= MKV_SHARED_BACKLOG) { state.backlog.push(chunk); state.backlogBytes += chunk.length; }
+      else state.overflow = true;
+      state.clients.forEach(client => {
+        if (client.destroyed || client.writableEnded) { state.clients.delete(client); return; }
+        if (client.writableLength > 4 * 1024 * 1024) { client.destroy(); state.clients.delete(client); return; }
+        client.write(chunk);
+      });
+    });
+    state.ffmpeg.once("close", code => {
+      if (state.done) return;
+      state.done = true; state.clients.forEach(client => { if (!client.writableEnded) client.end(); }); state.clients.clear(); activeSharedTranscodes.delete(key); release();
+      if (code !== 0 && state.stderr) console.warn("[MKV] shared H.264 transcode stopped:", state.stderr.replace(/https?:\/\/\S+/g, "[source]").slice(-1000));
+    });
+    state.readyResolve(); state.source.pipe(state.ffmpeg.stdin);
+  })();
+  return state;
+}
+
+async function attachSharedTranscode(state, res) {
+  await state.ready;
+  if (state.error) { if (!res.headersSent) res.status(state.error.status).json({ error: state.error.code }); return; }
+  if (state.overflow) { res.setHeader("Retry-After", "20"); res.status(503).json({ error: "mkv_transcode_busy" }); return; }
+  setMkvStreamHeaders(res);
+  state.backlog.forEach(chunk => res.write(chunk));
+  if (state.done) { res.end(); return; }
+  state.clients.add(res);
+  res.once("close", () => {
+    state.clients.delete(res);
+    if (!state.done && !state.clients.size) setTimeout(() => {
+      if (state.done || state.clients.size) return;
+      if (state.source && !state.source.destroyed) state.source.destroy();
+      if (state.ffmpeg && !state.ffmpeg.killed) state.ffmpeg.kill("SIGKILL");
+    }, 1500);
+  });
+}
+
+app.get("/mkv-stream", async (req, res) => {
+  cors(req, res); res.setHeader("Cache-Control", "no-store"); res.setHeader("Cross-Origin-Resource-Policy", "cross-origin");
+  if (!HAS_FFMPEG) return res.status(503).json({ error: "mkv_unavailable" });
+  let streamTicket;
+  try { streamTicket = readMkvToken(req.query.token); }
+  catch (error) { return res.status(error.status || 403).json({ error: error.code || "bad_token" }); }
+  const ip = clientIp(req);
+  const sharedKey = streamTicket.video === "h264" && streamTicket.url.startsWith("iptv:") ? streamTicket.url : "";
+  if (sharedKey) {
+    const state = activeSharedTranscodes.get(sharedKey) || createSharedTranscode(sharedKey, streamTicket, ip);
+    return attachSharedTranscode(state, res);
+  }
+  if (!acquireMkvSlot(ip)) { res.setHeader("Retry-After", "20"); return res.status(503).json({ error: "mkv_busy" }); }
+  const transcodeVideo = streamTicket.video === "h264";
+  if (transcodeVideo && !acquireMkvTranscodeSlot(ip)) {
+    releaseMkvSlot(ip); res.setHeader("Retry-After", "20"); return res.status(503).json({ error: "mkv_transcode_busy" });
+  }
+
+  let source = null, ffmpeg = null, released = false, finished = false;
+  function release() { if (!released) { released = true; releaseMkvSlot(ip); if (transcodeVideo) releaseMkvTranscodeSlot(ip); } }
+  function stop() { if (source && !source.destroyed) source.destroy(); if (ffmpeg && !ffmpeg.killed) { try { ffmpeg.kill("SIGKILL"); } catch (_) {} } release(); }
+  res.once("finish", () => { finished = true; release(); });
+  res.once("close", () => { if (!finished) stop(); });
+  try { source = await openMkvTicketSource(streamTicket); }
+  catch (error) { release(); return res.status(error.status || 502).json({ error: error.code || "mkv_source_failed" }); }
+  if (res.destroyed) { stop(); return; }
+
+  const ffmpegArgs = mkvFfmpegArgs(transcodeVideo);
   ffmpeg = spawn(FFMPEG_PATH, ffmpegArgs, { stdio: ["pipe", "pipe", "pipe"] });
   let ffmpegError = "";
   ffmpeg.stderr.on("data", chunk => { ffmpegError = (ffmpegError + String(chunk)).slice(-8000); });
@@ -454,7 +566,7 @@ app.get("/mkv-stream", async (req, res) => {
     if (code !== 0 && ffmpegError) console.warn("[MKV] FFmpeg stopped:", ffmpegError.replace(/https?:\/\/\S+/g, "[source]").slice(-1000));
     release();
   });
-  res.status(200); res.setHeader("Content-Type", "video/mp4"); res.setHeader("Content-Disposition", "inline; filename=\"samecouch-stream.mp4\""); res.setHeader("Accept-Ranges", "none");
+  setMkvStreamHeaders(res);
   source.pipe(ffmpeg.stdin); ffmpeg.stdout.pipe(res);
 });
 
@@ -741,7 +853,7 @@ function getRoom(code) {
   return r;
 }
 const { createIptvService } = require("./iptv");
-const iptvService = createIptvService({
+iptvService = createIptvService({
   clientIp,
   makeLimiter,
   authorizeRoom(room, key) {
@@ -749,7 +861,8 @@ const iptvService = createIptvService({
     return !!(current && current.members.size && safeEqual(String(key || ""), wallTokenFor(room)));
   },
   roomLive(room) { const current = rooms.get(String(room || "")); return !!(current && current.members.size); },   // a provider session dies with the room it was opened for
-  makeStreamToken: HAS_FFMPEG ? makeMkvToken : null   // lets the IPTV remux fallback reuse the /mkv-stream transcoder
+  makeStreamToken: HAS_FFMPEG ? makeMkvToken : null,   // lets the IPTV remux fallback reuse the /mkv-stream transcoder
+  internalBase: "http://127.0.0.1:" + PORT
 });
 app.use("/iptv", iptvService.router);
 function hashPass(p) { return crypto.createHash("sha256").update("wmt:" + String(p || "")).digest("hex"); }
@@ -1146,14 +1259,16 @@ wss.on("connection", (ws) => {
       const id = String(m.id || "").slice(0, 64);
       const title = String(m.title || "").slice(0, 180);
       const live = !!m.live;
+      const iptv = !!m.iptv && !!r.iptvSource;
+      const iptvFallback = iptv && (m.iptvFallback === "copy" || m.iptvFallback === "h264") ? m.iptvFallback : "";
       const iptvSubtitles = Array.isArray(m.iptvSubtitles) ? m.iptvSubtitles.slice(0, 20).map(sub => ({
         name: String(sub && sub.name || "Subtitles").slice(0, 80),
         lang: String(sub && sub.lang || "und").replace(/[^a-zA-Z0-9-]/g, "").slice(0, 12) || "und",
         url: String(sub && sub.url || "").slice(0, 2000)
       })).filter(sub => /^https?:\/\//i.test(sub.url)) : [];
       if (!r.media || r.media.url !== url || !SUBTITLE_MODES.has(mode)) { r.subtitle = null; r.subclock = null; }
-      r.media = url ? { mode, url, id, title, live, iptvSubtitles } : null;   // remember what's playing → replay to (re)joiners so a missed link never stays blank
-      broadcastRoom(r, { type: "video", from: ws._peerId, mode, url, id, title, live, iptvSubtitles }, ws);
+      r.media = url ? { mode, url, id, title, live, iptv, iptvFallback, iptvSubtitles } : null;   // remember what's playing → replay to (re)joiners so a missed link never stays blank
+      broadcastRoom(r, { type: "video", from: ws._peerId, mode, url, id, title, live, iptv, iptvFallback, iptvSubtitles }, ws);
       return;
     }
 

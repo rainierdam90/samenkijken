@@ -137,9 +137,9 @@ test("browsing artwork never starves playback or the API budget", async t => {
   await Promise.all(pending);
 });
 
-/* Fallback for codecs the browser can't decode (AC-3 etc.): /remux hands the player a
-   /mkv-stream path. Its token is only base64+HMAC — readable — so it must wrap the OPAQUE
-   resource URL, never the credentialed provider URL. And live must use the pipe-able TS variant. */
+/* Fallback for codecs the browser can't decode (AC-3/HEVC): /remux hands the player a
+   /mkv-stream path. Its signed token is readable, so it may contain only an internal random
+   ticket, never the credentialed provider URL. Live must use the pipe-able TS variant. */
 test("the remux fallback returns an opaque, credential-free stream path", async t => {
   let providerPort;
   const seen = [];
@@ -166,7 +166,7 @@ test("the remux fallback returns an opaque, credential-free stream path", async 
   const service = createIptvService({
     authorizeRoom: (room, key) => room === "qa-room" && key === "qa-key",
     clientIp: () => "qa", makeLimiter: () => () => true,
-    makeStreamToken: url => "tok." + Buffer.from(url).toString("base64url")   // stub mirroring the real base64+HMAC shape
+    makeStreamToken: (ref, options) => "tok." + Buffer.from(JSON.stringify({ ref, video: options.video })).toString("base64url")
   });
   app.use("/iptv", service.router);
   const appServer = http.createServer(app), appPort = await listen(appServer), appBase = `http://127.0.0.1:${appPort}`;
@@ -186,10 +186,17 @@ test("the remux fallback returns an opaque, credential-free stream path", async 
 
   const wrapped = Buffer.from(decodeURIComponent(remux.streamPath.split("token=")[1]).slice(4), "base64url").toString("utf8");
   assert.doesNotMatch(wrapped, /demo|secret/, "the token must not carry the provider credentials");
-  assert.match(wrapped, /\/iptv\/resource\//, "the token wraps the opaque resource URL");
+  const payload = JSON.parse(wrapped);
+  assert.match(payload.ref, /^iptv:[A-Za-z0-9_-]+$/, "the token carries only an opaque internal ticket");
+  assert.equal(payload.video, "copy");
 
-  // and that opaque URL, when fetched, streams the credentialed TS variant server-side
-  const opaque = wrapped.replace(/^"?url"?:?/, "").match(/https?:\/\/[^"]+/)[0];
-  assert.equal(await (await fetch(opaque)).text(), "ts-bytes");
+  // The remuxer resolves that ticket in-process and receives the credentialed TS bytes server-side.
+  const input = await service.openRemuxSource(payload.ref.slice(5));
+  const chunks = []; for await (const chunk of input) chunks.push(chunk);
+  assert.equal(Buffer.concat(chunks).toString(), "ts-bytes");
   assert.ok(seen.includes("/live/demo/secret/10.ts"), "live remux must pull the pipe-able .ts variant, not the .m3u8");
+
+  const h264 = await (await fetch(appBase + "/iptv/remux", { method: "POST", headers: { "X-SameCouch-IPTV": token, "content-type": "application/json" }, body: JSON.stringify({ id: catalog.items[0].id, video: "h264" }) })).json();
+  const h264Payload = JSON.parse(Buffer.from(decodeURIComponent(h264.streamPath.split("token=")[1]).slice(4), "base64url").toString("utf8"));
+  assert.equal(h264Payload.video, "h264", "HEVC fallback requests the bounded H.264 tier");
 });

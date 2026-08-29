@@ -13,6 +13,7 @@ const https = require("https");
 const dns = require("dns").promises;
 const net = require("net");
 const crypto = require("crypto");
+const { Readable } = require("stream");
 const express = require("express");
 
 function createIptvService(options) {
@@ -42,6 +43,7 @@ function createIptvService(options) {
   const allowedHosts = (process.env.IPTV_ALLOWED_HOSTS || "").split(",").map(v => v.trim().toLowerCase()).filter(Boolean);
   const sessions = new Map();
   const streams = new Map();
+  const remuxStreams = new Map();
   const artwork = new Map();
 
   const allowConnect = options.makeLimiter ? options.makeLimiter(10, 10 * 60 * 1000) : () => true;
@@ -53,7 +55,8 @@ function createIptvService(options) {
   const clientIp = options.clientIp || (req => (req.socket && req.socket.remoteAddress) || "?");
   const authorizeRoom = options.authorizeRoom || (() => false);
   const roomLive = options.roomLive || (() => true);
-  const makeStreamToken = typeof options.makeStreamToken === "function" ? options.makeStreamToken : null;   // wraps a credentialed upstream URL for the remuxer, opaque to the browser
+  const makeStreamToken = typeof options.makeStreamToken === "function" ? options.makeStreamToken : null;
+  const internalBase = String(options.internalBase || "").replace(/\/+$/, "");
 
   function cors(res) {
     res.setHeader("Access-Control-Allow-Origin", "*");
@@ -155,6 +158,49 @@ function createIptvService(options) {
       response.once("end", () => resolve(Buffer.concat(chunks, bytes)));
       response.once("error", () => reject(failure("upstream_failed", 502)));
     });
+  }
+  function readAtMost(response, maxBytes) {
+    return new Promise(resolve => {
+      const chunks = []; let bytes = 0, settled = false;
+      const finish = () => { if (settled) return; settled = true; resolve(Buffer.concat(chunks, bytes)); };
+      response.on("data", chunk => {
+        if (settled) return;
+        const left = maxBytes - bytes, part = chunk.length > left ? chunk.subarray(0, left) : chunk;
+        if (part.length) { chunks.push(part); bytes += part.length; }
+        if (bytes >= maxBytes) { finish(); response.destroy(); }
+      });
+      response.once("end", finish); response.once("error", finish);
+    });
+  }
+  async function probeRange(url, range) {
+    const opened = await openUpstream(url, { headers: { Range: range }, accept: "video/*,audio/*,*/*;q=0.1", timeout: 12000 });
+    const response = opened.response;
+    const contentRange = String(response.headers["content-range"] || "");
+    const totalMatch = contentRange.match(/\/(\d+)$/);
+    const total = totalMatch ? Number(totalMatch[1]) : Number(response.headers["content-length"] || 0);
+    return { bytes: await readAtMost(response, 512 * 1024), total: Number.isFinite(total) ? total : 0 };
+  }
+  async function playbackFallback(item, upstream) {
+    if (item.kind === "live") return "";   // hls.js reports actual live codecs after parsing the first segment
+    if (item.compatibility !== undefined) return item.compatibility;
+    if (item.compatibilityPromise) return item.compatibilityPromise;
+    item.compatibilityPromise = (async () => {
+      try {
+        const first = await probeRange(upstream, "bytes=0-524287");
+        const samples = [first.bytes];
+        if (first.total > 1024 * 1024) {
+          try { samples.push((await probeRange(upstream, "bytes=" + Math.max(0, first.total - 524288) + "-")).bytes); } catch (_) {}
+        }
+        const marker = Buffer.concat(samples).toString("latin1");
+        if (/(?:hvc1|hev1|V_MPEGH\/ISO\/HEVC)/i.test(marker)) return "h264";
+        if (/(?:ac-3|ec-3|A_(?:E?AC3|DTS)|dts[cehl])/i.test(marker)) return "copy";
+        if ((item.extension || "").toLowerCase() === "mkv") return "copy";
+      } catch (_) { if ((item.extension || "").toLowerCase() === "mkv") return "copy"; }
+      return "";
+    })();
+    item.compatibility = await item.compatibilityPromise;
+    item.compatibilityPromise = null;
+    return item.compatibility;
   }
   async function fetchJson(url, maxBytes) {
     const opened = await openUpstream(url, { accept: "application/json,*/*;q=0.2" });
@@ -301,7 +347,7 @@ function createIptvService(options) {
   function dropSession(token) {
     token = String(token || "");
     if (!sessions.delete(token)) return false;
-    streams.forEach((stream, key) => { if (stream.sessionToken === token) streams.delete(key); });
+    streams.forEach((stream, key) => { if (stream.sessionToken === token) { streams.delete(key); if (stream.remuxKey) remuxStreams.delete(stream.remuxKey); } });
     artwork.forEach((entry, key) => { if (entry.sessionToken === token) artwork.delete(key); });
     return true;
   }
@@ -354,23 +400,34 @@ function createIptvService(options) {
     const stream = { ticket, sessionToken: session.token, exp: Date.now() + streamTtl * 1000, hardExp: Date.now() + streamMaxTtl * 1000, aliases: new Map([["root", upstream]]), aliasByUrl: new Map([[upstream, "root"]]) };
     streams.set(ticket, stream); return stream;
   }
+  function createRemuxStream(session, item, upstream, video) {
+    const key = session.token + "|" + item.id + "|" + video;
+    const existingTicket = remuxStreams.get(key), existing = existingTicket && streams.get(existingTicket), now = Date.now();
+    if (existing && existing.exp >= now && existing.hardExp >= now) {
+      existing.exp = Math.min(now + streamTtl * 1000, existing.hardExp); return existing;
+    }
+    if (existingTicket) remuxStreams.delete(key);
+    const stream = createStream(session, upstream); stream.remuxKey = key; remuxStreams.set(key, stream.ticket); return stream;
+  }
   function aliasFor(stream, upstream) {
     const found = stream.aliasByUrl.get(upstream); if (found) return found;
     if (stream.aliases.size >= 10000) throw failure("manifest_too_large", 413);
     const alias = randomToken(10); stream.aliases.set(alias, upstream); stream.aliasByUrl.set(upstream, alias); return alias;
   }
-  function resourceUrl(req, stream, alias) { return externalBase(req) + "/iptv/resource/" + encodeURIComponent(stream.ticket) + "/" + encodeURIComponent(alias); }
-  function rewriteManifest(req, stream, upstream, text) {
+  function resourceUrlAt(base, stream, alias) { return base + "/iptv/resource/" + encodeURIComponent(stream.ticket) + "/" + encodeURIComponent(alias); }
+  function resourceUrl(req, stream, alias) { return resourceUrlAt(externalBase(req), stream, alias); }
+  function rewriteManifestAt(base, stream, upstream, text) {
     return String(text || "").split(/\r?\n/).map(line => {
       if (!line) return line;
       if (line[0] === "#") return line.replace(/URI="([^"]+)"/g, (_all, value) => {
         let url; try { url = new URL(value, upstream).toString(); } catch (_) { return 'URI=""'; }
-        return 'URI="' + resourceUrl(req, stream, aliasFor(stream, url)) + '"';
+        return 'URI="' + resourceUrlAt(base, stream, aliasFor(stream, url)) + '"';
       });
       let url; try { url = new URL(line.trim(), upstream).toString(); } catch (_) { return ""; }
-      return resourceUrl(req, stream, aliasFor(stream, url));
+      return resourceUrlAt(base, stream, aliasFor(stream, url));
     }).join("\n");
   }
+  function rewriteManifest(req, stream, upstream, text) { return rewriteManifestAt(externalBase(req), stream, upstream, text); }
   function makePool(maxTotal, maxPerIp) {
     const byIp = new Map(); let total = 0;
     return {
@@ -505,7 +562,7 @@ function createIptvService(options) {
           extraSubs = extraSubs.concat(subtitleCandidates(detail, session.base));
         } catch (_) { /* provider detail is optional; the stream can still play */ }
       }
-      const upstream = streamUrl(session, item, "hls"), stream = createStream(session, upstream);
+      const upstream = streamUrl(session, item, "hls"), fallback = await playbackFallback(item, upstream), stream = createStream(session, upstream);
       const ext = (item.extension || "").toLowerCase(), mode = item.kind === "live" || ext === "m3u8" ? "hls" : ext === "mkv" ? "mkv" : "file";
       const subtitles = [];
       extraSubs.forEach(sub => {
@@ -513,14 +570,13 @@ function createIptvService(options) {
         const alias = aliasFor(stream, sub.url); subtitles.push({ name: sub.name, lang: sub.lang, url: resourceUrl(req, stream, alias), _raw: sub.url });
       });
       subtitles.forEach(sub => { delete sub._raw; });
-      res.json({ item: publicItem(req, session, item), playback: { url: resourceUrl(req, stream, "root"), mode, live: item.kind === "live", subtitles } });
+      res.json({ item: publicItem(req, session, item), playback: { url: resourceUrl(req, stream, "root"), mode, live: item.kind === "live", fallback, subtitles } });
     } catch (error) { errorResponse(res, error); }
   });
 
-  /* Fallback when the browser cannot decode a channel/film directly (e.g. AC-3/E-AC-3 audio,
-     which Chrome refuses): hand the remuxer a pipe-able source — the raw MPEG-TS variant for
-     live, the direct file for VOD — and it copies the video and re-encodes audio to AAC. The
-     credentialed URL is wrapped in an opaque signed token, so it never reaches the browser. */
+  /* Fallback when the browser cannot decode a channel/film directly. The normal tier copies
+     video and converts only audio to AAC; the explicit h264 tier is the bounded last resort for
+     HEVC. The signed browser token contains only "iptv:<random ticket>", never a provider URL. */
   router.post("/remux", async (req, res) => {
     const ip = clientIp(req); if (!allowApi(ip)) return res.status(429).json({ error: "rate_limited" });
     if (!makeStreamToken) return res.status(503).json({ error: "iptv_unavailable" });
@@ -529,14 +585,37 @@ function createIptvService(options) {
     try {
       const upstream = streamUrl(session, item, item.kind === "live" ? "ts" : "file");   // TS (live) and progressive files pipe into ffmpeg; an .m3u8 cannot
       await validateTarget(upstream);
-      /* The remuxer's token is only base64+HMAC, i.e. readable — so it must NOT carry the
-         credentialed provider URL. Wrap the OPAQUE same-origin resource URL instead; the IPTV
-         proxy adds the credentials server-side when the remuxer fetches it. */
-      const stream = createStream(session, upstream);
-      const opaqueUrl = resourceUrl(req, stream, "root");
-      res.json({ streamPath: "/mkv-stream?token=" + encodeURIComponent(makeStreamToken(opaqueUrl)), live: item.kind === "live" });
+      const video = (req.body || {}).video === "h264" ? "h264" : "copy";
+      const stream = createRemuxStream(session, item, upstream, video);
+      const opaqueRef = "iptv:" + stream.ticket;
+      res.json({ streamPath: "/mkv-stream?token=" + encodeURIComponent(makeStreamToken(opaqueRef, { video })), live: item.kind === "live", video });
     } catch (error) { errorResponse(res, error); }
   });
+
+  /* Resolve an IPTV remux ticket inside this process. This deliberately bypasses the public
+     domain/CDN hairpin. If an M3U source itself is HLS, make its relative segment URLs absolute
+     opaque loopback URLs so FFmpeg can follow them without ever seeing provider credentials. */
+  async function openRemuxSource(ticket) {
+    const stream = streams.get(String(ticket || "")), now = Date.now();
+    if (!stream || stream.exp < now || stream.hardExp < now) { if (stream) streams.delete(stream.ticket); throw failure("stream_expired", 403); }
+    const session = touchSession(stream.sessionToken); if (!session) throw failure("source_expired", 403);
+    const upstream = stream.aliases.get("root"); if (!upstream) throw failure("resource_missing", 404);
+    stream.exp = Math.min(now + streamTtl * 1000, stream.hardExp);
+    const opened = await openUpstream(upstream, { accept: "application/vnd.apple.mpegurl,application/x-mpegURL,video/*,audio/*,*/*;q=0.2", timeout: 35000 });
+    let source = opened.response;
+    const type = baseType(source.headers["content-type"]);
+    let isManifest = /mpegurl/.test(type) || /\.m3u8(?:$|[?#])/i.test(opened.url);
+    if (!isManifest && !/^(?:video|audio)\//.test(type)) {
+      const head = await peekHead(source, 16); if (head.length) source.unshift(head);
+      if (/^\s*#EXTM3U/i.test(head.toString("utf8"))) isManifest = true;
+    }
+    if (!isManifest) return source;
+    const body = await readBody(source, 4 * 1024 * 1024);
+    const base = internalBase || "http://127.0.0.1:8080";
+    const rendered = rewriteManifestAt(base, stream, opened.url, body.toString("utf8"));
+    if (session.username && rendered.includes(session.username)) throw failure("provider_unsupported", 502);
+    return Readable.from([Buffer.from(rendered)]);
+  }
 
   async function proxyResource(req, res) {
     const stream = streams.get(String(req.params.ticket || ""));
@@ -607,13 +686,14 @@ function createIptvService(options) {
   const sweep = setInterval(() => {
     const now = Date.now();
     sessions.forEach((session, token) => { if (session.exp < now || session.hardExp < now) dropSession(token); });
-    streams.forEach((stream, token) => { if (stream.exp < now || stream.hardExp < now || !sessions.has(stream.sessionToken)) streams.delete(token); });
+    streams.forEach((stream, token) => { if (stream.exp < now || stream.hardExp < now || !sessions.has(stream.sessionToken)) { streams.delete(token); if (stream.remuxKey) remuxStreams.delete(stream.remuxKey); } });
     artwork.forEach((entry, token) => { if (entry.exp < now || !sessions.has(entry.sessionToken)) artwork.delete(token); });
   }, 60000);
   if (sweep.unref) sweep.unref();
 
   return {
     router,
+    openRemuxSource,
     publicSession(token) { const session = touchSession(token); return session ? publicSource(session) : null; },
     hasSession(token) { return !!peekSession(token); },
     sessionRoom(token) { const session = peekSession(token); return session ? session.room : ""; },

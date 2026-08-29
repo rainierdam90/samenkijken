@@ -155,10 +155,10 @@
     }
     /* The player calls this when the browser cannot decode a title directly; the server hands
        back a /mkv-stream path that copies the video and re-encodes the audio to AAC. */
-    async function remux(itemId) {
+    async function remux(itemId, video) {
       if (!source || !itemId) return null;
       try {
-        const data = await responseJson(await fetch(api("/remux"), { method:"POST", headers:headers(true), body:JSON.stringify({ id:itemId }) }));
+        const data = await responseJson(await fetch(api("/remux"), { method:"POST", headers:headers(true), body:JSON.stringify({ id:itemId, video:video === "h264" ? "h264" : "copy" }) }));
         return data && data.streamPath ? data.streamPath : null;
       } catch (_) { return null; }
     }
