@@ -85,7 +85,7 @@ test("IPTV credentials stay server-side while catalogs, HLS, VOD, series and sub
   const m3uCatalog=await (await fetch(appBase+"/iptv/catalog?kind=live",{headers:{"X-SameCouch-IPTV":m3u.source.token}})).json(); assert.equal(m3uCatalog.items[0].title,"M3U News"); assert.doesNotMatch(JSON.stringify(m3uCatalog),/demo|secret/);
 });
 
-test("provider media redirects may use a high sibling port without opening arbitrary targets", async t => {
+test("provider media redirects may use a public high port without opening private targets", async t => {
   let apiPort, mediaPort;
   const media = http.createServer((req, res) => {
     if (req.url === "/stream.m3u8") {
@@ -123,7 +123,7 @@ test("provider media redirects may use a high sibling port without opening arbit
   apiPort = await listen(provider);
 
   const before = { trusted: process.env.IPTV_TRUSTED_PRIVATE_HOSTS, ports: process.env.IPTV_ALLOWED_PORTS };
-  process.env.IPTV_TRUSTED_PRIVATE_HOSTS = "127.0.0.1,localhost";
+  process.env.IPTV_TRUSTED_PRIVATE_HOSTS = "127.0.0.1";
   process.env.IPTV_ALLOWED_PORTS = String(apiPort);
   const app = express(); app.use(express.json());
   const service = createIptvService({ authorizeRoom: (room, key) => room === "qa-room" && key === "qa-key", clientIp: () => "qa", makeLimiter: () => () => true });
@@ -146,7 +146,7 @@ test("provider media redirects may use a high sibling port without opening arbit
   const unrelated = await (await fetch(appBase + "/iptv/resolve", { method: "POST", headers, body: JSON.stringify({ id: catalog.items[1].id }) })).json();
   const unrelatedResponse = await fetch(unrelated.playback.url);
   assert.equal(unrelatedResponse.status, 403);
-  assert.equal((await unrelatedResponse.json()).error, "port_not_allowed");
+  assert.equal((await unrelatedResponse.json()).error, "private_address");
 });
 
 test("Xtream direct_source and TS-only accounts bypass broken synthetic media routes", async t => {
