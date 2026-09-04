@@ -9,6 +9,7 @@
     const more = byId("iptvMore"), back = byId("iptvBack"), kinds = byId("iptvKinds"), errorEl = byId("iptvError");
     let connectMode = "xtream", kind = "live", source = null, categories = { live: [], movie: [], series: [] };
     let cursor = null, loading = false, seriesOpen = false, searchTimer = null, requestId = 0, applyingNav = false, pendingNav = null;
+    const rememberedLoginKey = "wmt_iptv_login_v1";
 
     function t(key) { return options.tr ? options.tr(key) : key; }
     function api(path) { return String(options.base ? options.base() : location.origin).replace(/\/$/, "") + "/iptv" + path; }
@@ -33,9 +34,29 @@
       if (!response.ok) { const e = new Error(body.error || "iptv_failed"); e.code = body.error || "iptv_failed"; throw e; }
       return body;
     }
+    function forgetRememberedLogin() { try { localStorage.removeItem(rememberedLoginKey); } catch (_) {} }
+    function readRememberedLogin() {
+      try {
+        const saved = JSON.parse(localStorage.getItem(rememberedLoginKey) || "null");
+        if (!saved || typeof saved !== "object") return null;
+        const server = String(saved.server || "").slice(0, 2048), username = String(saved.username || "").slice(0, 200), password = String(saved.password || "").slice(0, 300);
+        return /^https?:\/\//i.test(server) && username && password ? { server, username, password } : null;
+      } catch (_) { return null; }
+    }
+    function restoreRememberedLogin() {
+      const remember = byId("iptvRemember"), saved = readRememberedLogin();
+      if (remember) remember.checked = !!saved;
+      if (!saved) return;
+      byId("iptvServer").value = saved.server; byId("iptvUser").value = saved.username; byId("iptvPass").value = saved.password;
+    }
+    function saveRememberedLogin(body) {
+      try { localStorage.setItem(rememberedLoginKey, JSON.stringify({ server:body.server, username:body.username, password:body.password })); }
+      catch (_) { /* private browsing/storage policy may refuse persistence; login still works */ }
+    }
     function showSetup() {
       setup.style.display = ""; browser.classList.remove("show"); byId("iptvDisconnect").hidden = true;
       sourceName.textContent = ""; seriesOpen = false; back.style.display = "none"; kinds.style.display = "flex"; category.style.display = ""; search.parentElement.style.display = "flex";
+      restoreRememberedLogin();
     }
     function showBrowser() {
       setup.style.display = "none"; browser.classList.add("show"); byId("iptvDisconnect").hidden = false;
@@ -45,6 +66,7 @@
       connectMode = next === "m3u" ? "m3u" : "xtream";
       document.querySelectorAll("[data-iptv-mode]").forEach(button => button.classList.toggle("active", button.dataset.iptvMode === connectMode));
       byId("iptvXtreamFields").hidden = connectMode !== "xtream"; byId("iptvM3uFields").hidden = connectMode !== "m3u"; errorEl.textContent = "";
+      byId("iptvRememberRow").hidden = connectMode !== "xtream";
     }
     function pickInitialKind() {
       if ((categories.live || []).length) return "live";
@@ -132,10 +154,12 @@
       const body = { type:connectMode, room:options.room ? options.room() : "", roomKey:options.roomKey ? options.roomKey() : "" };
       if (connectMode === "xtream") { body.server = byId("iptvServer").value.trim(); body.username = byId("iptvUser").value.trim(); body.password = byId("iptvPass").value; }
       else body.playlistUrl = byId("iptvPlaylist").value.trim();
+      const rememberLogin = body.type === "xtream" && byId("iptvRemember").checked;
       if (!body.roomKey) { errorEl.textContent = t("iptv_err_room_wait"); return; }
       loading = true; const button = byId("iptvConnect"), old = button.textContent; button.disabled = true; button.textContent = t("iptv_connecting");
       try {
         const data = await responseJson(await fetch(api("/connect"), { method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify(body) }));
+        if (rememberLogin) saveRememberedLogin(body); else if (body.type === "xtream") forgetRememberedLogin();
         byId("iptvPass").value = ""; byId("iptvUser").value = ""; byId("iptvServer").value = ""; byId("iptvPlaylist").value = "";
         categories = data.categories || {live:[],movie:[],series:[]}; setSource(data.source, false); if (options.send) options.send({type:"iptv-source",token:source.token}); loading=false; setKind(pickInitialKind(),false); setTimeout(() => loadCatalog(false),0);
       } catch (error) { errorEl.textContent = errorText(error.code); }
@@ -166,7 +190,7 @@
     function close() { if (root) root.classList.remove("show"); }
     function disconnect() { if (options.send) options.send({type:"iptv-source",token:""}); setSource(null); }
     function localize() {
-      const texts = {iptvTitle:"iptv_title",iptvSetupTitle:"iptv_setup_title",iptvSetupSub:"iptv_setup_sub",iptvModeXtream:"iptv_login",iptvModeM3u:"iptv_m3u",iptvServerLbl:"iptv_server",iptvUserLbl:"iptv_user",iptvPassLbl:"iptv_pass",iptvPlaylistLbl:"iptv_playlist",iptvConnect:"iptv_connect",iptvPrivacy:"iptv_privacy",iptvSearchBtn:"iptv_search_btn",iptvMore:"iptv_more",iptvDisconnect:"iptv_other"};
+      const texts = {iptvTitle:"iptv_title",iptvSetupTitle:"iptv_setup_title",iptvSetupSub:"iptv_setup_sub",iptvModeXtream:"iptv_login",iptvModeM3u:"iptv_m3u",iptvServerLbl:"iptv_server",iptvUserLbl:"iptv_user",iptvPassLbl:"iptv_pass",iptvPlaylistLbl:"iptv_playlist",iptvRememberLbl:"iptv_remember",iptvConnect:"iptv_connect",iptvPrivacy:"iptv_privacy",iptvSearchBtn:"iptv_search_btn",iptvMore:"iptv_more",iptvDisconnect:"iptv_other"};
       Object.keys(texts).forEach(id => { const el = byId(id); if (el) el.textContent = t(texts[id]); }); search.placeholder = t("iptv_search_ph");
       const labels = {live:"iptv_live",movie:"iptv_movies",series:"iptv_series"}; kinds.querySelectorAll("[data-kind]").forEach(button => button.textContent = t(labels[button.dataset.kind])); renderCategories();
     }
@@ -174,6 +198,7 @@
     document.querySelectorAll("[data-iptv-mode]").forEach(button => button.addEventListener("click", () => setConnectMode(button.dataset.iptvMode)));
     kinds.querySelectorAll("[data-kind]").forEach(button => button.addEventListener("click", () => setKind(button.dataset.kind)));
     byId("iptvConnect").addEventListener("click", connect); byId("iptvClose").addEventListener("click", close); byId("iptvDisconnect").addEventListener("click", disconnect);
+    byId("iptvRemember").addEventListener("change", event => { if (!event.target.checked) forgetRememberedLogin(); });
     byId("iptvSearchBtn").addEventListener("click", () => { catalogNavigation(); loadCatalog(false); }); category.addEventListener("change", () => { catalogNavigation(); loadCatalog(false); }); more.addEventListener("click", () => loadCatalog(true));
     back.addEventListener("click", () => setKind("series")); search.addEventListener("keydown", event => { if (event.key === "Enter") loadCatalog(false); });
     search.addEventListener("input", () => { clearTimeout(searchTimer); searchTimer = setTimeout(() => { catalogNavigation(); loadCatalog(false); }, 450); });

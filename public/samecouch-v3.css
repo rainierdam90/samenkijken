@@ -216,6 +216,7 @@
   .iptv-fields{display:grid;gap:10px}.iptv-fields[hidden]{display:none}.iptv-fields label{display:grid;gap:5px;color:var(--muted);font-size:12px}
   .iptv input,.iptv select{min-width:0;background:var(--bg);border:1px solid var(--line);color:var(--txt);border-radius:10px;padding:11px 12px;font:inherit}
   .iptv input:focus,.iptv select:focus{outline:none;border-color:rgba(244,177,74,.62)}
+  .iptv-remember{display:flex;align-items:center;gap:8px;margin-top:11px;color:var(--muted);font-size:12px;cursor:pointer}.iptv-remember input{width:16px;height:16px;margin:0;accent-color:var(--gold)}
   .iptv-connect{width:100%;margin-top:14px}.iptv-error{min-height:19px;color:var(--bad);font-size:13px;margin-top:8px}.iptv-privacy{font-size:11px!important;margin:10px 0 0!important;color:#8f857c!important}
   .iptv-browser{display:none;flex:1;min-height:0;flex-direction:column}.iptv-browser.show{display:flex}
   .iptv-toolbar{display:flex;gap:9px;align-items:center;padding:11px 16px;border-bottom:1px solid var(--line);flex-wrap:wrap}.iptv-toolbar .iptv-kinds{flex:0 0 auto}.iptv-toolbar select{max-width:230px}.iptv-search{display:flex;gap:7px;flex:1 1 220px}.iptv-search input{flex:1}

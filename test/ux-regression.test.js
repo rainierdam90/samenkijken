@@ -77,6 +77,7 @@ test("IPTV supports secure provider login, shared browsing, HLS and host subtitl
   assert.match(publicMarkup, /id="iptvServer"[^>]*type="url"/);
   assert.match(publicMarkup, /id="iptvUser"/);
   assert.match(publicMarkup, /id="iptvPass"[^>]*type="password"/);
+  assert.match(publicMarkup, /id="iptvRemember"[^>]*type="checkbox"/);
   assert.match(publicMarkup, /id="iptvPlaylist"[^>]*type="url"/);
   assert.match(publicMarkup, /id="iptvSubModal"/);
   assert.match(appJs, /return \{ mode:"hls", url:url \}/);
@@ -104,7 +105,11 @@ test("IPTV supports secure provider login, shared browsing, HLS and host subtitl
   assert.match(iptvServerSource, /loopbackRequest\(req\).*equalInternalKey/s);   // the internal FFmpeg source is not a public proxy
   assert.match(iptvServerSource, /VLC\/3\.0\.21 LibVLC\/3\.0\.21/);   // common panels reject unknown media user agents
   assert.match(serverSource, /const iptv = !!m\.iptv && !!r\.iptvSource/);
-  assert.doesNotMatch(iptvJs, /localStorage|sessionStorage/);
+  assert.doesNotMatch(iptvJs, /sessionStorage/);
+  assert.match(iptvJs, /const rememberedLoginKey = "wmt_iptv_login_v1"/);
+  assert.match(iptvJs, /localStorage\.setItem\(rememberedLoginKey/);
+  assert.match(iptvJs, /localStorage\.removeItem\(rememberedLoginKey/);
+  assert.match(iptvJs, /if \(rememberLogin\) saveRememberedLogin\(body\)/);   // save only after the provider accepted the login
   assert.doesNotMatch(iptvJs, /type:"iptv-source"[^\n]+username|type:"iptv-source"[^\n]+password/);
 });
 
