@@ -180,6 +180,7 @@ test("IPTV remux is credential-opaque, room-wide, audible for AC-3 and H.264-com
 
   let providerPort = 0;
   const seen = [], seenRequests = [];
+  let interruptedLiveRequests = 0;
   function sendFile(req, res, file, contentType) {
     const stat = fs.statSync(file); let start = 0, end = stat.size - 1;
     const match = String(req.headers.range || "").match(/^bytes=(\d+)-(\d*)$/);
@@ -206,7 +207,19 @@ test("IPTV remux is credential-opaque, room-wide, audible for AC-3 and H.264-com
       if (action === "get_vod_info") return json({ info: {} });
       return json([]);
     }
-    if (url.pathname === "/live/demo/secret/10.ts") return sendFile(req, res, liveFile, "video/mp2t");
+    if (url.pathname === "/live/demo/secret/10.ts") {
+      interruptedLiveRequests++;
+      if (interruptedLiveRequests === 1) {
+        /* Real Xtream edges sometimes announce a huge finite body but drop the socket after a
+           short live burst. The gateway must reconnect its private FFmpeg feed instead of ending
+           the room stream and sending every viewer back into buffering. */
+        const body = fs.readFileSync(liveFile), cutoff = Math.max(188, Math.floor(body.length / 3 / 188) * 188);
+        res.writeHead(200, { "Content-Type": "video/mp2t", "Content-Length": String(body.length * 20) });
+        res.write(body.subarray(0, cutoff), () => res.socket.destroy());
+        return;
+      }
+      return sendFile(req, res, liveFile, "video/mp2t");
+    }
     if (url.pathname === "/movie/demo/secret/20.mp4") return sendFile(req, res, hevcFile, "video/mp4");
     res.statusCode = 404; res.end();
   });
@@ -258,6 +271,7 @@ test("IPTV remux is credential-opaque, room-wide, audible for AC-3 and H.264-com
   const liveMp4 = Buffer.from(await (await fetch(liveUrl)).arrayBuffer());
   assert.ok(liveMp4.includes(Buffer.from("avc1")), "live keeps H.264 video");
   assert.ok(liveMp4.includes(Buffer.from("mp4a")), "AC-3 live audio becomes AAC");
+  assert.ok(interruptedLiveRequests >= 2, "a prematurely closed live edge is reopened without restarting the player");
   assert.ok(seen.includes("/live/demo/secret/10.ts"));
   assert.ok(seenRequests.some(request => request.path === "/live/demo/secret/10.ts" && /VLC/i.test(request.userAgent)), "media requests use a provider-compatible player identity");
 

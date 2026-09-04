@@ -437,10 +437,10 @@ function createIptvService(options) {
     if (item.episode !== undefined) out.episode = item.episode;
     return out;
   }
-  function createStream(session, upstream) {
+  function createStream(session, upstream, options) {
     if (streams.size >= maxTickets) throw failure("iptv_busy", 503);
     const ticket = randomToken(24);
-    const stream = { ticket, sessionToken: session.token, exp: Date.now() + streamTtl * 1000, hardExp: Date.now() + streamMaxTtl * 1000, aliases: new Map([["root", upstream]]), aliasByUrl: new Map([[upstream, "root"]]) };
+    const stream = { ticket, sessionToken: session.token, live: !!(options && options.live), exp: Date.now() + streamTtl * 1000, hardExp: Date.now() + streamMaxTtl * 1000, aliases: new Map([["root", upstream]]), aliasByUrl: new Map([[upstream, "root"]]) };
     streams.set(ticket, stream); return stream;
   }
   function createRemuxStream(session, item, upstream, video) {
@@ -450,7 +450,7 @@ function createIptvService(options) {
       existing.exp = Math.min(now + streamTtl * 1000, existing.hardExp); return existing;
     }
     if (existingTicket) remuxStreams.delete(key);
-    const stream = createStream(session, upstream); stream.remuxKey = key; remuxStreams.set(key, stream.ticket); return stream;
+    const stream = createStream(session, upstream, { live: item.kind === "live" }); stream.remuxKey = key; remuxStreams.set(key, stream.ticket); return stream;
   }
   function aliasFor(stream, upstream) {
     const found = stream.aliasByUrl.get(upstream); if (found) return found;
@@ -619,7 +619,7 @@ function createIptvService(options) {
       /* A TS-only account cannot ever open the synthetic .m3u8 URL. Tell the client to enter
          the AAC remux path immediately, avoiding a dead request and a needless 12-second wait. */
       const fallback = item.kind === "live" && !hlsAllowed ? "copy" : await playbackFallback(item, upstream);
-      const stream = createStream(session, upstream);
+      const stream = createStream(session, upstream, { live: item.kind === "live" });
       const ext = (item.extension || "").toLowerCase(), mode = item.kind === "live" || ext === "m3u8" ? "hls" : ext === "mkv" ? "mkv" : "file";
       const subtitles = [];
       extraSubs.forEach(sub => {
@@ -681,11 +681,11 @@ function createIptvService(options) {
     const upstream = stream.aliases.get(String(req.params.alias || "")); if (!upstream) return res.status(404).json({ error: "resource_missing" });
     stream.exp = Math.min(Date.now() + streamTtl * 1000, stream.hardExp);
     const ip = clientIp(req); if (!streamPool.acquire(ip)) { res.setHeader("Retry-After", "10"); return res.status(503).json({ error: "iptv_busy" }); }
-    let source, released = false, finished = false;
+    let source, reconnectTimer = null, released = false, finished = false;
     const upstreamAbort = typeof AbortController !== "undefined" ? new AbortController() : null;
     const done = () => { if (!released) { released = true; streamPool.release(ip); } };
     res.once("finish", () => { finished = true; done(); });
-    res.once("close", () => { if (!finished) { if (upstreamAbort) upstreamAbort.abort(); if (source && !source.destroyed) source.destroy(); } done(); });
+    res.once("close", () => { if (reconnectTimer) clearTimeout(reconnectTimer); if (!finished) { if (upstreamAbort) upstreamAbort.abort(); if (source && !source.destroyed) source.destroy(); } done(); });
     try {
       const headers = {}; if (req.headers.range) headers.Range = String(req.headers.range).slice(0, 160);
       const opened = await openUpstream(upstream, { headers, accept: "application/vnd.apple.mpegurl,application/x-mpegURL,text/vtt,video/*,audio/*,*/*;q=0.2", timeout: 35000, userAgent: mediaUserAgent, signal: upstreamAbort && upstreamAbort.signal });
@@ -708,11 +708,55 @@ function createIptvService(options) {
         lockDownResponse(res);
         res.status(200).type("application/vnd.apple.mpegurl").send(rendered); done(); return;
       }
-      const status = source.statusCode === 206 ? 206 : 200; res.status(status);
+      /* A few Xtream live endpoints advertise a multi-gigabyte Content-Length, then close the
+         socket after only 40-80 MB. FFmpeg interprets that as a broken finite file and exits,
+         which restarts the shared player at 0. Keep only the private loopback live feed open and
+         reconnect it at the current live edge; public playback, HLS, VOD ranges and subtitles
+         retain their normal one-request semantics. MPEG-TS tolerates the discontinuity. */
+      const resilientLive = !!(req.iptvRemuxSource && stream.live && !req.headers.range);
+      const status = source.statusCode === 206 && !resilientLive ? 206 : 200; res.status(status);
       res.setHeader("Content-Type", safeMediaType(source.headers["content-type"]));
-      ["content-length", "content-range", "accept-ranges", "last-modified", "etag"].forEach(name => { if (source.headers[name]) res.setHeader(name, source.headers[name]); });
+      (resilientLive ? [] : ["content-length", "content-range", "accept-ranges", "last-modified", "etag"]).forEach(name => { if (source.headers[name]) res.setHeader(name, source.headers[name]); });
       lockDownResponse(res);
       res.setHeader("Cross-Origin-Resource-Policy", "cross-origin"); res.setHeader("Timing-Allow-Origin", "*");
+      if (resilientLive) {
+        let retries = 0;
+        const requestOptions = { accept: "video/mp2t,video/*,audio/*,*/*;q=0.2", timeout: 35000, userAgent: mediaUserAgent, signal: upstreamAbort && upstreamAbort.signal };
+        const scheduleReconnect = () => {
+          if (finished || res.destroyed || res.writableEnded || (upstreamAbort && upstreamAbort.signal.aborted)) { done(); return; }
+          if (++retries > 12) { res.end(); done(); return; }
+          const delay = Math.min(1500, 100 * Math.pow(2, Math.min(retries - 1, 4)));
+          reconnectTimer = setTimeout(async () => {
+            reconnectTimer = null;
+            try {
+              const reopened = await openUpstream(upstream, requestOptions);
+              if (finished || res.destroyed || res.writableEnded || (upstreamAbort && upstreamAbort.signal.aborted)) { reopened.response.destroy(); done(); return; }
+              attach(reopened.response);
+            } catch (_) { scheduleReconnect(); }
+          }, delay);
+          if (reconnectTimer.unref) reconnectTimer.unref();
+        };
+        const attach = next => {
+          source = next;
+          let settled = false, bytes = 0;
+          const onData = chunk => { bytes += chunk.length; };
+          const settle = retry => {
+            if (settled) return;
+            settled = true;
+            next.unpipe(res); next.removeListener("data", onData);
+            if (!retry) { if (!res.writableEnded) res.end(); done(); return; }
+            if (bytes >= 188 * 32) retries = 0;   // a healthy burst gets a fresh retry budget
+            scheduleReconnect();
+          };
+          next.on("data", onData);
+          next.once("end", () => settle(false));
+          next.once("aborted", () => settle(true));
+          next.once("error", () => settle(true));
+          next.pipe(res, { end: false });
+        };
+        attach(source);
+        return;
+      }
       source.once("error", () => { if (!res.writableEnded) res.end(); done(); });
       source.pipe(res);
     } catch (error) { done(); errorResponse(res, error); }
@@ -731,6 +775,7 @@ function createIptvService(options) {
      hostname, username or password. Reusing proxyResource preserves Range and HLS rewriting. */
   router.get("/remux-source/:ticket", (req, res) => {
     if (!loopbackRequest(req) || !equalInternalKey(req.query.key)) return res.status(404).end();
+    req.iptvRemuxSource = true;
     req.params.alias = "root";
     return proxyResource(req, res);
   });
