@@ -391,6 +391,7 @@ app.get("/config", (req, res) => {
     hasYouTube: !!YT_API_KEY,
     hasMkv: HAS_FFMPEG,
     hasIptv: true,
+    iptvTransport: "provider-route-v3",
     mkvMode: MKV_COPY_AUDIO ? "remux-copy" : "remux-aac",
     hasPush: HAS_PUSH,
     vapidPublic: HAS_PUSH ? VAPID_PUBLIC : "",

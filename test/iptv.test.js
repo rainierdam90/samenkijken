@@ -85,6 +85,68 @@ test("IPTV credentials stay server-side while catalogs, HLS, VOD, series and sub
   const m3uCatalog=await (await fetch(appBase+"/iptv/catalog?kind=live",{headers:{"X-SameCouch-IPTV":m3u.source.token}})).json(); assert.equal(m3uCatalog.items[0].title,"M3U News"); assert.doesNotMatch(JSON.stringify(m3uCatalog),/demo|secret/);
 });
 
+test("Xtream direct_source and TS-only accounts bypass broken synthetic media routes", async t => {
+  let providerPort;
+  const seen = [];
+  const provider = http.createServer((req, res) => {
+    const url = new URL(req.url, `http://127.0.0.1:${providerPort}`); seen.push(url.pathname);
+    const json = value => { res.setHeader("Content-Type", "application/json"); res.end(JSON.stringify(value)); };
+    if (url.pathname === "/player_api.php") {
+      if (url.searchParams.get("username") !== "demo" || url.searchParams.get("password") !== "secret") { res.statusCode = 401; return res.end(); }
+      const action = url.searchParams.get("action");
+      if (!action) return json({ user_info: { auth: 1, status: "Active", allowed_output_formats: ["ts"] } });
+      if (action === "get_live_categories") return json([{ category_id: "1", category_name: "Live" }]);
+      if (action === "get_vod_categories") return json([{ category_id: "2", category_name: "Movies" }]);
+      if (action === "get_series_categories") return json([]);
+      if (action === "get_live_streams") return json([{ stream_id: 10, name: "CDN Live", category_id: "1", direct_source: `http://127.0.0.1:${providerPort}/edge/live.ts?u=demo&p=secret` }]);
+      if (action === "get_vod_streams") return json([{ stream_id: 20, name: "CDN Movie", category_id: "2", container_extension: "mp4", direct_source: `http://127.0.0.1:${providerPort}/edge/movie.mp4?u=demo&p=secret` }]);
+      if (action === "get_vod_info") return json({});
+      return json([]);
+    }
+    if (url.pathname === "/edge/live.ts") { res.setHeader("Content-Type", "video/mp2t"); return res.end("direct-live"); }
+    if (url.pathname === "/edge/movie.mp4") { res.setHeader("Content-Type", "video/mp4"); return res.end("direct-movie"); }
+    res.statusCode = 404; res.end();
+  });
+  providerPort = await listen(provider);
+
+  const before = { trusted: process.env.IPTV_TRUSTED_PRIVATE_HOSTS, ports: process.env.IPTV_ALLOWED_PORTS };
+  process.env.IPTV_TRUSTED_PRIVATE_HOSTS = "127.0.0.1"; process.env.IPTV_ALLOWED_PORTS = String(providerPort);
+  const app = express(); app.use(express.json());
+  const service = createIptvService({
+    authorizeRoom: (room, key) => room === "qa-room" && key === "qa-key", clientIp: () => "qa", makeLimiter: () => () => true,
+    makeStreamToken: (ref, options) => "tok." + Buffer.from(JSON.stringify({ ref, video: options.video })).toString("base64url")
+  });
+  app.use("/iptv", service.router); const appServer = http.createServer(app), appPort = await listen(appServer), appBase = `http://127.0.0.1:${appPort}`;
+  t.after(async () => {
+    await Promise.all([close(appServer), close(provider)]);
+    if (before.trusted === undefined) delete process.env.IPTV_TRUSTED_PRIVATE_HOSTS; else process.env.IPTV_TRUSTED_PRIVATE_HOSTS = before.trusted;
+    if (before.ports === undefined) delete process.env.IPTV_ALLOWED_PORTS; else process.env.IPTV_ALLOWED_PORTS = before.ports;
+  });
+
+  const connected = await (await fetch(appBase + "/iptv/connect", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ type: "xtream", room: "qa-room", roomKey: "qa-key", server: `http://127.0.0.1:${providerPort}`, username: "demo", password: "secret" }) })).json();
+  const auth = { "X-SameCouch-IPTV": connected.source.token, "content-type": "application/json" };
+  const liveCatalogText = await (await fetch(appBase + "/iptv/catalog?kind=live", { headers: auth })).text();
+  const movieCatalogText = await (await fetch(appBase + "/iptv/catalog?kind=movie", { headers: auth })).text();
+  assert.doesNotMatch(liveCatalogText + movieCatalogText, /demo|secret|\/edge\//, "private direct URLs never leave the gateway");
+  const liveItem = JSON.parse(liveCatalogText).items[0], movieItem = JSON.parse(movieCatalogText).items[0];
+
+  const live = await (await fetch(appBase + "/iptv/resolve", { method: "POST", headers: auth, body: JSON.stringify({ id: liveItem.id }) })).json();
+  assert.equal(live.playback.fallback, "copy", "TS-only accounts skip the unusable HLS attempt");
+  assert.equal(await (await fetch(live.playback.url)).text(), "direct-live");
+  assert.ok(!seen.includes("/live/demo/secret/10.m3u8"), "the synthetic HLS route is never requested");
+
+  const remux = await (await fetch(appBase + "/iptv/remux", { method: "POST", headers: auth, body: JSON.stringify({ id: liveItem.id }) })).json();
+  const wrapped = Buffer.from(decodeURIComponent(remux.streamPath.split("token=")[1]).slice(4), "base64url").toString("utf8");
+  assert.doesNotMatch(wrapped, /demo|secret|\/edge\//, "the remux token contains only an opaque ticket");
+  const payload = JSON.parse(wrapped), input = await service.openRemuxSource(payload.ref.slice(5)), chunks = [];
+  for await (const chunk of input) chunks.push(chunk);
+  assert.equal(Buffer.concat(chunks).toString(), "direct-live");
+
+  const movie = await (await fetch(appBase + "/iptv/resolve", { method: "POST", headers: auth, body: JSON.stringify({ id: movieItem.id }) })).json();
+  assert.equal(await (await fetch(movie.playback.url)).text(), "direct-movie");
+  assert.ok(!seen.includes("/movie/demo/secret/20.mp4"), "the synthetic movie route is never requested");
+});
+
 test("cancelling a player request also cancels an upstream request that has not sent headers", async t => {
   let providerPort, slowResponse;
   let startedResolve, closedResolve;

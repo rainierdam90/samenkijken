@@ -234,6 +234,21 @@ function createIptvService(options) {
     let path = url.pathname.replace(/\/(?:player_api|get)\.php$/i, "").replace(/\/+$/, "");
     return url.protocol + "//" + url.host + path;
   }
+  function mediaBaseFromAuth(root, fallback) {
+    const info = root && asRecord(root.server_info), rawHost = info && safeText(info.url, 2048);
+    if (!rawHost) return fallback;
+    const protocol = /^(?:http|https)$/i.test(asString(info.server_protocol)) ? asString(info.server_protocol).toLowerCase() : new URL(fallback).protocol.slice(0, -1);
+    let candidate = /^https?:\/\//i.test(rawHost) ? rawHost : protocol + "://" + rawHost;
+    try {
+      const url = new URL(candidate);
+      if (!url.port) {
+        const port = safeText(url.protocol === "https:" ? info.https_port : info.port, 8);
+        if (/^\d{1,5}$/.test(port)) url.port = port;
+      }
+      candidate = url.toString();
+    } catch (_) { return fallback; }
+    try { return normalizeBase(candidate); } catch (_) { return fallback; }
+  }
   function apiUrl(session, action, extra) {
     let out = session.base + "/player_api.php?username=" + encodeURIComponent(session.username) + "&password=" + encodeURIComponent(session.password);
     if (action) out += "&action=" + encodeURIComponent(action);
@@ -242,10 +257,16 @@ function createIptvService(options) {
   }
   function streamUrl(session, item, format) {
     if (session.type === "m3u") return item.upstream;
+    /* Xtream may return a per-title CDN/signed URL. Some panels expose their API on one host
+       while media lives on another; rebuilding /live or /movie against the API host then gives
+       an empty connection even though login and catalogue both work. Keep this URL private in
+       the session and prefer it for both direct playback and the server-side remux fallback. */
+    if (item.directSource) return item.directSource;
+    const base = session.mediaBase || session.base;
     const u = encodeURIComponent(session.username), p = encodeURIComponent(session.password), id = encodeURIComponent(item.providerId);
-    if (item.kind === "live") return session.base + "/live/" + u + "/" + p + "/" + id + (format === "ts" ? ".ts" : ".m3u8");
-    if (item.kind === "movie") return session.base + "/movie/" + u + "/" + p + "/" + id + "." + (item.extension || "mp4");
-    return session.base + "/series/" + u + "/" + p + "/" + id + "." + (item.extension || "mp4");
+    if (item.kind === "live") return base + "/live/" + u + "/" + p + "/" + id + (format === "ts" ? ".ts" : ".m3u8");
+    if (item.kind === "movie") return base + "/movie/" + u + "/" + p + "/" + id + "." + (item.extension || "mp4");
+    return base + "/series/" + u + "/" + p + "/" + id + "." + (item.extension || "mp4");
   }
   async function categoriesFor(session, kind) {
     if (session.type === "m3u") return session.categories[kind] || [];
@@ -325,6 +346,8 @@ function createIptvService(options) {
     const title = safeText(rec.name || rec.title, 180);
     if (!providerId || !title) return null;
     const item = { id: kind + ":" + providerId, providerId, kind, title, categoryId: safeText(rec.category_id, 80), image: safeText(kind === "series" ? (rec.cover || rec.stream_icon) : rec.stream_icon, 2048), extension: safeText(rec.container_extension, 12).toLowerCase(), rating: asNumber(rec.rating), year: safeText(rec.year || rec.release_date || rec.releaseDate, 16), plot: safeText(rec.plot, 600), subtitleData: rec.subtitles || rec.subtitle || rec.subtitles_url || null };
+    const directSource = safeText(rec.direct_source || rec.directSource, 4096);
+    if (/^https?:\/\//i.test(directSource)) item.directSource = directSource;
     if (!item.extension) item.extension = kind === "live" ? "m3u8" : "mp4";
     if (!Number.isFinite(item.rating)) delete item.rating;
     if (!item.categoryId) delete item.categoryId;
@@ -509,7 +532,13 @@ function createIptvService(options) {
         const auth = await fetchJson(apiUrl(probe));
         const root = asRecord(auth), user = root && asRecord(root.user_info);
         if (!user || asNumber(user.auth) !== 1 || /disabled|banned/i.test(asString(user.status))) throw failure("provider_auth", 401);
-        session = { token: randomToken(24), type, room, base, username, password, name: safeText(new URL(base).hostname, 120) || "IPTV", exp: Date.now() + sourceTtl * 1000, hardExp: Date.now() + sourceMaxTtl * 1000, roomEmptySince: 0, categories: { live: [], movie: [], series: [] }, catalog: {}, loading: {}, items: new Map(), artByUrl: new Map() };
+        const proposedMediaBase = mediaBaseFromAuth(root, base);
+        let mediaBase = base;
+        try { await validateTarget(proposedMediaBase); mediaBase = proposedMediaBase; } catch (_) { /* an invalid provider hint must not break a valid login */ }
+        const allowedOutputFormats = Array.isArray(user.allowed_output_formats)
+          ? user.allowed_output_formats.map(value => safeText(value, 20).toLowerCase()).filter(Boolean)
+          : [];
+        session = { token: randomToken(24), type, room, base, mediaBase, username, password, allowedOutputFormats, name: safeText(new URL(base).hostname, 120) || "IPTV", exp: Date.now() + sourceTtl * 1000, hardExp: Date.now() + sourceMaxTtl * 1000, roomEmptySince: 0, categories: { live: [], movie: [], series: [] }, catalog: {}, loading: {}, items: new Map(), artByUrl: new Map() };
         session.categories.live = await categoriesFor(session, "live");
         session.categories.movie = await categoriesFor(session, "movie");
         session.categories.series = await categoriesFor(session, "series");
@@ -554,6 +583,8 @@ function createIptvService(options) {
         const providerId = safeText(rec.id || rec.stream_id, 100), title = safeText(rec.title || rec.name, 180); if (!providerId || !title) return;
         const info = asRecord(rec.info) || {}, season = asNumber(rec.season || rec.season_number || seasonHint), episode = asNumber(rec.episode_num || rec.episode || info.episode_num);
         const item = { id: "episode:" + providerId, providerId, kind: "episode", title, extension: safeText(rec.container_extension, 12).toLowerCase() || "mp4", season, episode, image: safeText(info.movie_image || info.cover_big || info.cover, 2048), plot: safeText(info.plot, 600), subtitleData: rec.subtitles || rec.subtitle || info.subtitles || info.subtitle || info.subtitles_url || null };
+        const directSource = safeText(rec.direct_source || rec.directSource || info.direct_source || info.directSource, 4096);
+        if (/^https?:\/\//i.test(directSource)) item.directSource = directSource;
         session.items.set(item.id, item); episodes.push(item);
       };
       if (Array.isArray(rawEpisodes)) rawEpisodes.forEach(list => { if (Array.isArray(list)) list.forEach(value => addEpisode(value)); else addEpisode(list); });
@@ -575,7 +606,13 @@ function createIptvService(options) {
           extraSubs = extraSubs.concat(subtitleCandidates(detail, session.base));
         } catch (_) { /* provider detail is optional; the stream can still play */ }
       }
-      const upstream = streamUrl(session, item, "hls"), fallback = await playbackFallback(item, upstream), stream = createStream(session, upstream);
+      const directHls = !!(item.directSource && /\.m3u8(?:$|[?#])/i.test(item.directSource));
+      const hlsAllowed = item.kind !== "live" || (item.directSource ? directHls : (!session.allowedOutputFormats || !session.allowedOutputFormats.length || session.allowedOutputFormats.includes("m3u8")));
+      const upstream = streamUrl(session, item, hlsAllowed ? "hls" : "ts");
+      /* A TS-only account cannot ever open the synthetic .m3u8 URL. Tell the client to enter
+         the AAC remux path immediately, avoiding a dead request and a needless 12-second wait. */
+      const fallback = item.kind === "live" && !hlsAllowed ? "copy" : await playbackFallback(item, upstream);
+      const stream = createStream(session, upstream);
       const ext = (item.extension || "").toLowerCase(), mode = item.kind === "live" || ext === "m3u8" ? "hls" : ext === "mkv" ? "mkv" : "file";
       const subtitles = [];
       extraSubs.forEach(sub => {
@@ -596,7 +633,7 @@ function createIptvService(options) {
     const session = touchSession(sourceToken(req)); if (!session) return res.status(403).json({ error: "source_expired" });
     const item = session.items.get(safeText((req.body || {}).id, 140)); if (!item || item.kind === "series") return res.status(404).json({ error: "item_not_found" });
     try {
-      const upstream = streamUrl(session, item, item.kind === "live" ? "ts" : "file");   // TS (live) and progressive files pipe into ffmpeg; an .m3u8 cannot
+      const upstream = streamUrl(session, item, item.kind === "live" ? "ts" : "file");
       await validateTarget(upstream);
       const video = (req.body || {}).video === "h264" ? "h264" : "copy";
       const stream = createRemuxStream(session, item, upstream, video);
