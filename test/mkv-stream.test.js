@@ -179,7 +179,7 @@ test("IPTV remux is credential-opaque, room-wide, audible for AC-3 and H.264-com
   assert.equal(hevcMade.status, 0, hevcMade.stderr || "could not create HEVC fixture");
 
   let providerPort = 0;
-  const seen = [];
+  const seen = [], seenRequests = [];
   function sendFile(req, res, file, contentType) {
     const stat = fs.statSync(file); let start = 0, end = stat.size - 1;
     const match = String(req.headers.range || "").match(/^bytes=(\d+)-(\d*)$/);
@@ -192,6 +192,7 @@ test("IPTV remux is credential-opaque, room-wide, audible for AC-3 and H.264-com
   }
   const provider = http.createServer((req, res) => {
     const url = new URL(req.url, "http://127.0.0.1:" + providerPort); seen.push(url.pathname);
+    seenRequests.push({ path:url.pathname, range:String(req.headers.range || ""), userAgent:String(req.headers["user-agent"] || "") });
     const json = value => { res.setHeader("Content-Type", "application/json"); res.end(JSON.stringify(value)); };
     if (url.pathname === "/player_api.php") {
       if (url.searchParams.get("username") !== "demo" || url.searchParams.get("password") !== "secret") { res.statusCode = 401; return res.end(); }
@@ -248,6 +249,7 @@ test("IPTV remux is credential-opaque, room-wide, audible for AC-3 and H.264-com
   assert.equal((await guestSource).source.token, sourceToken, "late joiner receives the provider session");
 
   const headers = { "X-SameCouch-IPTV": sourceToken, "content-type": "application/json" };
+  assert.equal((await fetch(base + "/iptv/remux-source/not-a-ticket")).status, 404, "the FFmpeg input route is not a public proxy");
   const liveCatalog = await (await fetch(base + "/iptv/catalog?kind=live", { headers })).json();
   const liveRemux = await (await fetch(base + "/iptv/remux", { method: "POST", headers, body: JSON.stringify({ id: liveCatalog.items[0].id, video: "copy" }) })).json();
   const liveUrl = new URL(liveRemux.streamPath, base), livePayload = JSON.parse(Buffer.from(liveUrl.searchParams.get("token").split(".")[0], "base64url").toString("utf8"));
@@ -257,6 +259,7 @@ test("IPTV remux is credential-opaque, room-wide, audible for AC-3 and H.264-com
   assert.ok(liveMp4.includes(Buffer.from("avc1")), "live keeps H.264 video");
   assert.ok(liveMp4.includes(Buffer.from("mp4a")), "AC-3 live audio becomes AAC");
   assert.ok(seen.includes("/live/demo/secret/10.ts"));
+  assert.ok(seenRequests.some(request => request.path === "/live/demo/secret/10.ts" && /VLC/i.test(request.userAgent)), "media requests use a provider-compatible player identity");
 
   const movieCatalog = await (await fetch(base + "/iptv/catalog?kind=movie", { headers })).json();
   const resolved = await (await fetch(base + "/iptv/resolve", { method: "POST", headers, body: JSON.stringify({ id: movieCatalog.items[0].id }) })).json();
@@ -274,6 +277,7 @@ test("IPTV remux is credential-opaque, room-wide, audible for AC-3 and H.264-com
   assert.ok(movieMp4.includes(Buffer.from("mp4a")), "HEVC film audio becomes AAC");
   assert.ok(!movieMp4.includes(Buffer.from("hvc1")), "HEVC track is not copied through");
   assert.deepEqual(guestMovieMp4, movieMp4, "both viewers receive the same complete transcoded stream");
+  assert.ok(seenRequests.some(request => request.path === "/movie/demo/secret/20.mp4" && /^bytes=/i.test(request.range)), "FFmpeg can seek IPTV VOD through the opaque loopback proxy");
 
   const sharedVideo = waitForMessage(guest, "video");
   host.send(JSON.stringify({ type: "video", mode: "file", url: resolved.playback.url, id: movieCatalog.items[0].id, title: "HEVC Film", live: false, iptv: true, iptvFallback: "h264" }));

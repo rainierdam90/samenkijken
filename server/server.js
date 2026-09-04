@@ -438,16 +438,20 @@ let iptvService = null;
 const activeSharedTranscodes = new Map();
 const MKV_SHARED_BACKLOG = Math.max(1024 * 1024, parseInt(process.env.MKV_SHARED_BACKLOG || String(8 * 1024 * 1024), 10));
 
-function mkvFfmpegArgs(transcodeVideo) {
+function mkvFfmpegArgs(transcodeVideo, inputUrl) {
   const audioArgs = MKV_COPY_AUDIO
     ? ["-c:a", "copy"]
     : ["-c:a", "aac", "-b:a", "192k", "-ac", "2", "-ar", "48000", "-af", "aresample=async=1000:first_pts=0"];
   const videoArgs = transcodeVideo
     ? ["-c:v", "libx264", "-preset", "ultrafast", "-tune", "zerolatency", "-crf", "25", "-pix_fmt", "yuv420p", "-vf", "scale=w=-2:h=min(720\\,ih)", "-threads", String(MKV_TRANSCODE_THREADS), "-g", "60", "-keyint_min", "30", "-sc_threshold", "0"]
     : ["-c:v", "copy"];
+  const input = inputUrl || "pipe:0";
+  const inputArgs = input === "pipe:0"
+    ? ["-i", input]
+    : ["-rw_timeout", "35000000", "-reconnect", "1", "-reconnect_streamed", "1", "-reconnect_delay_max", "2", "-i", input];
   return [
     "-hide_banner", "-loglevel", "warning", "-fflags", "+genpts",
-    "-probesize", "5M", "-analyzeduration", "5000000", "-i", "pipe:0",
+    "-probesize", "5M", "-analyzeduration", "5000000", ...inputArgs,
     "-map", "0:v:0", "-map", "0:a:0?", "-sn",
     ...videoArgs, ...audioArgs,
     "-max_muxing_queue_size", "1024", "-avoid_negative_ts", "make_zero",
@@ -455,12 +459,12 @@ function mkvFfmpegArgs(transcodeVideo) {
     "-f", "mp4", "pipe:1"
   ];
 }
-async function openMkvTicketSource(streamTicket) {
+async function prepareMkvInput(streamTicket) {
   if (streamTicket.url.startsWith("iptv:")) {
     if (!iptvService) throw mkvError("iptv_unavailable", 503);
-    return iptvService.openRemuxSource(streamTicket.url.slice(5));
+    return { url: iptvService.remuxInputUrl(streamTicket.url.slice(5)), source: null };
   }
-  return openMkvSource(streamTicket.url);
+  return { url: "pipe:0", source: await openMkvSource(streamTicket.url) };
 }
 function setMkvStreamHeaders(res) {
   res.status(200); res.setHeader("Content-Type", "video/mp4"); res.setHeader("Content-Disposition", "inline; filename=\"samecouch-stream.mp4\""); res.setHeader("Accept-Ranges", "none");
@@ -483,12 +487,13 @@ function createSharedTranscode(key, streamTicket, ip) {
   if (!acquireMkvTranscodeSlot(ip)) { fail("mkv_transcode_busy", 503); return state; }
   state.transcodeSlot = true;
   (async () => {
-    try { state.source = await openMkvTicketSource(streamTicket); }
+    let input;
+    try { input = await prepareMkvInput(streamTicket); state.source = input.source; }
     catch (error) { fail(error.code || "mkv_source_failed", error.status || 502); return; }
-    state.ffmpeg = spawn(FFMPEG_PATH, mkvFfmpegArgs(true), { stdio: ["pipe", "pipe", "pipe"] });
+    state.ffmpeg = spawn(FFMPEG_PATH, mkvFfmpegArgs(true, input.url), { stdio: [state.source ? "pipe" : "ignore", "pipe", "pipe"] });
     state.ffmpeg.stderr.on("data", chunk => { state.stderr = (state.stderr + String(chunk)).slice(-8000); });
-    state.ffmpeg.stdin.on("error", () => {});
-    state.source.once("error", () => { if (state.ffmpeg && !state.ffmpeg.killed) state.ffmpeg.kill("SIGKILL"); });
+    if (state.ffmpeg.stdin) state.ffmpeg.stdin.on("error", () => {});
+    if (state.source) state.source.once("error", () => { if (state.ffmpeg && !state.ffmpeg.killed) state.ffmpeg.kill("SIGKILL"); });
     state.ffmpeg.once("error", () => fail("mkv_remux_failed", 502));
     state.ffmpeg.stdout.on("data", chunk => {
       if (!state.overflow && state.backlogBytes + chunk.length <= MKV_SHARED_BACKLOG) { state.backlog.push(chunk); state.backlogBytes += chunk.length; }
@@ -504,7 +509,7 @@ function createSharedTranscode(key, streamTicket, ip) {
       state.done = true; state.clients.forEach(client => { if (!client.writableEnded) client.end(); }); state.clients.clear(); activeSharedTranscodes.delete(key); release();
       if (code !== 0 && state.stderr) console.warn("[MKV] shared H.264 transcode stopped:", state.stderr.replace(/https?:\/\/\S+/g, "[source]").slice(-1000));
     });
-    state.readyResolve(); state.source.pipe(state.ffmpeg.stdin);
+    state.readyResolve(); if (state.source) state.source.pipe(state.ffmpeg.stdin);
   })();
   return state;
 }
@@ -550,16 +555,17 @@ app.get("/mkv-stream", async (req, res) => {
   function stop() { if (source && !source.destroyed) source.destroy(); if (ffmpeg && !ffmpeg.killed) { try { ffmpeg.kill("SIGKILL"); } catch (_) {} } release(); }
   res.once("finish", () => { finished = true; release(); });
   res.once("close", () => { if (!finished) stop(); });
-  try { source = await openMkvTicketSource(streamTicket); }
+  let input;
+  try { input = await prepareMkvInput(streamTicket); source = input.source; }
   catch (error) { release(); return res.status(error.status || 502).json({ error: error.code || "mkv_source_failed" }); }
   if (res.destroyed) { stop(); return; }
 
-  const ffmpegArgs = mkvFfmpegArgs(transcodeVideo);
-  ffmpeg = spawn(FFMPEG_PATH, ffmpegArgs, { stdio: ["pipe", "pipe", "pipe"] });
+  const ffmpegArgs = mkvFfmpegArgs(transcodeVideo, input.url);
+  ffmpeg = spawn(FFMPEG_PATH, ffmpegArgs, { stdio: [source ? "pipe" : "ignore", "pipe", "pipe"] });
   let ffmpegError = "";
   ffmpeg.stderr.on("data", chunk => { ffmpegError = (ffmpegError + String(chunk)).slice(-8000); });
-  ffmpeg.stdin.on("error", () => {});
-  source.once("error", () => { if (ffmpeg && !ffmpeg.killed) ffmpeg.kill("SIGKILL"); });
+  if (ffmpeg.stdin) ffmpeg.stdin.on("error", () => {});
+  if (source) source.once("error", () => { if (ffmpeg && !ffmpeg.killed) ffmpeg.kill("SIGKILL"); });
   ffmpeg.once("error", () => { if (!res.headersSent) res.status(502).json({ error: "mkv_remux_failed" }); else if (!res.writableEnded) res.end(); stop(); });
   ffmpeg.once("close", code => {
     if (code !== 0 && !res.headersSent) res.status(422).json({ error: "mkv_decode_failed" }); else if (!res.writableEnded) res.end();
@@ -567,7 +573,7 @@ app.get("/mkv-stream", async (req, res) => {
     release();
   });
   setMkvStreamHeaders(res);
-  source.pipe(ffmpeg.stdin); ffmpeg.stdout.pipe(res);
+  if (source) source.pipe(ffmpeg.stdin); ffmpeg.stdout.pipe(res);
 });
 
 /* ---- embeddability probe ----

@@ -2505,7 +2505,22 @@
         if(!streamPath||String(streamPath).indexOf("/mkv-stream?")!==0){ movieErrored=true; if(typeof hideXfer==="function") hideXfer(); toast(tr("iptv_failed"),10000); return; }
         mode="file"; iptvLive=wantLive; currentMedia.live=wantLive;   // keep live semantics: never seek/rewind separate live edges
         movie.style.display="block"; movie.src=httpBase()+streamPath; movie.load();
-        if(typeof hideXfer==="function") hideXfer(); toast(tr("mkv_ready"),4500);
+        function remuxReady(){
+          movie.removeEventListener("loadeddata",remuxReady);
+          if(!currentMedia||currentMedia!==target||iptvRemuxLevel!==nextLevel) return;
+          clearTimeout(iptvHlsWatchdog); iptvHlsWatchdog=null;
+          if(typeof hideXfer==="function") hideXfer(); toast(tr("mkv_ready"),4500);
+        }
+        movie.addEventListener("loadeddata",remuxReady);
+        /* A response can be HTTP 200 while FFmpeg is still receiving no usable bytes. Native
+           video emits no error in that state, so advance the fallback explicitly instead of
+           leaving a permanent black 0:00 player. H.264 gets longer because it is CPU-bound. */
+        iptvHlsWatchdog=setTimeout(function(){
+          if(!currentMedia||currentMedia!==target||iptvRemuxLevel!==nextLevel||movie.readyState>=2&&movie.videoWidth) return;
+          iptvHlsWatchdog=null;
+          if(nextLevel<2&&remuxIptvCurrent("h264")) return;
+          movieErrored=true; if(typeof hideXfer==="function") hideXfer(); toast(tr("iptv_failed"),10000);
+        },video==="h264"?45000:18000);
       });
       return true;
     }

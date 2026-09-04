@@ -85,6 +85,41 @@ test("IPTV credentials stay server-side while catalogs, HLS, VOD, series and sub
   const m3uCatalog=await (await fetch(appBase+"/iptv/catalog?kind=live",{headers:{"X-SameCouch-IPTV":m3u.source.token}})).json(); assert.equal(m3uCatalog.items[0].title,"M3U News"); assert.doesNotMatch(JSON.stringify(m3uCatalog),/demo|secret/);
 });
 
+test("cancelling a player request also cancels an upstream request that has not sent headers", async t => {
+  let providerPort, slowResponse;
+  let startedResolve, closedResolve;
+  const started = new Promise(resolve => { startedResolve = resolve; });
+  const closed = new Promise(resolve => { closedResolve = resolve; });
+  const provider = http.createServer((req, res) => {
+    const url = new URL(req.url, `http://127.0.0.1:${providerPort}`);
+    if (url.pathname === "/playlist.m3u") { res.setHeader("Content-Type", "application/x-mpegurl"); res.end(`#EXTM3U\n#EXTINF:-1 group-title="Live",Slow channel\nhttp://127.0.0.1:${providerPort}/slow.m3u8\n`); return; }
+    if (url.pathname === "/slow.m3u8") { slowResponse = res; startedResolve(); req.once("close", closedResolve); return; }
+    res.statusCode = 404; res.end();
+  });
+  providerPort = await listen(provider);
+  const beforeTrusted = process.env.IPTV_TRUSTED_PRIVATE_HOSTS, beforePorts = process.env.IPTV_ALLOWED_PORTS;
+  process.env.IPTV_TRUSTED_PRIVATE_HOSTS = "127.0.0.1"; process.env.IPTV_ALLOWED_PORTS = String(providerPort);
+  const app = express(); app.use(express.json());
+  const service = createIptvService({ authorizeRoom:(room,key) => room === "qa-room" && key === "qa-key", clientIp:() => "qa", makeLimiter:() => () => true });
+  app.use("/iptv", service.router); const appServer = http.createServer(app), appPort = await listen(appServer), appBase = `http://127.0.0.1:${appPort}`;
+  t.after(async () => {
+    if (slowResponse && !slowResponse.writableEnded) slowResponse.end();
+    if (provider.closeAllConnections) provider.closeAllConnections();
+    await Promise.all([close(appServer), close(provider)]);
+    if (beforeTrusted === undefined) delete process.env.IPTV_TRUSTED_PRIVATE_HOSTS; else process.env.IPTV_TRUSTED_PRIVATE_HOSTS = beforeTrusted;
+    if (beforePorts === undefined) delete process.env.IPTV_ALLOWED_PORTS; else process.env.IPTV_ALLOWED_PORTS = beforePorts;
+  });
+
+  const connected = await (await fetch(appBase + "/iptv/connect", { method:"POST", headers:{"content-type":"application/json"}, body:JSON.stringify({ type:"m3u", room:"qa-room", roomKey:"qa-key", playlistUrl:`http://127.0.0.1:${providerPort}/playlist.m3u` }) })).json();
+  const headers = { "X-SameCouch-IPTV":connected.source.token, "content-type":"application/json" };
+  const catalog = await (await fetch(appBase + "/iptv/catalog?kind=live", { headers })).json();
+  const playback = await (await fetch(appBase + "/iptv/resolve", { method:"POST", headers, body:JSON.stringify({ id:catalog.items[0].id }) })).json();
+  const controller = new AbortController();
+  const request = fetch(playback.playback.url, { signal:controller.signal }).catch(() => null);
+  await started; controller.abort(); await request;
+  await Promise.race([closed, new Promise((_, reject) => setTimeout(() => reject(new Error("upstream request remained open after the viewer left")), 1500))]);
+});
+
 /* Catalogue thumbnails once shared the video pipe's concurrency slots and the API rate limit,
    so browsing a provider with logos exhausted both and every later call came back as
    "the IPTV gateway is busy" — including the film the room was trying to start. */

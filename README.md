@@ -269,6 +269,9 @@ If the video itself is HEVC/H.265, one tightly limited FFmpeg process converts i
 to H.264 at up to 720p; simultaneous viewers of the same title share that process
 instead of encoding the same frames repeatedly. Live channels keep live semantics
 after either fallback, so the room clock never seeks or rewinds separate live edges.
+FFmpeg reads IPTV through a credential-opaque, loopback-only HTTP route. That keeps
+provider logins out of generated URLs while preserving byte-range seeking for long
+VOD files and reconnect behaviour for live transport streams.
 
 Provider credentials are never put in room messages, generated media URLs,
 browser storage or application logs. They remain in the Node process memory for
@@ -378,6 +381,7 @@ used; do not replace them with unpinned CDN scripts.
 | `IPTV_ALLOWED_HOSTS` | optional comma-separated exact/`*.suffix` provider allowlist | *(all public hosts)* |
 | `IPTV_TRUSTED_PRIVATE_HOSTS` | exact provider hosts you operate that may resolve to a private address | *(none)* |
 | `IPTV_ALLOWED_PORTS` | provider ports accepted by the gateway | `80,443,8000,8080,8443,8880,25461` |
+| `IPTV_MEDIA_USER_AGENT` | player identity sent only for provider media requests; override when a panel requires its own supported client | `VLC/3.0.21 LibVLC/3.0.21` |
 | `IPTV_PUBLIC_BASE` | optional explicit public Node origin for generated proxy URLs | forwarded request origin |
 
 ## What still needs you / honest limitations

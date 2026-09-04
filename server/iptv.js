@@ -41,6 +41,10 @@ function createIptvService(options) {
   const allowedPorts = new Set((process.env.IPTV_ALLOWED_PORTS || "80,443,8000,8080,8443,8880,25461").split(",").map(v => v.trim()).filter(Boolean));
   const trustedPrivateHosts = new Set((process.env.IPTV_TRUSTED_PRIVATE_HOSTS || "").split(",").map(v => v.trim().toLowerCase()).filter(Boolean));
   const allowedHosts = (process.env.IPTV_ALLOWED_HOSTS || "").split(",").map(v => v.trim().toLowerCase()).filter(Boolean);
+  /* A number of Xtream panels serve the JSON API to every client but silently withhold media
+     from unknown player identities. VLC is a deliberately boring, widely accepted default;
+     operators can still override it for a provider with stricter requirements. */
+  const mediaUserAgent = String(process.env.IPTV_MEDIA_USER_AGENT || "VLC/3.0.21 LibVLC/3.0.21").replace(/[\r\n]/g, " ").slice(0, 240);
   const sessions = new Map();
   const streams = new Map();
   const remuxStreams = new Map();
@@ -57,6 +61,7 @@ function createIptvService(options) {
   const roomLive = options.roomLive || (() => true);
   const makeStreamToken = typeof options.makeStreamToken === "function" ? options.makeStreamToken : null;
   const internalBase = String(options.internalBase || "").replace(/\/+$/, "");
+  const internalRemuxKey = randomToken(24);
 
   function cors(res) {
     res.setHeader("Access-Control-Allow-Origin", "*");
@@ -124,7 +129,7 @@ function createIptvService(options) {
       const req = transport.request(target.url, {
         method: opts.method || "GET",
         headers: Object.assign({
-          "User-Agent": "SameCouch-IPTV/1.0",
+          "User-Agent": opts.userAgent || "SameCouch-IPTV/1.0",
           Accept: opts.accept || "application/json,text/plain,video/*,*/*;q=0.5",
           "Accept-Encoding": "identity"
         }, opts.headers || {}),
@@ -142,6 +147,14 @@ function createIptvService(options) {
         if (status < 200 || status >= 300) { response.resume(); reject(failure(status === 401 || status === 403 ? "provider_auth" : "upstream_" + status, status === 401 || status === 403 ? 401 : 502)); return; }
         resolve({ response, url: target.url.toString() });
       });
+      const onAbort = () => req.destroy(failure("upstream_aborted", 499));
+      if (opts.signal) {
+        if (opts.signal.aborted) onAbort();
+        else {
+          opts.signal.addEventListener("abort", onAbort, { once: true });
+          req.once("close", () => opts.signal.removeEventListener("abort", onAbort));
+        }
+      }
       req.setTimeout(opts.timeout || 25000, () => req.destroy(failure("upstream_timeout", 504)));
       req.once("error", error => reject(error && error.code && error.status ? error : failure("upstream_failed", 502)));
       req.end();
@@ -173,7 +186,7 @@ function createIptvService(options) {
     });
   }
   async function probeRange(url, range) {
-    const opened = await openUpstream(url, { headers: { Range: range }, accept: "video/*,audio/*,*/*;q=0.1", timeout: 12000 });
+    const opened = await openUpstream(url, { headers: { Range: range }, accept: "video/*,audio/*,*/*;q=0.1", timeout: 12000, userAgent: mediaUserAgent });
     const response = opened.response;
     const contentRange = String(response.headers["content-range"] || "");
     const totalMatch = contentRange.match(/\/(\d+)$/);
@@ -446,7 +459,7 @@ function createIptvService(options) {
   }
   const streamPool = makePool(maxProxyStreams, maxProxyStreamsPerIp);
   const artPool = makePool(maxArt, maxArtPerIp);
-  function errorResponse(res, error) { if (!res.headersSent) res.status(error.status || 502).json({ error: error.code || "iptv_failed" }); else if (!res.writableEnded) res.end(); }
+  function errorResponse(res, error) { if (res.destroyed || res.writableEnded) return; if (!res.headersSent) res.status(error.status || 502).json({ error: error.code || "iptv_failed" }); else res.end(); }
 
   /* Everything proxied below is served from OUR origin, which also serves the app and /admin.
      Never echo a provider's Content-Type: an "text/html" or SVG body would become same-origin
@@ -601,7 +614,7 @@ function createIptvService(options) {
     const session = touchSession(stream.sessionToken); if (!session) throw failure("source_expired", 403);
     const upstream = stream.aliases.get("root"); if (!upstream) throw failure("resource_missing", 404);
     stream.exp = Math.min(now + streamTtl * 1000, stream.hardExp);
-    const opened = await openUpstream(upstream, { accept: "application/vnd.apple.mpegurl,application/x-mpegURL,video/*,audio/*,*/*;q=0.2", timeout: 35000 });
+    const opened = await openUpstream(upstream, { accept: "application/vnd.apple.mpegurl,application/x-mpegURL,video/*,audio/*,*/*;q=0.2", timeout: 35000, userAgent: mediaUserAgent });
     let source = opened.response;
     const type = baseType(source.headers["content-type"]);
     let isManifest = /mpegurl/.test(type) || /\.m3u8(?:$|[?#])/i.test(opened.url);
@@ -625,12 +638,13 @@ function createIptvService(options) {
     stream.exp = Math.min(Date.now() + streamTtl * 1000, stream.hardExp);
     const ip = clientIp(req); if (!streamPool.acquire(ip)) { res.setHeader("Retry-After", "10"); return res.status(503).json({ error: "iptv_busy" }); }
     let source, released = false, finished = false;
+    const upstreamAbort = typeof AbortController !== "undefined" ? new AbortController() : null;
     const done = () => { if (!released) { released = true; streamPool.release(ip); } };
     res.once("finish", () => { finished = true; done(); });
-    res.once("close", () => { if (!finished && source && !source.destroyed) source.destroy(); done(); });
+    res.once("close", () => { if (!finished) { if (upstreamAbort) upstreamAbort.abort(); if (source && !source.destroyed) source.destroy(); } done(); });
     try {
       const headers = {}; if (req.headers.range) headers.Range = String(req.headers.range).slice(0, 160);
-      const opened = await openUpstream(upstream, { headers, accept: "application/vnd.apple.mpegurl,application/x-mpegURL,text/vtt,video/*,audio/*,*/*;q=0.2", timeout: 35000 });
+      const opened = await openUpstream(upstream, { headers, accept: "application/vnd.apple.mpegurl,application/x-mpegURL,text/vtt,video/*,audio/*,*/*;q=0.2", timeout: 35000, userAgent: mediaUserAgent, signal: upstreamAbort && upstreamAbort.signal });
       source = opened.response;
       const type = baseType(source.headers["content-type"]);
       let isManifest = /mpegurl/.test(type) || /\.m3u8(?:$|[?#])/i.test(opened.url);
@@ -659,6 +673,23 @@ function createIptvService(options) {
       source.pipe(res);
     } catch (error) { done(); errorResponse(res, error); }
   }
+  function loopbackRequest(req) {
+    const address = String(req.socket && req.socket.remoteAddress || "").toLowerCase();
+    return address === "127.0.0.1" || address === "::1" || address === "::ffff:127.0.0.1";
+  }
+  function equalInternalKey(value) {
+    const a = Buffer.from(String(value || "")), b = Buffer.from(internalRemuxKey);
+    return a.length === b.length && crypto.timingSafeEqual(a, b);
+  }
+  /* FFmpeg needs a seekable HTTP input for long MP4 VODs (their `moov` atom is commonly at the
+     end) and a reconnectable input for live transport streams. This endpoint is reachable only
+     over loopback and uses an unguessable process-local key; the URL still contains no provider
+     hostname, username or password. Reusing proxyResource preserves Range and HLS rewriting. */
+  router.get("/remux-source/:ticket", (req, res) => {
+    if (!loopbackRequest(req) || !equalInternalKey(req.query.key)) return res.status(404).end();
+    req.params.alias = "root";
+    return proxyResource(req, res);
+  });
   router.get("/resource/:ticket/:alias", proxyResource);
 
   router.get("/art/:id", async (req, res) => {
@@ -694,6 +725,10 @@ function createIptvService(options) {
   return {
     router,
     openRemuxSource,
+    remuxInputUrl(ticket) {
+      if (!internalBase) throw failure("iptv_unavailable", 503);
+      return internalBase + "/iptv/remux-source/" + encodeURIComponent(String(ticket || "")) + "?key=" + encodeURIComponent(internalRemuxKey);
+    },
     publicSession(token) { const session = touchSession(token); return session ? publicSource(session) : null; },
     hasSession(token) { return !!peekSession(token); },
     sessionRoom(token) { const session = peekSession(token); return session ? session.room : ""; },
