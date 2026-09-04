@@ -140,7 +140,7 @@ const CSP = [
   "font-src 'self' https://fonts.gstatic.com data:",
   "img-src 'self' data: blob: https:",
   "media-src 'self' blob: data: mediastream: https:",
-  "connect-src 'self' https://watchmovietogether-j59u.onrender.com wss://watchmovietogether-j59u.onrender.com",
+  "connect-src 'self' https://turn.watchmovietogether.com:8445 wss://turn.watchmovietogether.com:8445",
   "frame-src 'self' https:",
   "worker-src 'self' blob:",
   "manifest-src 'self'"
@@ -380,10 +380,14 @@ app.get("/turn-credentials", (req, res) => {
 app.get("/config", (req, res) => {
   cors(req, res);
   const secure = (req.headers["x-forwarded-proto"] || req.protocol) === "https";
-  const host = (req.headers["x-forwarded-host"] || req.headers.host || "").split(":")[0];
+  const forwardedHost = String(req.headers["x-forwarded-host"] || req.headers.host || "").split(",")[0].trim();
+  const host = forwardedHost.replace(/:\d+$/, "");
+  const forwardedPort = parseInt(String(req.headers["x-forwarded-port"] || "").split(",")[0], 10);
+  const hostPortMatch = forwardedHost.match(/:(\d+)$/);
+  const publicPort = forwardedPort || (hostPortMatch ? parseInt(hostPortMatch[1], 10) : 0) || (secure ? 443 : PORT);
   res.json({
     peerHost: host,
-    peerPort: secure ? 443 : (parseInt((req.headers.host || "").split(":")[1], 10) || PORT),
+    peerPort: publicPort,
     peerPath: "/peerjs",
     peerSecure: secure,
     maxRoom: MAX_ROOM,

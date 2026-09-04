@@ -1368,11 +1368,11 @@
     /* CONFIG — where the Node server lives (signaling, control plane, chat, TURN
        creds, YouTube proxy). Set REMOTE_BACKEND to your server's URL for when the
        front-end is hosted on a DIFFERENT origin (e.g. front-end on Vercel, server
-       on Render). When the page is served by the Node server itself — locally or on
+       on another host). When the page is served by the Node server itself — locally or on
        the backend's own host — we automatically use the same origin instead, so
        local development never talks to production. */
-    var REMOTE_BACKEND = "https://watchmovietogether-j59u.onrender.com";
-    var servedByBackend = /(^|\.)onrender\.com$/i.test(location.hostname) ||
+    var REMOTE_BACKEND = "https://turn.watchmovietogether.com:8445";
+    var servedByBackend = location.origin === REMOTE_BACKEND ||
                           location.hostname === "localhost" || location.hostname === "127.0.0.1";
     var SERVER_BASE = servedByBackend ? "" : REMOTE_BACKEND;
     var hasYouTube = false, hasMkv = null, hasIptv = false; // capabilities set by /config

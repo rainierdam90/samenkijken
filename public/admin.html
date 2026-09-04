@@ -116,8 +116,8 @@
 (function(){
   "use strict";
   var $=function(id){ return document.getElementById(id); };
-  var REMOTE_BACKEND="https://watchmovietogether-j59u.onrender.com"; // Node server origin when this page is hosted elsewhere
-  var servedByBackend=/(^|\.)onrender\.com$/i.test(location.hostname)||location.hostname==="localhost"||location.hostname==="127.0.0.1";
+  var REMOTE_BACKEND="https://turn.watchmovietogether.com:8445"; // Node server origin when this page is hosted elsewhere
+  var servedByBackend=location.origin===REMOTE_BACKEND||location.hostname==="localhost"||location.hostname==="127.0.0.1";
   var SERVER_BASE=servedByBackend?"":REMOTE_BACKEND;  // use same origin locally / on the backend host
   function rtUrl(){ var b=SERVER_BASE?SERVER_BASE.replace(/^http/,"ws"):(location.protocol==="https:"?"wss://":"ws://")+location.host; return b+"/rt"; }
 

@@ -1,0 +1,38 @@
+[Unit]
+Description=SameCouch realtime and IPTV backend
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=simple
+User=samecouch
+Group=samecouch
+WorkingDirectory=/opt/samecouch
+Environment=NODE_ENV=production
+EnvironmentFile=/etc/samecouch.env
+ExecStart=/usr/local/bin/node server/server.js
+Restart=on-failure
+RestartSec=3
+TimeoutStopSec=30
+KillSignal=SIGTERM
+UMask=0027
+
+StateDirectory=samecouch
+StateDirectoryMode=0750
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+LockPersonality=true
+ReadWritePaths=/var/lib/samecouch
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+LimitNOFILE=65535
+TasksMax=512
+MemoryMax=1500M
+
+[Install]
+WantedBy=multi-user.target
