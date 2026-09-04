@@ -102,7 +102,16 @@ function createIptvService(options) {
     if (kind === 6) return address === "::" || address === "::1" || address.startsWith("fc") || address.startsWith("fd") || /^fe[89ab]/.test(address) || address.startsWith("ff") || address.startsWith("2001:db8:");
     return true;
   }
-  async function validateTarget(raw) {
+  function sameProviderFamily(left, right) {
+    left = String(left || "").replace(/^\[|\]$/g, "").toLowerCase();
+    right = String(right || "").replace(/^\[|\]$/g, "").toLowerCase();
+    if (!left || !right) return false;
+    if (left === right) return true;
+    if (net.isIP(left) || net.isIP(right)) return false;
+    const a = left.split(".").filter(Boolean), b = right.split(".").filter(Boolean);
+    return a.length >= 2 && b.length >= 2 && a.slice(-2).join(".") === b.slice(-2).join(".");
+  }
+  async function validateTarget(raw, options) {
     raw = String(raw || "");
     if (!raw || raw.length > 4096) throw failure("bad_url", 400);
     let url; try { url = new URL(raw); } catch (_) { throw failure("bad_url", 400); }
@@ -111,7 +120,14 @@ function createIptvService(options) {
     const host = url.hostname.replace(/^\[|\]$/g, "").toLowerCase();
     if (!hostAllowed(host)) throw failure("host_not_allowed", 403);
     const port = url.port || (url.protocol === "https:" ? "443" : "80");
-    if (!allowedPorts.has(String(port))) throw failure("port_not_allowed", 403);
+    /* Xtream panels commonly authenticate on one fixed port and then redirect media to a
+       high streaming port on a sibling host. Permit that only after a validated redirect,
+       only above the privileged range, and only inside the same provider domain family.
+       The user-supplied first target still has to be explicitly allow-listed. */
+    const redirectFromHost = options && options.redirectFromHost;
+    const portNumber = Number(port);
+    const safeProviderRedirect = redirectFromHost && portNumber >= 1024 && portNumber <= 65535 && sameProviderFamily(host, redirectFromHost);
+    if (!allowedPorts.has(String(port)) && !safeProviderRedirect) throw failure("port_not_allowed", 403);
     let addresses;
     try { addresses = await dns.lookup(host, { all: true, verbatim: true }); }
     catch (_) { throw failure("dns_failed", 502); }
@@ -119,10 +135,10 @@ function createIptvService(options) {
     if (addresses.some(entry => blockedIp(entry.address)) && !trustedPrivateHosts.has(host)) throw failure("private_address", 403);
     return { url, address: addresses[0].address, family: addresses[0].family };
   }
-  async function openUpstream(raw, requestOptions, redirects) {
+  async function openUpstream(raw, requestOptions, redirects, redirectFromHost) {
     redirects = redirects || 0;
     if (redirects > 4) throw failure("too_many_redirects", 502);
-    const target = await validateTarget(raw);
+    const target = await validateTarget(raw, { redirectFromHost });
     const transport = target.url.protocol === "https:" ? https : http;
     const opts = requestOptions || {};
     return new Promise((resolve, reject) => {
@@ -142,7 +158,7 @@ function createIptvService(options) {
         const status = response.statusCode || 0;
         if (status >= 300 && status < 400 && response.headers.location) {
           const next = new URL(response.headers.location, target.url).toString();
-          response.resume(); resolve(openUpstream(next, requestOptions, redirects + 1)); return;
+          response.resume(); resolve(openUpstream(next, requestOptions, redirects + 1, target.url.hostname)); return;
         }
         if (status < 200 || status >= 300) { response.resume(); reject(failure(status === 401 || status === 403 ? "provider_auth" : "upstream_" + status, status === 401 || status === 403 ? 401 : 502)); return; }
         resolve({ response, url: target.url.toString() });

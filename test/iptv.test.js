@@ -85,6 +85,70 @@ test("IPTV credentials stay server-side while catalogs, HLS, VOD, series and sub
   const m3uCatalog=await (await fetch(appBase+"/iptv/catalog?kind=live",{headers:{"X-SameCouch-IPTV":m3u.source.token}})).json(); assert.equal(m3uCatalog.items[0].title,"M3U News"); assert.doesNotMatch(JSON.stringify(m3uCatalog),/demo|secret/);
 });
 
+test("provider media redirects may use a high sibling port without opening arbitrary targets", async t => {
+  let apiPort, mediaPort;
+  const media = http.createServer((req, res) => {
+    if (req.url === "/stream.m3u8") {
+      res.setHeader("Content-Type", "application/vnd.apple.mpegurl");
+      res.end("#EXTM3U\n#EXT-X-TARGETDURATION:4\n#EXT-X-ENDLIST\n");
+      return;
+    }
+    res.statusCode = 404; res.end();
+  });
+  mediaPort = await listen(media);
+
+  const provider = http.createServer((req, res) => {
+    const url = new URL(req.url, `http://127.0.0.1:${apiPort}`);
+    const json = value => { res.setHeader("Content-Type", "application/json"); res.end(JSON.stringify(value)); };
+    if (url.pathname === "/player_api.php") {
+      if (url.searchParams.get("username") !== "demo" || url.searchParams.get("password") !== "secret") { res.statusCode = 401; res.end(); return; }
+      const action = url.searchParams.get("action");
+      if (!action) return json({ user_info: { auth: 1, status: "Active", allowed_output_formats: ["m3u8"] } });
+      if (action === "get_live_categories") return json([{ category_id: "1", category_name: "Live" }]);
+      if (action === "get_vod_categories" || action === "get_series_categories") return json([]);
+      if (action === "get_live_streams") return json([
+        { stream_id: 10, name: "Related redirect", category_id: "1" },
+        { stream_id: 11, name: "Unrelated redirect", category_id: "1" }
+      ]);
+      return json([]);
+    }
+    if (url.pathname === "/live/demo/secret/10.m3u8") {
+      res.writeHead(302, { Location: `http://127.0.0.1:${mediaPort}/stream.m3u8` }); res.end(); return;
+    }
+    if (url.pathname === "/live/demo/secret/11.m3u8") {
+      res.writeHead(302, { Location: `http://localhost:${mediaPort}/stream.m3u8` }); res.end(); return;
+    }
+    res.statusCode = 404; res.end();
+  });
+  apiPort = await listen(provider);
+
+  const before = { trusted: process.env.IPTV_TRUSTED_PRIVATE_HOSTS, ports: process.env.IPTV_ALLOWED_PORTS };
+  process.env.IPTV_TRUSTED_PRIVATE_HOSTS = "127.0.0.1,localhost";
+  process.env.IPTV_ALLOWED_PORTS = String(apiPort);
+  const app = express(); app.use(express.json());
+  const service = createIptvService({ authorizeRoom: (room, key) => room === "qa-room" && key === "qa-key", clientIp: () => "qa", makeLimiter: () => () => true });
+  app.use("/iptv", service.router); const appServer = http.createServer(app), appPort = await listen(appServer), appBase = `http://127.0.0.1:${appPort}`;
+  t.after(async () => {
+    await Promise.all([close(appServer), close(provider), close(media)]);
+    if (before.trusted === undefined) delete process.env.IPTV_TRUSTED_PRIVATE_HOSTS; else process.env.IPTV_TRUSTED_PRIVATE_HOSTS = before.trusted;
+    if (before.ports === undefined) delete process.env.IPTV_ALLOWED_PORTS; else process.env.IPTV_ALLOWED_PORTS = before.ports;
+  });
+
+  const connected = await (await fetch(appBase + "/iptv/connect", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ type: "xtream", room: "qa-room", roomKey: "qa-key", server: `http://127.0.0.1:${apiPort}`, username: "demo", password: "secret" }) })).json();
+  const headers = { "X-SameCouch-IPTV": connected.source.token, "content-type": "application/json" };
+  const catalog = await (await fetch(appBase + "/iptv/catalog?kind=live", { headers })).json();
+
+  const related = await (await fetch(appBase + "/iptv/resolve", { method: "POST", headers, body: JSON.stringify({ id: catalog.items[0].id }) })).json();
+  const relatedResponse = await fetch(related.playback.url);
+  assert.equal(relatedResponse.status, 200);
+  assert.match(await relatedResponse.text(), /#EXTM3U/);
+
+  const unrelated = await (await fetch(appBase + "/iptv/resolve", { method: "POST", headers, body: JSON.stringify({ id: catalog.items[1].id }) })).json();
+  const unrelatedResponse = await fetch(unrelated.playback.url);
+  assert.equal(unrelatedResponse.status, 403);
+  assert.equal((await unrelatedResponse.json()).error, "port_not_allowed");
+});
+
 test("Xtream direct_source and TS-only accounts bypass broken synthetic media routes", async t => {
   let providerPort;
   const seen = [];
