@@ -1297,7 +1297,10 @@
        tier 2 immediately; it converts to bandwidth-capped H.264 and is shared by the whole room. */
     function remuxIptvCurrent(requested,startAt,force){
       if(!currentMedia||!currentMedia.iptv||!iptvController||!iptvController.remux) return false;
-      var wantLive=!!currentMedia.live, video=requested==="h264"?"h264":requested==="copy"?"copy":wantLive||iptvRemuxLevel>=1?"h264":"copy";
+      /* Copy first for live too: an H.264 channel (the common case) then streams at full quality
+         with only its audio re-encoded — cheap, no downscale, no buffering. Only a genuine failure
+         (or an explicit HEVC signal from BUFFER_CODECS) escalates to the 540p H.264 transcode. */
+      var wantLive=!!currentMedia.live, video=requested==="h264"?"h264":requested==="copy"?"copy":iptvRemuxLevel>=1?"h264":"copy";
       var nextLevel=video==="h264"?2:1; if(iptvRemuxLevel>=nextLevel&&!force) return false;
       var start=wantLive?0:Math.min(+currentMedia.duration||48*3600,Math.max(0,Number(startAt==null?getTime():startAt)||0));
       iptvRemuxLevel=nextLevel; var requestId=++iptvRemuxRequestId, target=currentMedia, savedSubs=iptvExternalSubs.slice(), savedStreamSub=iptvSelectedStreamingSub, resume=!movie.paused;
