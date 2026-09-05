@@ -109,6 +109,8 @@ test("IPTV supports secure provider login, shared browsing, HLS and host subtitl
   assert.match(serverSource, /streamTicket\.url\.startsWith\("iptv:"\)/);   // no public-domain hairpin
   assert.match(serverSource, /iptvService\.remuxInputUrl/);   // FFmpeg gets a seekable opaque loopback URL, not the provider URL
   assert.match(serverSource, /min\(540/);   // HEVC fallback keeps enough CPU headroom to build a buffer on the two-core VPS
+  assert.match(serverSource, /MKV_STARTUP_BUFFER/);   // Chrome receives a real lead buffer instead of starting the CPU-heavy stream just in time
+  assert.match(serverSource, /await state\.startupReady/);
   assert.match(iptvServerSource, /loopbackRequest\(req\).*equalInternalKey/s);   // the internal FFmpeg source is not a public proxy
   assert.match(iptvServerSource, /router\.get\("\/subtitle\/:ticket\/:index"/);
   assert.match(iptvServerSource, /"-c:s", "webvtt"/);
