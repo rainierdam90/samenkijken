@@ -466,8 +466,13 @@ function mkvFfmpegArgs(transcodeVideo, inputUrl, options) {
     ? ["-i", input]
     : ["-rw_timeout", "35000000", "-reconnect", "1", "-reconnect_streamed", "1", "-reconnect_delay_max", "2", ...(options.start > 0.01 ? ["-ss", Number(options.start).toFixed(3)] : []), "-i", input];
   return [
-    "-hide_banner", "-loglevel", "warning", "-fflags", "+genpts",
-    "-probesize", "5M", "-analyzeduration", "5000000", ...inputArgs,
+    /* A live MPEG-TS is joined mid-GOP: the packets before the first keyframe reference an
+       SPS/PPS FFmpeg has not seen yet, which otherwise makes it error out ("non-existing PPS 0
+       referenced") and the stream fails to play. discardcorrupt drops those pre-keyframe packets
+       so FFmpeg starts cleanly at the first keyframe, and the larger probe guarantees it captures
+       the stream parameters first. This is what makes live playback reliable, not intermittent. */
+    "-hide_banner", "-loglevel", "warning", "-fflags", "+genpts+discardcorrupt", "-err_detect", "ignore_err",
+    "-probesize", "16M", "-analyzeduration", "10000000", ...inputArgs,
     "-map", "0:v:0", "-map", "0:a:0?", "-sn",
     ...videoArgs, ...audioArgs,
     "-max_muxing_queue_size", "1024", "-avoid_negative_ts", "make_zero",
