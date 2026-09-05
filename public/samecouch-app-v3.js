@@ -999,7 +999,7 @@
           Object.keys(tracks).forEach(function(key){ var track=tracks[key]||{}; codecs.push(String(track.codec||""),String(track.levelCodec||""),String(track.container||"")); });
           var found=codecs.join(" ").toLowerCase();
           if(/(?:hvc1|hev1|hevc|h\.265)/.test(found)){ remuxIptvCurrent("h264"); return; }
-          if(/(?:ac-3|ec-3|eac3|dts)/.test(found)) remuxIptvCurrent("copy");
+          if(/(?:ac-3|ec-3|eac3|dts)/.test(found)) remuxIptvCurrent(currentMedia.live?"h264":"copy");   // live: smooth 540p transcode; VOD: full-quality copy
         });
         hls.on(window.Hls.Events.ERROR,function(_event,data){
           if(!data||iptvHls!==hls) return;
@@ -1297,10 +1297,12 @@
        tier 2 immediately; it converts to bandwidth-capped H.264 and is shared by the whole room. */
     function remuxIptvCurrent(requested,startAt,force){
       if(!currentMedia||!currentMedia.iptv||!iptvController||!iptvController.remux) return false;
-      /* Copy first for live too: an H.264 channel (the common case) then streams at full quality
-         with only its audio re-encoded — cheap, no downscale, no buffering. Only a genuine failure
-         (or an explicit HEVC signal from BUFFER_CODECS) escalates to the 540p H.264 transcode. */
-      var wantLive=!!currentMedia.live, video=requested==="h264"?"h264":requested==="copy"?"copy":iptvRemuxLevel>=1?"h264":"copy";
+      /* Live prefers the 540p H.264 transcode: it always keeps realtime on this 2-core VPS, so
+         playback stays smooth (the user's priority). A lossless copy would carry the full 1080p
+         bitrate at live rate, which this VPS/provider chain cannot sustain without buffering.
+         VOD is different — it is seekable/bufferable, so a movie still defaults to copy (full
+         source quality, no buffering). An explicit request always wins. */
+      var wantLive=!!currentMedia.live, video=requested==="h264"?"h264":requested==="copy"?"copy":wantLive?"h264":(iptvRemuxLevel>=1?"h264":"copy");
       var nextLevel=video==="h264"?2:1; if(iptvRemuxLevel>=nextLevel&&!force) return false;
       var start=wantLive?0:Math.min(+currentMedia.duration||48*3600,Math.max(0,Number(startAt==null?getTime():startAt)||0));
       iptvRemuxLevel=nextLevel; var requestId=++iptvRemuxRequestId, target=currentMedia, savedSubs=iptvExternalSubs.slice(), savedStreamSub=iptvSelectedStreamingSub, resume=!movie.paused;

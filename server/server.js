@@ -77,7 +77,7 @@ const MKV_MAX_STREAMS_PER_IP = Math.max(1, parseInt(process.env.MKV_MAX_STREAMS_
    the audio-only remux pool so one difficult channel cannot starve calls or the room server. */
 const MKV_MAX_TRANSCODES = Math.max(1, parseInt(process.env.MKV_MAX_TRANSCODES || "1", 10));
 const MKV_MAX_TRANSCODES_PER_IP = Math.max(1, parseInt(process.env.MKV_MAX_TRANSCODES_PER_IP || "1", 10));
-const MKV_TRANSCODE_THREADS = Math.max(1, Math.min(4, parseInt(process.env.MKV_TRANSCODE_THREADS || "1", 10)));
+const MKV_TRANSCODE_THREADS = Math.max(1, Math.min(4, parseInt(process.env.MKV_TRANSCODE_THREADS || "2", 10)));   // both cores by default so a live 540p encode keeps realtime and never buffers
 const MKV_COPY_AUDIO = process.env.MKV_COPY_AUDIO === "1";
 function resolveFfmpeg() {
   if (process.env.FFMPEG_PATH) return process.env.FFMPEG_PATH;
