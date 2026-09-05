@@ -114,7 +114,7 @@ test("IPTV supports secure provider login, shared browsing, HLS and host subtitl
   assert.match(serverSource, /streamTicket\.url\.startsWith\("iptv:"\)/);   // no public-domain hairpin
   assert.match(serverSource, /iptvService\.remuxInputUrl/);   // FFmpeg gets a seekable opaque loopback URL, not the provider URL
   assert.match(serverSource, /min\(540/);   // HEVC fallback keeps enough CPU headroom to build a buffer on the two-core VPS
-  assert.match(serverSource, /"-maxrate", "800k"/);   // the VPS-to-viewer route cannot be overrun by the provider's multi-megabit HEVC original
+  assert.match(serverSource, /"-maxrate", "1500k"/);   // 540p is the realtime ceiling on the 2-core VPS; a higher bitrate there is nearly free CPU and much sharper
   assert.match(serverSource, /state\.ffmpeg\.stdout\.pause\(\)/);   // a slow HTTP viewer backpressures the shared transcoder instead of being disconnected
   assert.match(serverSource, /client\.once\("drain"/);
   assert.doesNotMatch(serverSource, /client\.writableLength > 4 \* 1024 \* 1024/);

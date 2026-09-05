@@ -452,7 +452,10 @@ function mkvFfmpegArgs(transcodeVideo, inputUrl, options) {
     ? ["-c:a", "copy"]
     : ["-c:a", "aac", "-b:a", "128k", "-ac", "2", "-ar", "48000", "-af", "aresample=async=1000:first_pts=0"];
   const videoArgs = transcodeVideo
-    ? ["-c:v", "libx264", "-preset", "ultrafast", "-tune", "zerolatency", "-crf", "26", "-maxrate", "800k", "-bufsize", "1600k", "-pix_fmt", "yuv420p", "-vf", "scale=w=-2:h=min(540\\,ih)" + (options.live ? ",fps=25" : ""), "-threads", String(MKV_TRANSCODE_THREADS), "-g", options.live ? "50" : "48", "-keyint_min", options.live ? "25" : "24", "-sc_threshold", "0"]
+    /* Only reached when the browser cannot play the source directly (HEVC video) or the lossless
+       copy is not viable. 540p is the realtime ceiling for a live encode on this 2-core VPS, but a
+       higher bitrate at that resolution is nearly free in CPU and clearly sharper than 800k. */
+    ? ["-c:v", "libx264", "-preset", "ultrafast", "-tune", "zerolatency", "-crf", "23", "-maxrate", "1500k", "-bufsize", "3000k", "-pix_fmt", "yuv420p", "-vf", "scale=w=-2:h=min(540\\,ih)" + (options.live ? ",fps=25" : ""), "-threads", String(MKV_TRANSCODE_THREADS), "-g", options.live ? "50" : "48", "-keyint_min", options.live ? "25" : "24", "-sc_threshold", "0"]
     /* A live MPEG-TS is joined mid-GOP, so its SPS/PPS only reappear at the next keyframe. Without
        them the fragmented-MP4 muxer cannot build the init segment and the copy fails (the browser
        then falls back to a 540p transcode). dump_extra re-inserts SPS/PPS ahead of each keyframe,
