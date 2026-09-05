@@ -287,7 +287,9 @@ async function openMkvSource(raw, redirects) {
 }
 function makeMkvToken(url, options) {
   const video = options && options.video === "h264" ? "h264" : "copy";
-  const payload = Buffer.from(JSON.stringify({ url, video, exp: Math.floor(Date.now() / 1000) + MKV_TOKEN_TTL })).toString("base64url");
+  const start = options && Number.isFinite(Number(options.start)) ? Math.min(48 * 3600, Math.max(0, Number(options.start))) : 0;
+  const live = !!(options && options.live);
+  const payload = Buffer.from(JSON.stringify({ url, video, start, live, exp: Math.floor(Date.now() / 1000) + MKV_TOKEN_TTL })).toString("base64url");
   const signature = crypto.createHmac("sha256", MKV_TOKEN_SECRET).update(payload).digest("base64url");
   return payload + "." + signature;
 }
@@ -299,7 +301,8 @@ function readMkvToken(token) {
   if (supplied.length !== expected.length || !crypto.timingSafeEqual(supplied, expected)) throw mkvError("bad_token", 403);
   let payload; try { payload = JSON.parse(Buffer.from(parts[0], "base64url").toString("utf8")); } catch (_) { throw mkvError("bad_token", 403); }
   if (!payload || typeof payload.url !== "string" || !payload.exp || payload.exp < Math.floor(Date.now() / 1000)) throw mkvError("expired_token", 403);
-  return { url: payload.url, video: payload.video === "h264" ? "h264" : "copy" };
+  const start = Number(payload.start);
+  return { url: payload.url, video: payload.video === "h264" ? "h264" : "copy", start: Number.isFinite(start) ? Math.min(48 * 3600, Math.max(0, start)) : 0, live: !!payload.live };
 }
 function acquireMkvSlot(ip) {
   const byIp = activeMkvByIp.get(ip) || 0;
@@ -443,17 +446,18 @@ let iptvService = null;
 const activeSharedTranscodes = new Map();
 const MKV_SHARED_BACKLOG = Math.max(1024 * 1024, parseInt(process.env.MKV_SHARED_BACKLOG || String(8 * 1024 * 1024), 10));
 
-function mkvFfmpegArgs(transcodeVideo, inputUrl) {
+function mkvFfmpegArgs(transcodeVideo, inputUrl, options) {
+  options = options || {};
   const audioArgs = MKV_COPY_AUDIO
     ? ["-c:a", "copy"]
     : ["-c:a", "aac", "-b:a", "192k", "-ac", "2", "-ar", "48000", "-af", "aresample=async=1000:first_pts=0"];
   const videoArgs = transcodeVideo
-    ? ["-c:v", "libx264", "-preset", "ultrafast", "-tune", "zerolatency", "-crf", "25", "-pix_fmt", "yuv420p", "-vf", "scale=w=-2:h=min(720\\,ih)", "-threads", String(MKV_TRANSCODE_THREADS), "-g", "60", "-keyint_min", "30", "-sc_threshold", "0"]
+    ? ["-c:v", "libx264", "-preset", "ultrafast", "-tune", "zerolatency", "-crf", "26", "-pix_fmt", "yuv420p", "-vf", "scale=w=-2:h=min(540\\,ih)" + (options.live ? ",fps=25" : ""), "-threads", String(MKV_TRANSCODE_THREADS), "-g", options.live ? "50" : "60", "-keyint_min", options.live ? "25" : "30", "-sc_threshold", "0"]
     : ["-c:v", "copy"];
   const input = inputUrl || "pipe:0";
   const inputArgs = input === "pipe:0"
     ? ["-i", input]
-    : ["-rw_timeout", "35000000", "-reconnect", "1", "-reconnect_streamed", "1", "-reconnect_delay_max", "2", "-i", input];
+    : ["-rw_timeout", "35000000", "-reconnect", "1", "-reconnect_streamed", "1", "-reconnect_delay_max", "2", ...(options.start > 0.01 ? ["-ss", Number(options.start).toFixed(3)] : []), "-i", input];
   return [
     "-hide_banner", "-loglevel", "warning", "-fflags", "+genpts",
     "-probesize", "5M", "-analyzeduration", "5000000", ...inputArgs,
@@ -495,7 +499,7 @@ function createSharedTranscode(key, streamTicket, ip) {
     let input;
     try { input = await prepareMkvInput(streamTicket); state.source = input.source; }
     catch (error) { fail(error.code || "mkv_source_failed", error.status || 502); return; }
-    state.ffmpeg = spawn(FFMPEG_PATH, mkvFfmpegArgs(true, input.url), { stdio: [state.source ? "pipe" : "ignore", "pipe", "pipe"] });
+    state.ffmpeg = spawn(FFMPEG_PATH, mkvFfmpegArgs(true, input.url, streamTicket), { stdio: [state.source ? "pipe" : "ignore", "pipe", "pipe"] });
     state.ffmpeg.stderr.on("data", chunk => { state.stderr = (state.stderr + String(chunk)).slice(-8000); });
     if (state.ffmpeg.stdin) state.ffmpeg.stdin.on("error", () => {});
     if (state.source) state.source.once("error", () => { if (state.ffmpeg && !state.ffmpeg.killed) state.ffmpeg.kill("SIGKILL"); });
@@ -544,7 +548,7 @@ app.get("/mkv-stream", async (req, res) => {
   try { streamTicket = readMkvToken(req.query.token); }
   catch (error) { return res.status(error.status || 403).json({ error: error.code || "bad_token" }); }
   const ip = clientIp(req);
-  const sharedKey = streamTicket.video === "h264" && streamTicket.url.startsWith("iptv:") ? streamTicket.url : "";
+  const sharedKey = streamTicket.video === "h264" && streamTicket.url.startsWith("iptv:") ? streamTicket.url + "|" + streamTicket.start.toFixed(3) : "";
   if (sharedKey) {
     const state = activeSharedTranscodes.get(sharedKey) || createSharedTranscode(sharedKey, streamTicket, ip);
     return attachSharedTranscode(state, res);
@@ -565,7 +569,7 @@ app.get("/mkv-stream", async (req, res) => {
   catch (error) { release(); return res.status(error.status || 502).json({ error: error.code || "mkv_source_failed" }); }
   if (res.destroyed) { stop(); return; }
 
-  const ffmpegArgs = mkvFfmpegArgs(transcodeVideo, input.url);
+  const ffmpegArgs = mkvFfmpegArgs(transcodeVideo, input.url, streamTicket);
   ffmpeg = spawn(FFMPEG_PATH, ffmpegArgs, { stdio: [source ? "pipe" : "ignore", "pipe", "pipe"] });
   let ffmpegError = "";
   ffmpeg.stderr.on("data", chunk => { ffmpegError = (ffmpegError + String(chunk)).slice(-8000); });
@@ -1272,6 +1276,7 @@ wss.on("connection", (ws) => {
       const id = String(m.id || "").slice(0, 64);
       const title = String(m.title || "").slice(0, 180);
       const live = !!m.live;
+      const duration = Math.min(48 * 3600, Math.max(0, Number(m.duration) || 0));
       const iptv = !!m.iptv && !!r.iptvSource;
       const iptvFallback = iptv && (m.iptvFallback === "copy" || m.iptvFallback === "h264") ? m.iptvFallback : "";
       const iptvSubtitles = Array.isArray(m.iptvSubtitles) ? m.iptvSubtitles.slice(0, 20).map(sub => {
@@ -1284,8 +1289,8 @@ wss.on("connection", (ws) => {
         return clean;
       }).filter(sub => /^https?:\/\//i.test(sub.url)) : [];
       if (!r.media || r.media.url !== url || !SUBTITLE_MODES.has(mode)) { r.subtitle = null; r.iptvSubtitle = null; r.subclock = null; }
-      r.media = url ? { mode, url, id, title, live, iptv, iptvFallback, iptvSubtitles } : null;   // remember what's playing → replay to (re)joiners so a missed link never stays blank
-      broadcastRoom(r, { type: "video", from: ws._peerId, mode, url, id, title, live, iptv, iptvFallback, iptvSubtitles }, ws);
+      r.media = url ? { mode, url, id, title, live, duration, iptv, iptvFallback, iptvSubtitles } : null;   // remember what's playing → replay to (re)joiners so a missed link never stays blank
+      broadcastRoom(r, { type: "video", from: ws._peerId, mode, url, id, title, live, duration, iptv, iptvFallback, iptvSubtitles }, ws);
       return;
     }
 

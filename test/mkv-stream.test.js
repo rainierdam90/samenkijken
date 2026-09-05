@@ -169,7 +169,7 @@ test("IPTV remux is credential-opaque, room-wide, audible for AC-3 and H.264-com
     "-c:a", "ac3", "-b:a", "128k", "-f", "mpegts", liveFile
   ], { encoding: "utf8" });
   assert.equal(liveMade.status, 0, liveMade.stderr || "could not create AC-3 live fixture");
-  fs.writeFileSync(subtitleFile, "1\n00:00:00,100 --> 00:00:01,200\nNederlandse providerondertitel\n", "utf8");
+  fs.writeFileSync(subtitleFile, "1\n00:00:00,100 --> 00:00:00,500\nNederlandse providerondertitel\n\n2\n00:00:00,800 --> 00:00:01,400\nOndertitel na doorspoelen\n", "utf8");
   const hevcMade = spawnSync(FFMPEG, [
     "-y", "-hide_banner", "-loglevel", "error",
     "-f", "lavfi", "-i", "testsrc2=s=160x90:r=12",
@@ -280,17 +280,21 @@ test("IPTV remux is credential-opaque, room-wide, audible for AC-3 and H.264-com
   const movieCatalog = await (await fetch(base + "/iptv/catalog?kind=movie", { headers })).json();
   const resolved = await (await fetch(base + "/iptv/resolve", { method: "POST", headers, body: JSON.stringify({ id: movieCatalog.items[0].id }) })).json();
   assert.equal(resolved.playback.fallback, "h264", "HEVC is detected before the browser gets a black player");
+  assert.ok(resolved.playback.duration > 1 && resolved.playback.duration < 3, "the complete VOD duration is available before transcoding starts");
   const embeddedSubtitle = resolved.playback.subtitles.find(sub => sub.streaming);
   assert.ok(embeddedSubtitle, "embedded IPTV subtitles are advertised to the CC menu");
   assert.equal(embeddedSubtitle.lang, "nl"); assert.doesNotMatch(embeddedSubtitle.url, /demo|secret|\/movie\//);
   const extractedSubtitleResponse = await fetch(embeddedSubtitle.url), extractedSubtitle = await extractedSubtitleResponse.text();
   assert.equal(extractedSubtitleResponse.status, 200, extractedSubtitle || "embedded subtitle extraction returned no body");
   assert.match(extractedSubtitle, /^WEBVTT/); assert.match(extractedSubtitle, /Nederlandse providerondertitel/);
-  const movieRemux = await (await fetch(base + "/iptv/remux", { method: "POST", headers, body: JSON.stringify({ id: movieCatalog.items[0].id, video: "h264" }) })).json();
-  const guestMovieRemux = await (await fetch(base + "/iptv/remux", { method: "POST", headers, body: JSON.stringify({ id: movieCatalog.items[0].id, video: "h264" }) })).json();
+  const seekedSubtitleResponse = await fetch(embeddedSubtitle.url + "?start=0.6"), seekedSubtitle = await seekedSubtitleResponse.text();
+  assert.equal(seekedSubtitleResponse.status, 200, seekedSubtitle || "seeked embedded subtitle extraction returned no body");
+  assert.match(seekedSubtitle, /Ondertitel na doorspoelen/, "provider subtitles resume at the film's new server-side seek position");
+  const movieRemux = await (await fetch(base + "/iptv/remux", { method: "POST", headers, body: JSON.stringify({ id: movieCatalog.items[0].id, video: "h264", start: 0.5 }) })).json();
+  const guestMovieRemux = await (await fetch(base + "/iptv/remux", { method: "POST", headers, body: JSON.stringify({ id: movieCatalog.items[0].id, video: "h264", start: 0.5 }) })).json();
   const movieUrl = new URL(movieRemux.streamPath, base), moviePayload = JSON.parse(Buffer.from(movieUrl.searchParams.get("token").split(".")[0], "base64url").toString("utf8"));
   const guestMovieUrl = new URL(guestMovieRemux.streamPath, base), guestMoviePayload = JSON.parse(Buffer.from(guestMovieUrl.searchParams.get("token").split(".")[0], "base64url").toString("utf8"));
-  assert.equal(moviePayload.video, "h264"); assert.doesNotMatch(JSON.stringify(moviePayload), /demo|secret|\/movie\//);
+  assert.equal(moviePayload.video, "h264"); assert.equal(moviePayload.start, 0.5); assert.equal(moviePayload.live, false); assert.doesNotMatch(JSON.stringify(moviePayload), /demo|secret|\/movie\//);
   assert.equal(guestMoviePayload.url, moviePayload.url, "viewers share one HEVC-to-H.264 process");
   const [movieResponse, guestMovieResponse] = await Promise.all([fetch(movieUrl), fetch(guestMovieUrl)]);
   assert.equal(movieResponse.status, 200); assert.equal(guestMovieResponse.status, 200);
@@ -302,9 +306,10 @@ test("IPTV remux is credential-opaque, room-wide, audible for AC-3 and H.264-com
   assert.ok(seenRequests.some(request => request.path === "/movie/demo/secret/20.mp4" && /^bytes=/i.test(request.range)), "FFmpeg can seek IPTV VOD through the opaque loopback proxy");
 
   const sharedVideo = waitForMessage(guest, "video");
-  host.send(JSON.stringify({ type: "video", mode: "file", url: resolved.playback.url, id: movieCatalog.items[0].id, title: "HEVC Film", live: false, iptv: true, iptvFallback: "h264", iptvSubtitles: resolved.playback.subtitles }));
+  host.send(JSON.stringify({ type: "video", mode: "file", url: resolved.playback.url, id: movieCatalog.items[0].id, title: "HEVC Film", live: false, duration: resolved.playback.duration, iptv: true, iptvFallback: "h264", iptvSubtitles: resolved.playback.subtitles }));
   const relayed = await sharedVideo;
   assert.equal(relayed.iptv, true); assert.equal(relayed.iptvFallback, "h264");
+  assert.ok(relayed.duration > 1, "the full timeline is relayed to everyone in the room");
   assert.equal(relayed.iptvSubtitles[0].streaming, true);
   const sharedSubtitle = waitForMessage(guest, "iptv-subtitle-track");
   host.send(JSON.stringify({ type: "iptv-subtitle-track", mediaUrl: resolved.playback.url, subtitleUrl: embeddedSubtitle.url }));

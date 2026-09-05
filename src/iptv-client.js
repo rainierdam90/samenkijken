@@ -94,6 +94,7 @@
     }
     function cardFor(item) {
       const card = document.createElement("button"); card.type = "button"; card.className = "iptv-card " + (item.kind === "live" ? "live" : ""); card.dataset.itemId = item.id;
+      card.setAttribute("aria-label", item.title); card.title = item.title;
       const art = document.createElement("span"); art.className = "iptv-art"; art.textContent = item.kind === "live" ? "📺" : item.kind === "series" ? "▦" : "▶";
       if (item.image) {
         const image = document.createElement("img"); image.alt = ""; image.loading = "lazy"; image.decoding = "async"; image.referrerPolicy = "no-referrer"; image.src = item.image;
@@ -104,7 +105,7 @@
       if (item.kind === "live") { const badge = document.createElement("span"); badge.className = "iptv-live-badge"; badge.textContent = "LIVE"; title.appendChild(badge); }
       const meta = document.createElement("span"); meta.className = "iptv-card-meta";
       const bits = []; if (item.season != null) bits.push("S" + item.season + (item.episode != null ? " · E" + item.episode : "")); if (item.year) bits.push(item.year); if (item.rating != null) bits.push("★ " + item.rating); meta.textContent = bits.join(" · ");
-      copy.appendChild(title); if (bits.length) copy.appendChild(meta); card.appendChild(art); card.appendChild(copy);
+      copy.appendChild(title); copy.appendChild(meta); card.appendChild(art); card.appendChild(copy);
       card.addEventListener("click", () => item.kind === "series" ? openSeries(item) : resolve(item)); return card;
     }
     function renderItems(items, append) {
@@ -115,9 +116,9 @@
     function flushPendingNavigation() { if (!loading && pendingNav && root.classList.contains("show")) { const nav=pendingNav; pendingNav=null; setTimeout(() => applyNavigation(nav), 0); } }
     async function loadCatalog(append) {
       if (!source) return; if (loading) { pendingNav={view:"catalog",kind,category:category.value,q:search.value.trim()}; return; } loading = true; const own = ++requestId;
-      if (!append) { cursor = null; message(t("iptv_loading")); }
+      if (!append) { cursor = null; grid.scrollTop = 0; message(t("iptv_loading")); }
       more.hidden = true;
-      const query = new URLSearchParams({ kind, limit:"60" });
+      const query = new URLSearchParams({ kind, limit:"18" });
       if (category.value) query.set("category", category.value); if (search.value.trim()) query.set("q", search.value.trim()); if (append && cursor != null) query.set("cursor", String(cursor));
       try {
         const data = await responseJson(await fetch(api("/catalog?") + query.toString(), { headers: headers(false) }));
@@ -146,8 +147,8 @@
     function cardStatus(id, text) {
       const cards = grid.querySelectorAll(".iptv-card"); let target = null;
       cards.forEach(card => { if (card.dataset.itemId === id) target = card; });
-      if (!target) return null; const copy = target.querySelector(".iptv-card-meta"), before = copy ? copy.textContent : ""; target.disabled = true; if (copy) copy.textContent = text;
-      return () => { target.disabled = false; if (copy) copy.textContent = before; };
+      if (!target) return null; const copy = target.querySelector(".iptv-card-meta"), before = copy ? copy.textContent : ""; target.disabled = true; target.classList.add("opening"); if (copy) copy.textContent = text;
+      return () => { target.disabled = false; target.classList.remove("opening"); if (copy) copy.textContent = before; };
     }
     async function connect() {
       if (loading) return; errorEl.textContent = "";
@@ -179,10 +180,10 @@
     }
     /* The player calls this when the browser cannot decode a title directly; the server hands
        back a /mkv-stream path that copies the video and re-encodes the audio to AAC. */
-    async function remux(itemId, video) {
+    async function remux(itemId, video, start) {
       if (!source || !itemId) return null;
       try {
-        const data = await responseJson(await fetch(api("/remux"), { method:"POST", headers:headers(true), body:JSON.stringify({ id:itemId, video:video === "h264" ? "h264" : "copy" }) }));
+        const data = await responseJson(await fetch(api("/remux"), { method:"POST", headers:headers(true), body:JSON.stringify({ id:itemId, video:video === "h264" ? "h264" : "copy", start:Number.isFinite(Number(start)) ? Number(start) : 0 }) }));
         return data && data.streamPath ? data.streamPath : null;
       } catch (_) { return null; }
     }
@@ -200,6 +201,7 @@
     byId("iptvConnect").addEventListener("click", connect); byId("iptvClose").addEventListener("click", close); byId("iptvDisconnect").addEventListener("click", disconnect);
     byId("iptvRemember").addEventListener("change", event => { if (!event.target.checked) forgetRememberedLogin(); });
     byId("iptvSearchBtn").addEventListener("click", () => { catalogNavigation(); loadCatalog(false); }); category.addEventListener("change", () => { catalogNavigation(); loadCatalog(false); }); more.addEventListener("click", () => loadCatalog(true));
+    grid.addEventListener("scroll", () => { if (!loading && cursor != null && grid.scrollTop + grid.clientHeight >= grid.scrollHeight - 180) loadCatalog(true); }, { passive:true });
     back.addEventListener("click", () => setKind("series")); search.addEventListener("keydown", event => { if (event.key === "Enter") loadCatalog(false); });
     search.addEventListener("input", () => { clearTimeout(searchTimer); searchTimer = setTimeout(() => { catalogNavigation(); loadCatalog(false); }, 450); });
     [byId("iptvServer"),byId("iptvUser"),byId("iptvPass"),byId("iptvPlaylist")].forEach(input => input.addEventListener("keydown", event => { if (event.key === "Enter") connect(); }));

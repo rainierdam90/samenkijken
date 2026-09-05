@@ -115,6 +115,11 @@
   <main class="stage" id="stage">
     <div id="decorLayer" aria-hidden="true"></div>
     <video id="movie" playsinline controls controlslist="nofullscreen nodownload noremoteplayback" preload="metadata"></video>
+    <div class="iptv-seek" id="iptvSeek" hidden aria-label="Film timeline">
+      <button type="button" id="iptvSeekBack" aria-label="10 seconds back">−10s</button><span id="iptvSeekNow">0:00</span>
+      <input type="range" id="iptvSeekRange" min="0" max="1" step="0.25" value="0" aria-label="Seek through the complete film" />
+      <span id="iptvSeekEnd">0:00</span><button type="button" id="iptvSeekForward" aria-label="10 seconds forward">+10s</button>
+    </div>
     <video id="screenVideo" autoplay playsinline></video>
     <img id="galleryImg" alt="" />
     <div id="ytwrap"></div>

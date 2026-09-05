@@ -346,6 +346,11 @@ function createIptvService(options) {
       ], { stdio: ["ignore", "ignore", "pipe"] });
       const finish = () => {
         if (settled) return; settled = true; clearTimeout(timer);
+        const durationMatch = stderr.match(/Duration:\s*(\d+):(\d+):(\d+(?:\.\d+)?)/i);
+        if (durationMatch) {
+          const seconds = Number(durationMatch[1]) * 3600 + Number(durationMatch[2]) * 60 + Number(durationMatch[3]);
+          if (Number.isFinite(seconds) && seconds > 0 && seconds <= 48 * 3600) item.duration = seconds;
+        }
         const tracks = [], lines = stderr.split(/\r?\nStream mapping:/)[0].split(/\r?\n/);
         for (let i = 0; i < lines.length && tracks.length < 20; i++) {
           const match = lines[i].match(/Stream #\d+:(\d+)(?:\[[^\]]+\])?(?:\(([^)]+)\))?: Subtitle:\s*([a-zA-Z0-9_]+)/i);
@@ -682,7 +687,7 @@ function createIptvService(options) {
       stream.subtitleIndexes = new Set(embedded.map(sub => sub.index));
       embedded.forEach(sub => subtitles.push({ name: sub.name, lang: sub.lang, url: externalBase(req) + "/iptv/subtitle/" + encodeURIComponent(stream.ticket) + "/" + sub.index, streaming: true }));
       subtitles.forEach(sub => { delete sub._raw; });
-      res.json({ item: publicItem(req, session, item), playback: { url: resourceUrl(req, stream, "root"), mode, live: item.kind === "live", fallback, subtitles } });
+      res.json({ item: publicItem(req, session, item), playback: { url: resourceUrl(req, stream, "root"), mode, live: item.kind === "live", duration: item.duration || 0, fallback, subtitles } });
     } catch (error) { errorResponse(res, error); }
   });
 
@@ -698,9 +703,11 @@ function createIptvService(options) {
       const upstream = streamUrl(session, item, item.kind === "live" ? "ts" : "file");
       await validateTarget(upstream);
       const video = (req.body || {}).video === "h264" ? "h264" : "copy";
+      const requestedStart = Number((req.body || {}).start), maxStart = item.duration ? Math.max(0, item.duration - 0.25) : 48 * 3600;
+      const start = item.kind === "live" || !Number.isFinite(requestedStart) ? 0 : Math.min(maxStart, Math.max(0, requestedStart));
       const stream = createRemuxStream(session, item, upstream, video);
       const opaqueRef = "iptv:" + stream.ticket;
-      res.json({ streamPath: "/mkv-stream?token=" + encodeURIComponent(makeStreamToken(opaqueRef, { video })), live: item.kind === "live", video });
+      res.json({ streamPath: "/mkv-stream?token=" + encodeURIComponent(makeStreamToken(opaqueRef, { video, live: item.kind === "live", start })), live: item.kind === "live", duration: item.duration || 0, start, video });
     } catch (error) { errorResponse(res, error); }
   });
 
@@ -847,6 +854,7 @@ function createIptvService(options) {
     if (!Number.isInteger(index) || index < 0 || index > 99 || !stream.subtitleIndexes || !stream.subtitleIndexes.has(index)) return res.status(404).json({ error: "subtitle_missing" });
     if (!touchSession(stream.sessionToken)) return res.status(403).json({ error: "source_expired" });
     stream.exp = Math.min(now + streamTtl * 1000, stream.hardExp);
+    const requestedStart = Number(req.query.start), start = Number.isFinite(requestedStart) ? Math.min(48 * 3600, Math.max(0, requestedStart)) : 0;
     const ip = clientIp(req); if (!subtitlePool.acquire(ip)) { res.setHeader("Retry-After", "10"); return res.status(503).json({ error: "iptv_busy" }); }
     let child = null, released = false, finished = false, bytes = 0;
     const release = () => { if (!released) { released = true; subtitlePool.release(ip); } };
@@ -854,10 +862,13 @@ function createIptvService(options) {
     res.once("finish", () => { finished = true; release(); });
     res.once("close", () => { if (!finished) stop(); });
     try {
-      child = spawn(ffmpegPath, [
+      const inputArgs = [
         "-hide_banner", "-loglevel", "error", "-probesize", "5M", "-analyzeduration", "5000000",
         "-rw_timeout", "35000000", "-reconnect", "1", "-reconnect_streamed", "1", "-reconnect_delay_max", "2",
-        "-i", internalStreamUrl(stream.ticket), "-map", "0:" + index, "-c:s", "webvtt", "-flush_packets", "1", "-f", "webvtt", "pipe:1"
+        ...(start > 0.01 ? ["-ss", start.toFixed(3)] : []), "-i", internalStreamUrl(stream.ticket)
+      ];
+      child = spawn(ffmpegPath, [
+        ...inputArgs, "-map", "0:" + index, "-c:s", "webvtt", "-flush_packets", "1", "-f", "webvtt", "pipe:1"
       ], { stdio: ["ignore", "pipe", "pipe"] });
       let stderr = "";
       child.stderr.on("data", chunk => { stderr = (stderr + String(chunk)).slice(-4000); });
