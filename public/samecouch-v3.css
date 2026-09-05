@@ -97,9 +97,6 @@
   .suboverlay.show{display:block}
   .suboverlay span{background:rgba(8,6,12,.74); color:#fff; padding:.1em .38em; border-radius:4px; box-decoration-break:clone; -webkit-box-decoration-break:clone; white-space:pre-wrap; text-shadow:0 1px 3px rgba(0,0,0,.9)}
   @media (max-width:760px){ .suboverlay{bottom:16%; font-size:clamp(14px,3.4vw,20px)} }
-  .iptv-seek{position:absolute;left:50%;bottom:76px;transform:translateX(-50%);z-index:54;width:min(720px,calc(100% - 390px));display:flex;align-items:center;gap:10px;padding:9px 12px;border:1px solid rgba(244,177,74,.38);border-radius:14px;background:rgba(12,10,14,.88);backdrop-filter:blur(9px);box-shadow:var(--shadow);font-size:12px;font-variant-numeric:tabular-nums}
-  .iptv-seek[hidden]{display:none}.iptv-seek input{flex:1;min-width:80px;accent-color:var(--amber)}.iptv-seek button{flex:0 0 auto;border:1px solid var(--line);border-radius:8px;background:rgba(255,255,255,.07);color:var(--txt);padding:6px 9px;cursor:pointer;font:inherit}.iptv-seek button:hover{border-color:rgba(244,177,74,.55)}.iptv-seek.busy{opacity:.7;pointer-events:none}
-  @media (max-width:900px){.iptv-seek{width:calc(100% - 28px);bottom:80px}.iptv-seek button{display:none}}
   .fbtn.has-unread::before{content:attr(data-unread); position:absolute; top:-4px; right:-4px; min-width:16px; height:16px; padding:0 4px; border-radius:9px; background:var(--bad); color:#fff; font-size:10px; font-weight:700; display:grid; place-items:center; box-shadow:0 0 0 2px var(--bg)}
 
   .mediabar{position:absolute; left:50%; bottom:18px; transform:translateX(-50%); z-index:54; display:none; align-items:center; gap:11px; padding:9px 15px; border-radius:999px; background:rgba(20,16,24,.78); border:1px solid var(--line); backdrop-filter:blur(8px); box-shadow:var(--shadow)}

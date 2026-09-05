@@ -80,7 +80,7 @@ test("IPTV supports secure provider login, shared browsing, HLS and host subtitl
   assert.match(publicMarkup, /id="iptvRemember"[^>]*type="checkbox"/);
   assert.match(publicMarkup, /id="iptvPlaylist"[^>]*type="url"/);
   assert.match(publicMarkup, /id="iptvSubModal"/);
-  assert.match(publicMarkup, /id="iptvSeekRange"/);
+  assert.doesNotMatch(publicMarkup, /id="iptvSeekRange"/);   // exactly one timeline: the video element's native, auto-hiding controls
   assert.match(appJs, /return \{ mode:"hls", url:url \}/);
   assert.match(appJs, /mode==="file"\|\|mode==="mkv"\|\|mode==="hls"/);
   assert.match(appJs, /new window\.Hls\(/);
@@ -104,13 +104,16 @@ test("IPTV supports secure provider login, shared browsing, HLS and host subtitl
   assert.match(appJs, /response\.body\.getReader\(\)/);
   assert.match(appJs, /function seekIptvVod\(t,announce\)/);   // progressive transcodes seek by opening an opaque stream at the requested film time
   assert.match(appJs, /seekBase/);
+  assert.match(appJs, /mediaSource\.duration=duration/);   // native controls show the complete VOD length, not only the generated fragment
+  assert.match(appJs, /sourceBuffer\.timestampOffset=start/);   // a server-side seek stays on that one absolute native timeline
+  assert.match(appJs, /movie\.addEventListener\("seeking"/);
   assert.match(appJs, /case "iptv-subtitle-track"/);   // selecting that track is shared with the room
-  assert.match(appJs, /video==="h264"\?45000:18000/);   // a silent HTTP 200 cannot leave the remux player stuck at 0:00 forever
+  assert.match(appJs, /video==="h264"\?30000:12000/);   // a silent HTTP 200 cannot leave the remux player stuck at 0:00 forever
   assert.match(serverSource, /streamTicket\.url\.startsWith\("iptv:"\)/);   // no public-domain hairpin
   assert.match(serverSource, /iptvService\.remuxInputUrl/);   // FFmpeg gets a seekable opaque loopback URL, not the provider URL
   assert.match(serverSource, /min\(540/);   // HEVC fallback keeps enough CPU headroom to build a buffer on the two-core VPS
-  assert.match(serverSource, /MKV_STARTUP_BUFFER/);   // Chrome receives a real lead buffer instead of starting the CPU-heavy stream just in time
-  assert.match(serverSource, /await state\.startupReady/);
+  assert.match(serverSource, /"-maxrate", "800k"/);   // the VPS-to-viewer route cannot be overrun by the provider's multi-megabit HEVC original
+  assert.doesNotMatch(serverSource, /MKV_STARTUP_BUFFER|startupReady/);   // never wait twelve seconds before sending the first playable bytes
   assert.match(iptvServerSource, /loopbackRequest\(req\).*equalInternalKey/s);   // the internal FFmpeg source is not a public proxy
   assert.match(iptvServerSource, /router\.get\("\/subtitle\/:ticket\/:index"/);
   assert.match(iptvServerSource, /"-c:s", "webvtt"/);

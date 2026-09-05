@@ -445,15 +445,14 @@ app.get("/mkv-prepare", async (req, res) => {
 let iptvService = null;
 const activeSharedTranscodes = new Map();
 const MKV_SHARED_BACKLOG = Math.max(1024 * 1024, parseInt(process.env.MKV_SHARED_BACKLOG || String(8 * 1024 * 1024), 10));
-const MKV_STARTUP_BUFFER = Math.max(256 * 1024, Math.min(4 * 1024 * 1024, parseInt(process.env.MKV_STARTUP_BUFFER || String(1536 * 1024), 10)));
 
 function mkvFfmpegArgs(transcodeVideo, inputUrl, options) {
   options = options || {};
   const audioArgs = MKV_COPY_AUDIO
     ? ["-c:a", "copy"]
-    : ["-c:a", "aac", "-b:a", "192k", "-ac", "2", "-ar", "48000", "-af", "aresample=async=1000:first_pts=0"];
+    : ["-c:a", "aac", "-b:a", "128k", "-ac", "2", "-ar", "48000", "-af", "aresample=async=1000:first_pts=0"];
   const videoArgs = transcodeVideo
-    ? ["-c:v", "libx264", "-preset", "ultrafast", "-tune", "zerolatency", "-crf", "26", "-pix_fmt", "yuv420p", "-vf", "scale=w=-2:h=min(540\\,ih)" + (options.live ? ",fps=25" : ""), "-threads", String(MKV_TRANSCODE_THREADS), "-g", options.live ? "50" : "60", "-keyint_min", options.live ? "25" : "30", "-sc_threshold", "0"]
+    ? ["-c:v", "libx264", "-preset", "ultrafast", "-tune", "zerolatency", "-crf", "26", "-maxrate", "800k", "-bufsize", "1600k", "-pix_fmt", "yuv420p", "-vf", "scale=w=-2:h=min(540\\,ih)" + (options.live ? ",fps=25" : ""), "-threads", String(MKV_TRANSCODE_THREADS), "-g", options.live ? "50" : "48", "-keyint_min", options.live ? "25" : "24", "-sc_threshold", "0"]
     : ["-c:v", "copy"];
   const input = inputUrl || "pipe:0";
   const inputArgs = input === "pipe:0"
@@ -481,13 +480,11 @@ function setMkvStreamHeaders(res) {
 }
 
 function createSharedTranscode(key, streamTicket, ip) {
-  let readyResolve, startupResolve;
-  const state = { key, clients: new Set(), backlog: [], backlogBytes: 0, overflow: false, done: false, error: null, source: null, ffmpeg: null, stderr: "", ready: new Promise(resolve => { readyResolve = resolve; }), readyResolve, startupReady: new Promise(resolve => { startupResolve = resolve; }), startupResolve, startupDone: false, startupTimer: null, released: false, mkvSlot: false, transcodeSlot: false };
+  let readyResolve;
+  const state = { key, clients: new Set(), backlog: [], backlogBytes: 0, overflow: false, done: false, error: null, source: null, ffmpeg: null, stderr: "", ready: new Promise(resolve => { readyResolve = resolve; }), readyResolve, released: false, mkvSlot: false, transcodeSlot: false };
   activeSharedTranscodes.set(key, state);
-  const markStartupReady = () => { if (state.startupDone) return; state.startupDone = true; clearTimeout(state.startupTimer); state.startupResolve(); };
-  state.startupTimer = setTimeout(markStartupReady, 12000);
   const release = () => {
-    if (state.released) return; state.released = true; markStartupReady(); if (state.mkvSlot) releaseMkvSlot(ip); if (state.transcodeSlot) releaseMkvTranscodeSlot(ip);
+    if (state.released) return; state.released = true; if (state.mkvSlot) releaseMkvSlot(ip); if (state.transcodeSlot) releaseMkvTranscodeSlot(ip);
   };
   const fail = (code, status) => {
     if (state.done) return; state.error = { code, status }; state.done = true; state.readyResolve();
@@ -510,7 +507,6 @@ function createSharedTranscode(key, streamTicket, ip) {
     state.ffmpeg.stdout.on("data", chunk => {
       if (!state.overflow && state.backlogBytes + chunk.length <= MKV_SHARED_BACKLOG) { state.backlog.push(chunk); state.backlogBytes += chunk.length; }
       else state.overflow = true;
-      if (state.backlogBytes >= MKV_STARTUP_BUFFER) markStartupReady();
       state.clients.forEach(client => {
         if (client.destroyed || client.writableEnded) { state.clients.delete(client); return; }
         if (client.writableLength > 4 * 1024 * 1024) { client.destroy(); state.clients.delete(client); return; }
@@ -519,7 +515,7 @@ function createSharedTranscode(key, streamTicket, ip) {
     });
     state.ffmpeg.once("close", code => {
       if (state.done) return;
-      state.done = true; markStartupReady(); state.clients.forEach(client => { if (!client.writableEnded) client.end(); }); state.clients.clear(); activeSharedTranscodes.delete(key); release();
+      state.done = true; state.clients.forEach(client => { if (!client.writableEnded) client.end(); }); state.clients.clear(); activeSharedTranscodes.delete(key); release();
       if (code !== 0 && state.stderr) console.warn("[MKV] shared H.264 transcode stopped:", state.stderr.replace(/https?:\/\/\S+/g, "[source]").slice(-1000));
     });
     state.readyResolve(); if (state.source) state.source.pipe(state.ffmpeg.stdin);
@@ -529,8 +525,6 @@ function createSharedTranscode(key, streamTicket, ip) {
 
 async function attachSharedTranscode(state, res) {
   await state.ready;
-  if (state.error) { if (!res.headersSent) res.status(state.error.status).json({ error: state.error.code }); return; }
-  await state.startupReady;   // hand Chrome several seconds at once instead of beginning with an empty just-in-time buffer
   if (state.error) { if (!res.headersSent) res.status(state.error.status).json({ error: state.error.code }); return; }
   if (state.overflow) { res.setHeader("Retry-After", "20"); res.status(503).json({ error: "mkv_transcode_busy" }); return; }
   setMkvStreamHeaders(res);

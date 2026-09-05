@@ -266,7 +266,7 @@ other modern browsers.
 For browser-incompatible IPTV codecs, playback escalates in two steps. AC-3,
 E-AC-3 and DTS audio are converted to AAC while H.264 video is copied unchanged.
 If the video itself is HEVC/H.265, one tightly limited FFmpeg process converts it
-to H.264 at up to 720p; simultaneous viewers of the same title share that process
+to bandwidth-capped H.264 at up to 540p; simultaneous viewers of the same title share that process
 instead of encoding the same frames repeatedly. Live channels keep live semantics
 after either fallback, so the room clock never seeks or rewinds separate live edges.
 FFmpeg reads IPTV through a credential-opaque, loopback-only HTTP route. That keeps

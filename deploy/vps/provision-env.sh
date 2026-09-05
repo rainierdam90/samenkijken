@@ -25,6 +25,7 @@ printf '%s\n' \
   'TURN_TTL=3600' \
   'MAX_ROOM=8' \
   'CHAT_KEEP=300' \
+  'FFMPEG_PATH=/usr/bin/ffmpeg' \
   "MKV_TOKEN_SECRET=$mkv_secret" \
   'MKV_TOKEN_TTL=300' \
   'MKV_MAX_STREAMS=8' \
