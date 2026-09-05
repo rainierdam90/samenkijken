@@ -106,6 +106,8 @@ test("IPTV supports secure provider login, shared browsing, HLS and host subtitl
   assert.match(appJs, /seekBase/);
   assert.match(appJs, /mediaSource\.duration=duration/);   // native controls show the complete VOD length, not only the generated fragment
   assert.match(appJs, /sourceBuffer\.timestampOffset=start/);   // a server-side seek stays on that one absolute native timeline
+  assert.match(appJs, /function waitForIptvMseCapacity\(buffer,id\)/);   // bound forward buffering so a long VOD cannot exhaust browser memory
+  assert.match(appJs, /if\(ahead<90\) return resolve\(\)/);
   assert.match(appJs, /movie\.addEventListener\("seeking"/);
   assert.match(appJs, /case "iptv-subtitle-track"/);   // selecting that track is shared with the room
   assert.match(appJs, /video==="h264"\?30000:12000/);   // a silent HTTP 200 cannot leave the remux player stuck at 0:00 forever
@@ -113,6 +115,9 @@ test("IPTV supports secure provider login, shared browsing, HLS and host subtitl
   assert.match(serverSource, /iptvService\.remuxInputUrl/);   // FFmpeg gets a seekable opaque loopback URL, not the provider URL
   assert.match(serverSource, /min\(540/);   // HEVC fallback keeps enough CPU headroom to build a buffer on the two-core VPS
   assert.match(serverSource, /"-maxrate", "800k"/);   // the VPS-to-viewer route cannot be overrun by the provider's multi-megabit HEVC original
+  assert.match(serverSource, /state\.ffmpeg\.stdout\.pause\(\)/);   // a slow HTTP viewer backpressures the shared transcoder instead of being disconnected
+  assert.match(serverSource, /client\.once\("drain"/);
+  assert.doesNotMatch(serverSource, /client\.writableLength > 4 \* 1024 \* 1024/);
   assert.doesNotMatch(serverSource, /MKV_STARTUP_BUFFER|startupReady/);   // never wait twelve seconds before sending the first playable bytes
   assert.match(iptvServerSource, /loopbackRequest\(req\).*equalInternalKey/s);   // the internal FFmpeg source is not a public proxy
   assert.match(iptvServerSource, /router\.get\("\/subtitle\/:ticket\/:index"/);
@@ -127,6 +132,7 @@ test("IPTV supports secure provider login, shared browsing, HLS and host subtitl
   assert.doesNotMatch(iptvJs, /type:"iptv-source"[^\n]+username|type:"iptv-source"[^\n]+password/);
   assert.match(iptvJs, /limit:"18"/);
   assert.match(iptvJs, /grid\.addEventListener\("scroll"/);
+  assert.match(appJs, /iptvGeneratedTracks\.indexOf\(trk\)>=0/);   // generated WebVTT tracks must not reappear as duplicate provider choices
 });
 
 test("a shared IPTV source reaches the room under its own message type", () => {

@@ -729,7 +729,7 @@
     var mode="none", currentMedia=null, pending=null, closing=false, movieErrored=false;
     var iptvHls=null, iptvHlsWatchdog=null, iptvLive=false, iptvExternalSubs=[], iptvEmbeddedSubs=[], iptvSelectedSubtitle=-1, iptvRemuxLevel=0, iptvRemuxRequestId=0;
     var iptvMse=null, iptvMseBuffer=null, iptvMseAbort=null, iptvMseObjectUrl="", iptvMseId=0, iptvMseInternalUntil=0, iptvMseTrimAt=0;
-    var iptvStreamAbort=null, iptvStreamTrack=null, iptvStreamUrl="", iptvSelectedStreamingSub=null;
+    var iptvStreamAbort=null, iptvStreamTrack=null, iptvStreamUrl="", iptvSelectedStreamingSub=null, iptvGeneratedTracks=[];
     var subtitleTrackEl=null, subtitleObjectUrl="", currentSubtitle=null, subtitleEnabled=true, subtitleOffset=0;
     /* embed-subtitle overlay (YouTube/Vimeo excluded): SameCouch renders cues itself and runs its own
        clock, anchored to the 3·2·1 countdown, because a cross-origin iframe exposes no player track or clock. */
@@ -782,6 +782,18 @@
         buffer.addEventListener("updateend",done); buffer.addEventListener("error",bad); try{buffer.appendBuffer(bytes);}catch(e){cleanup();reject(e);}
       });
     }
+    function waitForIptvMseCapacity(buffer,id){
+      return new Promise(function(resolve,reject){
+        function check(){
+          if(id!==iptvMseId||!buffer) return reject(new Error("cancelled"));
+          var now=movie.currentTime||0,ahead=0;
+          try{ for(var i=0;i<buffer.buffered.length;i++) if(buffer.buffered.end(i)>=now-.5) ahead=Math.max(ahead,buffer.buffered.end(i)-now); }catch(e){}
+          if(ahead<90) return resolve();
+          setTimeout(check,500);
+        }
+        check();
+      });
+    }
     function startIptvMse(streamPath,start,duration,onFailed){
       if(!window.MediaSource||!window.fetch||!window.ReadableStream||!duration) return false;
       clearIptvMse(); var id=iptvMseId, mediaSource=new MediaSource(), objectUrl=URL.createObjectURL(mediaSource), failed=false;
@@ -804,7 +816,8 @@
           }
           function pump(){
             if(id!==iptvMseId) return Promise.reject(new Error("cancelled"));
-            return reader.read().then(function(result){
+            var capacity=sourceBuffer?waitForIptvMseCapacity(sourceBuffer,id):Promise.resolve();
+            return capacity.then(function(){ return reader.read(); }).then(function(result){
               if(result.done){ finish(); return; }
               var part=result.value instanceof Uint8Array?result.value:new Uint8Array(result.value);
               if(!sourceBuffer){
@@ -854,7 +867,7 @@
     function refreshIptvSubtitleTracks(list){
       var out=[];
       if(Array.isArray(list)) list.forEach(function(track,index){ out.push({index:index,name:String(track&&((track.name||track.label)||("Track "+(index+1)))),lang:String(track&&(track.lang||track.language)||"und"),native:false}); });
-      else if(movie&&movie.textTracks) for(var i=0;i<movie.textTracks.length;i++){ var trk=movie.textTracks[i]; if(subtitleTrackEl&&subtitleTrackEl.track===trk) continue; out.push({index:i,name:String(trk.label||("Track "+(i+1))),lang:String(trk.language||"und"),native:true}); }
+      else if(movie&&movie.textTracks) for(var i=0;i<movie.textTracks.length;i++){ var trk=movie.textTracks[i]; if(subtitleTrackEl&&subtitleTrackEl.track===trk||iptvGeneratedTracks.indexOf(trk)>=0) continue; out.push({index:i,name:String(trk.label||("Track "+(i+1))),lang:String(trk.language||"und"),native:true}); }
       iptvEmbeddedSubs=out; updateSubtitleUI();
     }
     function disableIptvEmbedded(){
@@ -883,7 +896,7 @@
       if(!sub||!sub.streaming||!currentMedia||!currentMedia.iptv||!/^https?:\/\//i.test(sub.url||"")) return;
       var mediaUrl=currentMedia.url, sourceUrl=String(sub.url), start=Math.max(0,Number(startAt==null?getTime():startAt)||0), controller=(typeof AbortController!=="undefined")?new AbortController():null;
       disableIptvEmbedded(); if(currentSubtitle) setSubtitleEnabled(false);
-      var track; try{ track=movie.addTextTrack("subtitles",String(sub.name||"Subtitles").slice(0,80),String(sub.lang||"und").slice(0,12)); track.mode="showing"; }catch(e){ toast(tr("iptv_sub_failed"),5500); return; }
+      var track; try{ track=movie.addTextTrack("subtitles",String(sub.name||"Subtitles").slice(0,80),String(sub.lang||"und").slice(0,12)); iptvGeneratedTracks.push(track); track.mode="showing"; }catch(e){ toast(tr("iptv_sub_failed"),5500); return; }
       iptvSelectedStreamingSub={name:String(sub.name||"Subtitles").slice(0,80),lang:String(sub.lang||"und").slice(0,12),url:sourceUrl,streaming:true};
       iptvStreamAbort=controller; iptvStreamTrack=track; iptvStreamUrl=sourceUrl; iptvSelectedSubtitle=1000+Math.max(0,iptvExternalSubs.indexOf(sub)); updateSubtitleUI(); toast(tr("iptv_sub_loading"),3500);
       if(announce!==false) rtSend({type:"iptv-subtitle-track",mediaUrl:mediaUrl,subtitleUrl:sourceUrl});

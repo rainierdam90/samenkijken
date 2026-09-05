@@ -479,9 +479,39 @@ function setMkvStreamHeaders(res) {
   res.status(200); res.setHeader("Content-Type", "video/mp4"); res.setHeader("Content-Disposition", "inline; filename=\"samecouch-stream.mp4\""); res.setHeader("Accept-Ranges", "none");
 }
 
+function resumeSharedOutput(state) {
+  if (!state || state.done || state.attachActive || state.blockedClients.size || !state.ffmpeg || !state.ffmpeg.stdout) return;
+  if (state.ffmpeg.stdout.isPaused()) state.ffmpeg.stdout.resume();
+}
+
+function removeSharedClient(state, client) {
+  state.clients.delete(client); state.blockedClients.delete(client); resumeSharedOutput(state);
+}
+
+function writeSharedChunk(state, client, chunk) {
+  if (client.destroyed || client.writableEnded) { removeSharedClient(state, client); return; }
+  if (state.blockedClients.has(client)) return;
+  if (client.write(chunk)) return;
+  state.blockedClients.add(client);
+  if (state.ffmpeg && state.ffmpeg.stdout) state.ffmpeg.stdout.pause();
+  client.once("drain", () => { state.blockedClients.delete(client); resumeSharedOutput(state); });
+}
+
+function waitForResponseDrain(res) {
+  return new Promise(resolve => {
+    let settled = false;
+    const finish = value => {
+      if (settled) return; settled = true;
+      res.removeListener("drain", drained); res.removeListener("close", closed); resolve(value);
+    };
+    const drained = () => finish(true), closed = () => finish(false);
+    res.once("drain", drained); res.once("close", closed);
+  });
+}
+
 function createSharedTranscode(key, streamTicket, ip) {
   let readyResolve;
-  const state = { key, clients: new Set(), backlog: [], backlogBytes: 0, overflow: false, done: false, error: null, source: null, ffmpeg: null, stderr: "", ready: new Promise(resolve => { readyResolve = resolve; }), readyResolve, released: false, mkvSlot: false, transcodeSlot: false };
+  const state = { key, clients: new Set(), blockedClients: new Set(), backlog: [], backlogBytes: 0, overflow: false, done: false, error: null, source: null, ffmpeg: null, stderr: "", ready: new Promise(resolve => { readyResolve = resolve; }), readyResolve, attachChain: Promise.resolve(), attachActive: false, released: false, mkvSlot: false, transcodeSlot: false };
   activeSharedTranscodes.set(key, state);
   const release = () => {
     if (state.released) return; state.released = true; if (state.mkvSlot) releaseMkvSlot(ip); if (state.transcodeSlot) releaseMkvTranscodeSlot(ip);
@@ -507,11 +537,7 @@ function createSharedTranscode(key, streamTicket, ip) {
     state.ffmpeg.stdout.on("data", chunk => {
       if (!state.overflow && state.backlogBytes + chunk.length <= MKV_SHARED_BACKLOG) { state.backlog.push(chunk); state.backlogBytes += chunk.length; }
       else state.overflow = true;
-      state.clients.forEach(client => {
-        if (client.destroyed || client.writableEnded) { state.clients.delete(client); return; }
-        if (client.writableLength > 4 * 1024 * 1024) { client.destroy(); state.clients.delete(client); return; }
-        client.write(chunk);
-      });
+      state.clients.forEach(client => writeSharedChunk(state, client, chunk));
     });
     state.ffmpeg.once("close", code => {
       if (state.done) return;
@@ -527,18 +553,36 @@ async function attachSharedTranscode(state, res) {
   await state.ready;
   if (state.error) { if (!res.headersSent) res.status(state.error.status).json({ error: state.error.code }); return; }
   if (state.overflow) { res.setHeader("Retry-After", "20"); res.status(503).json({ error: "mkv_transcode_busy" }); return; }
-  setMkvStreamHeaders(res);
-  state.backlog.forEach(chunk => res.write(chunk));
-  if (state.done) { res.end(); return; }
-  state.clients.add(res);
-  res.once("close", () => {
-    state.clients.delete(res);
-    if (!state.done && !state.clients.size) setTimeout(() => {
-      if (state.done || state.clients.size) return;
-      if (state.source && !state.source.destroyed) state.source.destroy();
-      if (state.ffmpeg && !state.ffmpeg.killed) state.ffmpeg.kill("SIGKILL");
-    }, 1500);
-  });
+  let unlock;
+  const previousAttach = state.attachChain;
+  state.attachChain = new Promise(resolve => { unlock = resolve; });
+  await previousAttach;
+  try {
+    if (res.destroyed || res.writableEnded) return;
+    if (state.error) { if (!res.headersSent) res.status(state.error.status).json({ error: state.error.code }); return; }
+    if (state.overflow) { res.setHeader("Retry-After", "20"); res.status(503).json({ error: "mkv_transcode_busy" }); return; }
+    state.attachActive = true;
+    if (state.ffmpeg && state.ffmpeg.stdout) state.ffmpeg.stdout.pause();
+    let closed = false;
+    res.once("close", () => {
+      closed = true; removeSharedClient(state, res);
+      if (!state.done && !state.clients.size) setTimeout(() => {
+        if (state.done || state.clients.size || state.attachActive) return;
+        if (state.source && !state.source.destroyed) state.source.destroy();
+        if (state.ffmpeg && !state.ffmpeg.killed) state.ffmpeg.kill("SIGKILL");
+      }, 1500);
+    });
+    setMkvStreamHeaders(res);
+    const backlog = state.backlog.slice();
+    for (const chunk of backlog) {
+      if (closed || res.destroyed || res.writableEnded) return;
+      if (!res.write(chunk) && !(await waitForResponseDrain(res))) return;
+    }
+    if (state.done) { res.end(); return; }
+    state.clients.add(res);
+  } finally {
+    state.attachActive = false; resumeSharedOutput(state); unlock();
+  }
 }
 
 app.get("/mkv-stream", async (req, res) => {
