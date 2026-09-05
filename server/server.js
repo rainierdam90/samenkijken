@@ -873,6 +873,7 @@ iptvService = createIptvService({
   },
   roomLive(room) { const current = rooms.get(String(room || "")); return !!(current && current.members.size); },   // a provider session dies with the room it was opened for
   makeStreamToken: HAS_FFMPEG ? makeMkvToken : null,   // lets the IPTV remux fallback reuse the /mkv-stream transcoder
+  ffmpegPath: HAS_FFMPEG ? FFMPEG_PATH : "",
   internalBase: "http://127.0.0.1:" + PORT
 });
 app.use("/iptv", iptvService.router);
@@ -1058,6 +1059,7 @@ wss.on("connection", (ws) => {
             sendJSON(ws, { type: "subclock", started: true, running: r.subclock.running, base: Math.max(0, r.subclock.base + elapsed) });
           }
         }
+        if (r.iptvSubtitle && r.iptvSubtitle.mediaUrl === r.media.url) sendJSON(ws, { type: "iptv-subtitle-track", subtitle: r.iptvSubtitle });
       }
       pushStats();
       return;
@@ -1272,14 +1274,30 @@ wss.on("connection", (ws) => {
       const live = !!m.live;
       const iptv = !!m.iptv && !!r.iptvSource;
       const iptvFallback = iptv && (m.iptvFallback === "copy" || m.iptvFallback === "h264") ? m.iptvFallback : "";
-      const iptvSubtitles = Array.isArray(m.iptvSubtitles) ? m.iptvSubtitles.slice(0, 20).map(sub => ({
-        name: String(sub && sub.name || "Subtitles").slice(0, 80),
-        lang: String(sub && sub.lang || "und").replace(/[^a-zA-Z0-9-]/g, "").slice(0, 12) || "und",
-        url: String(sub && sub.url || "").slice(0, 2000)
-      })).filter(sub => /^https?:\/\//i.test(sub.url)) : [];
-      if (!r.media || r.media.url !== url || !SUBTITLE_MODES.has(mode)) { r.subtitle = null; r.subclock = null; }
+      const iptvSubtitles = Array.isArray(m.iptvSubtitles) ? m.iptvSubtitles.slice(0, 20).map(sub => {
+        const clean = {
+          name: String(sub && sub.name || "Subtitles").slice(0, 80),
+          lang: String(sub && sub.lang || "und").replace(/[^a-zA-Z0-9-]/g, "").slice(0, 12) || "und",
+          url: String(sub && sub.url || "").slice(0, 2000)
+        };
+        if (sub && sub.streaming && iptvService.isEmbeddedSubtitleUrl(sub.url)) clean.streaming = true;
+        return clean;
+      }).filter(sub => /^https?:\/\//i.test(sub.url)) : [];
+      if (!r.media || r.media.url !== url || !SUBTITLE_MODES.has(mode)) { r.subtitle = null; r.iptvSubtitle = null; r.subclock = null; }
       r.media = url ? { mode, url, id, title, live, iptv, iptvFallback, iptvSubtitles } : null;   // remember what's playing → replay to (re)joiners so a missed link never stays blank
       broadcastRoom(r, { type: "video", from: ws._peerId, mode, url, id, title, live, iptv, iptvFallback, iptvSubtitles }, ws);
+      return;
+    }
+
+    if (m.type === "iptv-subtitle-track") {
+      if (!r.media || !r.media.iptv || !SUBTITLE_MODES.has(r.media.mode)) return;
+      const mediaUrl = String(m.mediaUrl || "").slice(0, 2000), subtitleUrl = String(m.subtitleUrl || "").slice(0, 2000);
+      if (mediaUrl !== r.media.url) return;
+      const selected = (r.media.iptvSubtitles || []).find(sub => sub.streaming && sub.url === subtitleUrl && iptvService.isEmbeddedSubtitleUrl(sub.url));
+      if (!selected) return;
+      r.subtitle = null; r.subclock = null;
+      r.iptvSubtitle = { mediaUrl, name: selected.name, lang: selected.lang, url: selected.url, streaming: true };
+      broadcastRoom(r, { type: "iptv-subtitle-track", subtitle: r.iptvSubtitle }, ws);
       return;
     }
 
@@ -1290,6 +1308,7 @@ wss.on("connection", (ws) => {
       const url = String(m.url || "").slice(0, 2000);
       const vtt = String(m.vtt || "");
       if (url !== r.media.url || vtt.length < 12 || vtt.length > 600 * 1024 || !/^WEBVTT(?:\s|$)/.test(vtt) || !vtt.includes("-->")) return;
+      r.iptvSubtitle = null;
       r.subtitle = { url, name: String(m.name || "subtitles.srt").slice(0, 120), lang: String(m.lang || "und").replace(/[^a-zA-Z0-9-]/g, "").slice(0, 12) || "und", vtt };
       r.subclock = null;   // a fresh subtitle file starts unplayed; the countdown starts its clock
       broadcastRoom(r, { type: "subtitle", ...r.subtitle }, ws);

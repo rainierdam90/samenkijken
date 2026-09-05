@@ -99,10 +99,15 @@ test("IPTV supports secure provider login, shared browsing, HLS and host subtitl
   assert.match(appJs, /Events\.BUFFER_CODECS/);
   assert.match(appJs, /remuxIptvCurrent\("h264"\)/);
   assert.match(appJs, /savedSubs=iptvExternalSubs\.slice\(\)/);   // provider subtitles survive remux/transcode
+  assert.match(appJs, /function streamIptvSubtitle\(sub,announce\)/);   // embedded provider text arrives incrementally while a long film plays
+  assert.match(appJs, /response\.body\.getReader\(\)/);
+  assert.match(appJs, /case "iptv-subtitle-track"/);   // selecting that track is shared with the room
   assert.match(appJs, /video==="h264"\?45000:18000/);   // a silent HTTP 200 cannot leave the remux player stuck at 0:00 forever
   assert.match(serverSource, /streamTicket\.url\.startsWith\("iptv:"\)/);   // no public-domain hairpin
   assert.match(serverSource, /iptvService\.remuxInputUrl/);   // FFmpeg gets a seekable opaque loopback URL, not the provider URL
   assert.match(iptvServerSource, /loopbackRequest\(req\).*equalInternalKey/s);   // the internal FFmpeg source is not a public proxy
+  assert.match(iptvServerSource, /router\.get\("\/subtitle\/:ticket\/:index"/);
+  assert.match(iptvServerSource, /"-c:s", "webvtt"/);
   assert.match(iptvServerSource, /VLC\/3\.0\.21 LibVLC\/3\.0\.21/);   // common panels reject unknown media user agents
   assert.match(serverSource, /const iptv = !!m\.iptv && !!r\.iptvSource/);
   assert.doesNotMatch(iptvJs, /sessionStorage/);

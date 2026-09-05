@@ -13,6 +13,7 @@ const https = require("https");
 const dns = require("dns").promises;
 const net = require("net");
 const crypto = require("crypto");
+const { spawn } = require("child_process");
 const { Readable } = require("stream");
 const express = require("express");
 
@@ -37,6 +38,9 @@ function createIptvService(options) {
      shared the video pipe's slots or the API rate limit, browsing would starve playback. */
   const maxArt = Math.max(4, parseInt(process.env.IPTV_MAX_ART || "24", 10));
   const maxArtPerIp = Math.max(2, parseInt(process.env.IPTV_MAX_ART_PER_IP || "12", 10));
+  const maxSubtitleStreams = Math.max(1, parseInt(process.env.IPTV_MAX_SUBTITLE_STREAMS || "6", 10));
+  const maxSubtitleStreamsPerIp = Math.max(1, parseInt(process.env.IPTV_MAX_SUBTITLE_STREAMS_PER_IP || "3", 10));
+  const maxSubtitleBytes = Math.max(128 * 1024, parseInt(process.env.IPTV_MAX_SUBTITLE_BYTES || String(1024 * 1024), 10));
   const roomGraceMs = 120000;   // a reload or Wi-Fi blip must not kill an active source
   const allowedPorts = new Set((process.env.IPTV_ALLOWED_PORTS || "80,443,8000,8080,8443,8880,25461").split(",").map(v => v.trim()).filter(Boolean));
   const trustedPrivateHosts = new Set((process.env.IPTV_TRUSTED_PRIVATE_HOSTS || "").split(",").map(v => v.trim().toLowerCase()).filter(Boolean));
@@ -60,6 +64,7 @@ function createIptvService(options) {
   const authorizeRoom = options.authorizeRoom || (() => false);
   const roomLive = options.roomLive || (() => true);
   const makeStreamToken = typeof options.makeStreamToken === "function" ? options.makeStreamToken : null;
+  const ffmpegPath = String(options.ffmpegPath || "");
   const internalBase = String(options.internalBase || "").replace(/\/+$/, "");
   const internalRemuxKey = randomToken(24);
 
@@ -316,6 +321,52 @@ function createIptvService(options) {
   }
   function subtitleCandidates(value, base) { const out = []; collectSubtitleUrls(value, base, out, "", 0); return out; }
 
+  function subtitleLanguage(raw) {
+    const lang = inferLang("." + String(raw || "und") + ".");
+    return lang === "und" && /^[a-z]{2,3}$/i.test(String(raw || "")) ? String(raw).toLowerCase() : lang;
+  }
+  function subtitleLanguageName(lang) {
+    return ({ nl:"Nederlands", en:"English", de:"Deutsch", fr:"Français", es:"Español", it:"Italiano", pt:"Português", ar:"العربية", zh:"中文", ja:"日本語", ko:"한국어" })[lang] || "Subtitles";
+  }
+  function isTextSubtitleCodec(codec) { return /^(?:subrip|srt|ass|ssa|webvtt|mov_text|text)$/i.test(String(codec || "").trim()); }
+  function internalStreamUrl(ticket) {
+    if (!internalBase) throw failure("iptv_unavailable", 503);
+    return internalBase + "/iptv/remux-source/" + encodeURIComponent(String(ticket || "")) + "?key=" + encodeURIComponent(internalRemuxKey);
+  }
+  async function probeEmbeddedSubtitles(item, stream) {
+    if (!ffmpegPath || !internalBase || item.kind === "live") return [];
+    if (Array.isArray(item.embeddedSubtitles)) return item.embeddedSubtitles;
+    if (item.embeddedSubtitlePromise) return item.embeddedSubtitlePromise;
+    item.embeddedSubtitlePromise = new Promise(resolve => {
+      let stderr = "", settled = false;
+      const child = spawn(ffmpegPath, [
+        "-hide_banner", "-probesize", "5M", "-analyzeduration", "5000000",
+        "-rw_timeout", "35000000", "-reconnect", "1", "-reconnect_streamed", "1", "-reconnect_delay_max", "2",
+        "-i", internalStreamUrl(stream.ticket), "-map", "0:s?", "-c:s", "copy", "-t", "0", "-f", "null", "-"
+      ], { stdio: ["ignore", "ignore", "pipe"] });
+      const finish = () => {
+        if (settled) return; settled = true; clearTimeout(timer);
+        const tracks = [], lines = stderr.split(/\r?\nStream mapping:/)[0].split(/\r?\n/);
+        for (let i = 0; i < lines.length && tracks.length < 20; i++) {
+          const match = lines[i].match(/Stream #\d+:(\d+)(?:\[[^\]]+\])?(?:\(([^)]+)\))?: Subtitle:\s*([a-zA-Z0-9_]+)/i);
+          if (!match || !isTextSubtitleCodec(match[3])) continue;
+          const index = Number(match[1]); if (!Number.isInteger(index) || index < 0 || index > 99 || tracks.some(track => track.index === index)) continue;
+          let title = "";
+          for (let j = i + 1; j < Math.min(lines.length, i + 8) && !/Stream #\d+:/.test(lines[j]); j++) {
+            const titleMatch = lines[j].match(/^\s*(?:title|handler_name)\s*:\s*(.+?)\s*$/i); if (titleMatch) { title = safeText(titleMatch[1], 80); break; }
+          }
+          const lang = subtitleLanguage(match[2]), forced = /\(forced\)/i.test(lines[i]);
+          tracks.push({ index, lang, name: title || subtitleLanguageName(lang) + (forced ? " (forced)" : "") });
+        }
+        item.embeddedSubtitles = tracks; item.embeddedSubtitlePromise = null; resolve(tracks);
+      };
+      const timer = setTimeout(() => { try { child.kill("SIGKILL"); } catch (_) {} finish(); }, 8000);
+      child.stderr.on("data", chunk => { stderr = (stderr + String(chunk)).slice(-128 * 1024); });
+      child.once("error", finish); child.once("close", finish);
+    });
+    return item.embeddedSubtitlePromise;
+  }
+
   function parseAttrs(line) {
     const attrs = {}; const re = /([A-Za-z0-9_-]+)="([^"]*)"/g; let match;
     while ((match = re.exec(line))) attrs[match[1].toLowerCase()] = match[2];
@@ -489,6 +540,7 @@ function createIptvService(options) {
   }
   const streamPool = makePool(maxProxyStreams, maxProxyStreamsPerIp);
   const artPool = makePool(maxArt, maxArtPerIp);
+  const subtitlePool = makePool(maxSubtitleStreams, maxSubtitleStreamsPerIp);
   function errorResponse(res, error) { if (res.destroyed || res.writableEnded) return; if (!res.headersSent) res.status(error.status || 502).json({ error: error.code || "iptv_failed" }); else res.end(); }
 
   /* Everything proxied below is served from OUR origin, which also serves the app and /admin.
@@ -626,6 +678,9 @@ function createIptvService(options) {
         if (!sub.url || subtitles.some(existing => existing._raw === sub.url)) return;
         const alias = aliasFor(stream, sub.url); subtitles.push({ name: sub.name, lang: sub.lang, url: resourceUrl(req, stream, alias), _raw: sub.url });
       });
+      const embedded = await probeEmbeddedSubtitles(item, stream).catch(() => []);
+      stream.subtitleIndexes = new Set(embedded.map(sub => sub.index));
+      embedded.forEach(sub => subtitles.push({ name: sub.name, lang: sub.lang, url: externalBase(req) + "/iptv/subtitle/" + encodeURIComponent(stream.ticket) + "/" + sub.index, streaming: true }));
       subtitles.forEach(sub => { delete sub._raw; });
       res.json({ item: publicItem(req, session, item), playback: { url: resourceUrl(req, stream, "root"), mode, live: item.kind === "live", fallback, subtitles } });
     } catch (error) { errorResponse(res, error); }
@@ -781,6 +836,48 @@ function createIptvService(options) {
   });
   router.get("/resource/:ticket/:alias", proxyResource);
 
+  /* Embedded text subtitles cannot be exposed by Chrome from a fragmented MP4. Extract only the
+     selected subtitle stream as incremental WebVTT. The source URL stays the process-private,
+     opaque loopback ticket, and a small dedicated pool prevents subtitle jobs from starving video. */
+  router.get("/subtitle/:ticket/:index", (req, res) => {
+    if (!ffmpegPath || !internalBase) return res.status(503).json({ error: "iptv_unavailable" });
+    const stream = streams.get(String(req.params.ticket || "")), now = Date.now();
+    const index = Number(req.params.index);
+    if (!stream || stream.exp < now || stream.hardExp < now) { if (stream) streams.delete(stream.ticket); return res.status(403).json({ error: "stream_expired" }); }
+    if (!Number.isInteger(index) || index < 0 || index > 99 || !stream.subtitleIndexes || !stream.subtitleIndexes.has(index)) return res.status(404).json({ error: "subtitle_missing" });
+    if (!touchSession(stream.sessionToken)) return res.status(403).json({ error: "source_expired" });
+    stream.exp = Math.min(now + streamTtl * 1000, stream.hardExp);
+    const ip = clientIp(req); if (!subtitlePool.acquire(ip)) { res.setHeader("Retry-After", "10"); return res.status(503).json({ error: "iptv_busy" }); }
+    let child = null, released = false, finished = false, bytes = 0;
+    const release = () => { if (!released) { released = true; subtitlePool.release(ip); } };
+    const stop = () => { if (child && !child.killed) { try { child.kill("SIGKILL"); } catch (_) {} } release(); };
+    res.once("finish", () => { finished = true; release(); });
+    res.once("close", () => { if (!finished) stop(); });
+    try {
+      child = spawn(ffmpegPath, [
+        "-hide_banner", "-loglevel", "error", "-probesize", "5M", "-analyzeduration", "5000000",
+        "-rw_timeout", "35000000", "-reconnect", "1", "-reconnect_streamed", "1", "-reconnect_delay_max", "2",
+        "-i", internalStreamUrl(stream.ticket), "-map", "0:" + index, "-c:s", "webvtt", "-flush_packets", "1", "-f", "webvtt", "pipe:1"
+      ], { stdio: ["ignore", "pipe", "pipe"] });
+      let stderr = "";
+      child.stderr.on("data", chunk => { stderr = (stderr + String(chunk)).slice(-4000); });
+      child.stdout.on("data", chunk => {
+        bytes += chunk.length;
+        if (bytes > maxSubtitleBytes) { stop(); if (!res.writableEnded) res.end(); return; }
+        if (!res.headersSent) {
+          res.status(200); res.setHeader("Content-Type", "text/vtt; charset=utf-8"); lockDownResponse(res);
+        }
+        if (!res.destroyed && !res.writableEnded) res.write(chunk);
+      });
+      child.once("error", () => { if (!res.headersSent) res.status(502).json({ error: "subtitle_failed" }); else if (!res.writableEnded) res.end(); release(); });
+      child.once("close", code => {
+        if (code !== 0 && stderr) console.warn("[IPTV] subtitle extraction stopped:", stderr.replace(/https?:\/\/\S+/g, "[source]").slice(-600));
+        if (!res.headersSent) res.status(code === 0 ? 204 : 502).end(); else if (!res.writableEnded) res.end();
+        release();
+      });
+    } catch (_) { stop(); if (!res.headersSent) res.status(502).json({ error: "subtitle_failed" }); }
+  });
+
   router.get("/art/:id", async (req, res) => {
     const ip = clientIp(req); if (!allowArt(ip)) return res.status(429).end();
     const entry = artwork.get(String(req.params.id || ""));
@@ -816,13 +913,19 @@ function createIptvService(options) {
     openRemuxSource,
     remuxInputUrl(ticket) {
       if (!internalBase) throw failure("iptv_unavailable", 503);
-      return internalBase + "/iptv/remux-source/" + encodeURIComponent(String(ticket || "")) + "?key=" + encodeURIComponent(internalRemuxKey);
+      return internalStreamUrl(ticket);
+    },
+    isEmbeddedSubtitleUrl(raw) {
+      let match; try { match = new URL(String(raw || "")).pathname.match(/^\/iptv\/subtitle\/([A-Za-z0-9_-]+)\/(\d+)$/); } catch (_) { return false; }
+      if (!match) return false;
+      const stream = streams.get(match[1]), index = Number(match[2]), now = Date.now();
+      return !!(stream && stream.exp >= now && stream.hardExp >= now && stream.subtitleIndexes && stream.subtitleIndexes.has(index));
     },
     publicSession(token) { const session = touchSession(token); return session ? publicSource(session) : null; },
     hasSession(token) { return !!peekSession(token); },
     sessionRoom(token) { const session = peekSession(token); return session ? session.room : ""; },
     revoke(token) { return dropSession(token); },
-    stats() { return { sessions: sessions.size, streams: streams.size, activeStreams: streamPool.active(), activeArt: artPool.active() }; }
+    stats() { return { sessions: sessions.size, streams: streams.size, activeStreams: streamPool.active(), activeArt: artPool.active(), activeSubtitles: subtitlePool.active() }; }
   };
 }
 
