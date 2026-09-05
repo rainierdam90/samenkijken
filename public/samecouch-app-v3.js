@@ -934,10 +934,18 @@
       iptvSelectedStreamingSub={name:String(sub.name||"Subtitles").slice(0,80),lang:String(sub.lang||"und").slice(0,12),url:sourceUrl,streaming:true};
       iptvStreamAbort=controller; iptvStreamTrack=track; iptvStreamUrl=sourceUrl; iptvSelectedSubtitle=1000+Math.max(0,iptvExternalSubs.indexOf(sub)); updateSubtitleUI(); toast(tr("iptv_sub_loading"),3500);
       if(announce!==false) rtSend({type:"iptv-subtitle-track",mediaUrl:mediaUrl,subtitleUrl:sourceUrl});
-      var decoder=new TextDecoder("utf-8"), buffer="", cueCount=0, cueShift=null;
+      var decoder=new TextDecoder("utf-8"), buffer="", cueCount=0;
+      /* The server now emits ABSOLUTE cue timestamps (ffmpeg -copyts) — each cue's true position in
+         the source file. But the browser matches cues against movie.currentTime, which for a seeked
+         VOD remux is 0 at the seek point (currentMedia.seekBase). getTime() bridges the two by adding
+         exactly that offset, so we subtract the identical offset here to land each cue on the video
+         element's own clock. (Native/full-file playback and live both have offset 0.) The old
+         guess-the-shift heuristic added cues near 0 while the movie was already minutes in, so they
+         had all elapsed and nothing ever appeared. */
+      var cueShift=(iptvVodRemux()&&!iptvMse)?(+currentMedia.seekBase||0):0;
       function addBlocks(final){
         buffer=buffer.replace(/\r/g,""); var parts=buffer.split(/\n\n+/); if(!final) buffer=parts.pop()||""; else buffer="";
-        parts.forEach(function(block){ parseVttCues(block).forEach(function(c){ try{ if(cueShift==null) cueShift=start>1&&c.start>start*.75?start:0; var from=Math.max(0,c.start-cueShift), to=Math.max(from+.05,c.end-cueShift), C=window.VTTCue||window.TextTrackCue, cue=new C(from,to,c.text); cue.snapToLines=false; cue.line=84; track.addCue(cue); cueCount++; }catch(e){} }); });
+        parts.forEach(function(block){ parseVttCues(block).forEach(function(c){ try{ var from=Math.max(0,c.start-cueShift), to=Math.max(from+.05,c.end-cueShift), C=window.VTTCue||window.TextTrackCue, cue=new C(from,to,c.text); cue.snapToLines=false; cue.line=84; track.addCue(cue); cueCount++; }catch(e){} }); });
       }
       var fetchUrl=sourceUrl+(sourceUrl.indexOf("?")>=0?"&":"?")+"start="+encodeURIComponent(start.toFixed(3));
       fetch(fetchUrl,controller?{signal:controller.signal}:{}).then(function(response){

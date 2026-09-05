@@ -878,7 +878,10 @@ function createIptvService(options) {
       const inputArgs = [
         "-hide_banner", "-loglevel", "error", "-probesize", "5M", "-analyzeduration", "5000000",
         "-rw_timeout", "35000000", "-reconnect", "1", "-reconnect_streamed", "1", "-reconnect_delay_max", "2",
-        ...(start > 0.01 ? ["-ss", start.toFixed(3)] : []), "-i", internalStreamUrl(stream.ticket)
+        /* -copyts keeps ABSOLUTE cue timestamps when seeking. Without it, an -ss input seek resets
+           the cue times toward zero, so the subtitles landed far out of sync with the video's real
+           time and appeared not to load at all. With -copyts the cues line up with playback. */
+        ...(start > 0.01 ? ["-ss", start.toFixed(3), "-copyts"] : []), "-i", internalStreamUrl(stream.ticket)
       ];
       child = spawn(ffmpegPath, [
         ...inputArgs, "-map", "0:s:" + index, "-c:s", "webvtt", "-flush_packets", "1", "-f", "webvtt", "pipe:1"
