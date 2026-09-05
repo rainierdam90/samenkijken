@@ -124,7 +124,11 @@ const app = express();
 app.disable("x-powered-by");
 // Compress text assets and JSON when this process serves the frontend directly.
 // The opt-in speed test stays uncompressed or its Mbps estimate would be false.
-app.use(compression({ filter: (req, res) => req.path !== "/speed-test" && compression.filter(req, res) }));
+// /iptv/subtitle streams WebVTT cues incrementally as FFmpeg extracts them; gzip would hold
+// each small burst in zlib's buffer (there is no res.flush() on that path) so the browser
+// received nothing and subtitles appeared not to load at all. Serve that route uncompressed —
+// the cues are tiny, so there is no meaningful bandwidth cost, and they now reach the player live.
+app.use(compression({ filter: (req, res) => req.path !== "/speed-test" && !req.path.startsWith("/iptv/subtitle/") && compression.filter(req, res) }));
 
 /* ---- security headers (applied to every response) ----
    Legacy content pages still contain inline JSON-LD/styles. The room entrypoint
