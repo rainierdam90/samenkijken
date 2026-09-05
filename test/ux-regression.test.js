@@ -122,6 +122,10 @@ test("IPTV supports secure provider login, shared browsing, HLS and host subtitl
   assert.match(iptvServerSource, /loopbackRequest\(req\).*equalInternalKey/s);   // the internal FFmpeg source is not a public proxy
   assert.match(iptvServerSource, /router\.get\("\/subtitle\/:ticket\/:index"/);
   assert.match(iptvServerSource, /"-c:s", "webvtt"/);
+  assert.match(iptvServerSource, /"-map", "0:s:" \+ index/);   // subtitle selection uses its ordinal, independent of video/audio stream numbers
+  assert.match(appJs, /function readIptvMseBatch\(reader,id,targetBytes\)/);
+  assert.match(appJs, /readIptvMseBatch\(reader,id,384\*1024\)/);   // fetch must not wait for a SourceBuffer event after every tiny TCP chunk
+  assert.match(appJs, /ahead>=12/);   // preserve quality and absorb ordinary WAN jitter before playback starts
   assert.match(iptvServerSource, /VLC\/3\.0\.21 LibVLC\/3\.0\.21/);   // common panels reject unknown media user agents
   assert.match(serverSource, /const iptv = !!m\.iptv && !!r\.iptvSource/);
   assert.doesNotMatch(iptvJs, /sessionStorage/);

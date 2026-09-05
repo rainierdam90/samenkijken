@@ -351,17 +351,23 @@ function createIptvService(options) {
           const seconds = Number(durationMatch[1]) * 3600 + Number(durationMatch[2]) * 60 + Number(durationMatch[3]);
           if (Number.isFinite(seconds) && seconds > 0 && seconds <= 48 * 3600) item.duration = seconds;
         }
-        const tracks = [], lines = stderr.split(/\r?\nStream mapping:/)[0].split(/\r?\n/);
+        /* Only inspect the input section. FFmpeg repeats every mapped subtitle under Output #0;
+           treating that as another source track caused a duplicate CC choice with a bogus index. */
+        const tracks = [], sourceIndexes = new Set(), lines = stderr.split(/\r?\nOutput #\d+/)[0].split(/\r?\n/);
         for (let i = 0; i < lines.length && tracks.length < 20; i++) {
           const match = lines[i].match(/Stream #\d+:(\d+)(?:\[[^\]]+\])?(?:\(([^)]+)\))?: Subtitle:\s*([a-zA-Z0-9_]+)/i);
           if (!match || !isTextSubtitleCodec(match[3])) continue;
-          const index = Number(match[1]); if (!Number.isInteger(index) || index < 0 || index > 99 || tracks.some(track => track.index === index)) continue;
+          const sourceIndex = Number(match[1]); if (!Number.isInteger(sourceIndex) || sourceIndex < 0 || sourceIndex > 99 || sourceIndexes.has(sourceIndex)) continue;
           let title = "";
           for (let j = i + 1; j < Math.min(lines.length, i + 8) && !/Stream #\d+:/.test(lines[j]); j++) {
             const titleMatch = lines[j].match(/^\s*(?:title|handler_name)\s*:\s*(.+?)\s*$/i); if (titleMatch) { title = safeText(titleMatch[1], 80); break; }
           }
           const lang = subtitleLanguage(match[2]), forced = /\(forced\)/i.test(lines[i]);
-          tracks.push({ index, lang, name: title || subtitleLanguageName(lang) + (forced ? " (forced)" : "") });
+          sourceIndexes.add(sourceIndex);
+          /* Store the subtitle ordinal, not the container's absolute stream number. Mapping
+             0:s:N remains correct for providers whose probe and playback expose different
+             program layouts (The Godfather reports its first subtitle as input stream #2). */
+          tracks.push({ index: tracks.length, lang, name: title || subtitleLanguageName(lang) + (forced ? " (forced)" : "") });
         }
         item.embeddedSubtitles = tracks; item.embeddedSubtitlePromise = null; resolve(tracks);
       };
@@ -685,7 +691,14 @@ function createIptvService(options) {
       });
       const embedded = await probeEmbeddedSubtitles(item, stream).catch(() => []);
       stream.subtitleIndexes = new Set(embedded.map(sub => sub.index));
-      embedded.forEach(sub => subtitles.push({ name: sub.name, lang: sub.lang, url: externalBase(req) + "/iptv/subtitle/" + encodeURIComponent(stream.ticket) + "/" + sub.index, streaming: true }));
+      embedded.forEach(sub => {
+        const signature = String(sub.name || "").trim().toLowerCase() + "|" + String(sub.lang || "und").toLowerCase();
+        for (let i = subtitles.length - 1; i >= 0; i--) {
+          const existing = subtitles[i], existingSignature = String(existing.name || "").trim().toLowerCase() + "|" + String(existing.lang || "und").toLowerCase();
+          if (existingSignature === signature) subtitles.splice(i, 1);
+        }
+        subtitles.push({ name: sub.name, lang: sub.lang, url: externalBase(req) + "/iptv/subtitle/" + encodeURIComponent(stream.ticket) + "/" + sub.index, streaming: true });
+      });
       subtitles.forEach(sub => { delete sub._raw; });
       res.json({ item: publicItem(req, session, item), playback: { url: resourceUrl(req, stream, "root"), mode, live: item.kind === "live", duration: item.duration || 0, fallback, subtitles } });
     } catch (error) { errorResponse(res, error); }
@@ -868,7 +881,7 @@ function createIptvService(options) {
         ...(start > 0.01 ? ["-ss", start.toFixed(3)] : []), "-i", internalStreamUrl(stream.ticket)
       ];
       child = spawn(ffmpegPath, [
-        ...inputArgs, "-map", "0:" + index, "-c:s", "webvtt", "-flush_packets", "1", "-f", "webvtt", "pipe:1"
+        ...inputArgs, "-map", "0:s:" + index, "-c:s", "webvtt", "-flush_packets", "1", "-f", "webvtt", "pipe:1"
       ], { stdio: ["ignore", "pipe", "pipe"] });
       let stderr = "";
       child.stderr.on("data", chunk => { stderr = (stderr + String(chunk)).slice(-4000); });

@@ -2158,6 +2158,40 @@
         check();
       });
     }
+    function readIptvMseBatch(reader,id,targetBytes){
+      /* Read several network chunks before asking SourceBuffer to parse them. Appending every
+         16-64 KB fetch chunk separately serialised the download behind updateend and could make
+         a perfectly healthy VPS stream run below realtime in Chromium. */
+      var parts=[],bytes=0,ended=false;
+      function next(){
+        if(id!==iptvMseId) return Promise.reject(new Error("cancelled"));
+        return reader.read().then(function(result){
+          if(result.done){ ended=true; return; }
+          var part=result.value instanceof Uint8Array?result.value:new Uint8Array(result.value);
+          if(part.length){ parts.push(part); bytes+=part.length; }
+          if(bytes<targetBytes) return next();
+        });
+      }
+      return next().then(function(){
+        if(!bytes) return {done:ended,value:null};
+        if(parts.length===1) return {done:false,value:parts[0],ended:ended};
+        var out=new Uint8Array(bytes),at=0; parts.forEach(function(part){out.set(part,at);at+=part.length;});
+        return {done:false,value:out,ended:ended};
+      });
+    }
+    function waitForIptvMseStartup(id,start,ready){
+      /* A native video element naturally waits for a useful reservoir. MSE's first loadeddata
+         arrives after only a fragment, so starting there made normal network jitter visible as
+         repeated stalls. Keep the original quality and build a short client-side safety buffer. */
+      function check(){
+        if(id!==iptvMseId||!iptvMseBuffer) return;
+        var anchor=Math.max(start,Number(movie.currentTime)||0),ahead=0;
+        try{ for(var i=0;i<movie.buffered.length;i++) if(movie.buffered.start(i)<=anchor+.5&&movie.buffered.end(i)>=anchor-.5) ahead=Math.max(ahead,movie.buffered.end(i)-anchor); }catch(e){}
+        if(ahead>=12||iptvMse.readyState==="ended") return ready();
+        setTimeout(check,200);
+      }
+      check();
+    }
     function startIptvMse(streamPath,start,duration,onFailed){
       if(!window.MediaSource||!window.fetch||!window.ReadableStream||!duration) return false;
       clearIptvMse(); var id=iptvMseId, mediaSource=new MediaSource(), objectUrl=URL.createObjectURL(mediaSource), failed=false;
@@ -2181,7 +2215,7 @@
           function pump(){
             if(id!==iptvMseId) return Promise.reject(new Error("cancelled"));
             var capacity=sourceBuffer?waitForIptvMseCapacity(sourceBuffer,id):Promise.resolve();
-            return capacity.then(function(){ return reader.read(); }).then(function(result){
+            return capacity.then(function(){ return sourceBuffer?readIptvMseBatch(reader,id,384*1024):reader.read(); }).then(function(result){
               if(result.done){ finish(); return; }
               var part=result.value instanceof Uint8Array?result.value:new Uint8Array(result.value);
               if(!sourceBuffer){
@@ -2192,7 +2226,7 @@
                 try{ mediaSource.duration=duration; }catch(e){}
                 return appendIptvMse(sourceBuffer,init,id).then(function(){ first=[]; firstBytes=0; if(start>0){ iptvMseInternalUntil=Date.now()+4000; try{movie.currentTime=start;}catch(e){} } return pump(); });
               }
-              return appendIptvMse(sourceBuffer,part,id).then(pump);
+              return appendIptvMse(sourceBuffer,part,id).then(function(){ if(result.ended){ finish(); return; } return pump(); });
             });
           }
           return pump();
@@ -2646,12 +2680,16 @@
         if(!streamPath||String(streamPath).indexOf("/mkv-stream?")!==0){ remuxFailed(); return; }
         mode="file"; iptvLive=wantLive; currentMedia.live=wantLive;   // keep live semantics: never seek/rewind separate live edges
         movie.style.display="block";
-        function remuxReady(){
-          movie.removeEventListener("loadeddata",remuxReady);
+        function finishRemuxReady(){
           if(!currentMedia||currentMedia!==target||iptvRemuxLevel!==nextLevel||iptvRemuxRequestId!==requestId) return;
           clearTimeout(iptvHlsWatchdog); iptvHlsWatchdog=null;
           if(savedStreamSub) streamIptvSubtitle(savedStreamSub,false,start); if(resume) safePlay();
           if(typeof hideXfer==="function") hideXfer(); toast(tr("mkv_ready"),4500);
+        }
+        function remuxReady(){
+          movie.removeEventListener("loadeddata",remuxReady);
+          if(!currentMedia||currentMedia!==target||iptvRemuxLevel!==nextLevel||iptvRemuxRequestId!==requestId) return;
+          if(mseStarted) waitForIptvMseStartup(iptvMseId,start,finishRemuxReady); else finishRemuxReady();
         }
         movie.addEventListener("loadeddata",remuxReady);
         var mseStarted=!wantLive&&startIptvMse(streamPath,start,+target.duration||0,remuxFailed);
