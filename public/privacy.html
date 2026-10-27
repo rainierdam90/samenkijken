@@ -4,60 +4,163 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>Privacy — SameCouch</title>
-<meta name="description" content="How SameCouch handles your data: peer-to-peer encrypted video, relayed chat, shared walls and what we store." />
+<meta name="description" content="How SameCouch handles your data: encrypted peer-to-peer video calls, temporary chat, your memories wall, who else is involved, how long things are kept and your rights." />
+<link rel="canonical" href="https://samecouch.com/privacy.html" />
+<link rel="alternate" hreflang="en" href="https://samecouch.com/privacy.html" />
+<link rel="alternate" hreflang="nl" href="https://samecouch.com/privacy-nl.html" />
+<link rel="alternate" hreflang="x-default" href="https://samecouch.com/privacy.html" />
 <link rel="icon" href="/icon.svg" type="image/svg+xml" />
 <style>
   :root{--bg:#0b0a0c;--panel:#161219;--line:rgba(255,255,255,.09);--txt:#efe7dd;--muted:#a59a90;--amber:#f4b14a}
   body{margin:0;background:radial-gradient(1000px 600px at 50% -100px, rgba(244,177,74,.10), transparent 60%), var(--bg);color:var(--txt);font-family:ui-sans-serif,system-ui,sans-serif;line-height:1.65}
   main{max-width:720px;margin:0 auto;padding:48px 22px 80px;font-size:15px}
   h1{font-size:30px;margin:18px 0 6px} h2{font-size:18px;margin:30px 0 8px;color:var(--amber)}
-  p,li{color:var(--muted)} a{color:var(--amber)}
-  .back{display:inline-block;margin-bottom:8px;color:var(--muted);text-decoration:none}
-  .back:hover{color:var(--txt)}
+  h3{font-size:15.5px;margin:22px 0 4px;color:var(--txt)}
+  p,li{color:var(--muted)} a{color:var(--amber);overflow-wrap:anywhere}
+  ul{padding-left:22px} li{margin-bottom:6px}
+  .top{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:8px}
+  .back,.lang{display:inline-block;color:var(--muted);text-decoration:none}
+  .back:hover,.lang:hover{color:var(--txt)}
+  .lang{font-size:13px;border:1px solid var(--line);border-radius:999px;padding:4px 12px}
   .upd{font-size:12.5px;color:#6f655c}
+  .short{border:1px solid var(--line);border-radius:13px;background:rgba(255,255,255,.02);padding:4px 18px}
+  table{width:100%;border-collapse:collapse;font-size:14px;margin:8px 0}
+  th,td{text-align:left;vertical-align:top;padding:8px 10px 8px 0;border-bottom:1px solid var(--line);color:var(--muted)}
+  th{color:var(--txt);font-weight:600}
 </style>
 </head>
 <body>
 <main>
-  <a class="back" href="/">← SameCouch</a>
+  <div class="top">
+    <a class="back" href="/">← SameCouch</a>
+    <a class="lang" href="/privacy-nl.html" hreflang="nl" lang="nl">Nederlands</a>
+  </div>
   <h1>Privacy Policy</h1>
-  <p class="upd">Last updated: August 2026</p>
+  <p class="upd">Last updated: 27 October 2026</p>
+
+  <p>SameCouch is a free website where you can watch videos together, see and hear each other, chat and keep a shared memories wall. This page explains in plain language what information is involved, why, who else is involved, how long things are kept and what your rights are. It follows the European privacy law (the GDPR, called AVG in the Netherlands).</p>
 
   <h2>The short version</h2>
-  <p>Your live camera/microphone call and files shared from your device go directly between room participants, end-to-end encrypted. We cannot see or record them. Remote MKV, opaque video links and IPTV are different: when server streaming is needed, the film temporarily passes through our server so browsers can play it. We store only what's needed to make your room work: relayed chat, selected subtitle text, your shared memories wall, and anonymous usage counts.</p>
-
-  <h2>What we process</h2>
+  <div class="short">
   <ul>
-    <li><b>Video &amp; audio calls</b> — peer-to-peer and end-to-end encrypted (WebRTC/DTLS-SRTP). When a direct connection isn't possible, our relay server (TURN) forwards the <i>encrypted</i> stream without being able to read it. Nothing is recorded by us.</li>
-    <li><b>Chat messages</b> — relayed through our server and kept temporarily so they can be moderated for safety. They are not used for advertising.</li>
-    <li><b>Subtitle files</b> — when someone selects an SRT/VTT file for a direct video URL, its text is relayed through the room server and held in the active room's memory so current and late-joining participants see the same subtitles. It is not shown in the admin dashboard or used for advertising.</li>
-    <li><b>Remote MKV/direct-video remuxing</b> — a remote MKV or opaque direct-video URL is tried directly first. If the browser cannot play it, our server may repackage its original video stream into a browser-compatible container without video re-encoding (audio may be converted to AAC). The source URL and film bytes then pass temporarily through the server and FFmpeg. We do not save the film. Each viewer receives a separate temporary stream.</li>
-    <li><b>IPTV provider login and streaming</b> — when you connect an IPTV provider, its server URL, username and password (or credential-bearing M3U URL) are sent over HTTPS to our server and held only in short-lived process memory. SameCouch does not put them in room messages, browser storage or generated playback links; your own browser may still offer to save them in its password manager. The login is discarded when the room empties, and in any case within 12 hours. Other room participants receive an opaque temporary token. Catalog requests, artwork, live/film bytes, HLS keys and provider subtitles pass through our server while you use IPTV. Incompatible audio may be converted to AAC and HEVC/H.265 video may be converted to H.264; simultaneous room viewers can share that conversion through a small, short-lived memory buffer. We do not save programmes to permanent storage. IPTV browsing choices and the selected title are relayed to the room.</li>
-    <li><b>Memories wall</b> — notes and photos you choose to post are stored so everyone in your room can see them later. Free walls are automatically deleted about 10 days after creation (extended walls stay as long as the extension runs).</li>
-    <li><b>Room settings</b> — room code, an irreversibly hashed password (if the host sets one) and the host identifier.</li>
-    <li><b>Display name</b> — whatever name you type; it's only shown to people in your room.</li>
-    <li><b>Push notifications</b> — only if you opt in; we store the browser subscription needed to deliver your reminders. You can revoke it in your browser at any time.</li>
-    <li><b>Shared watchlist and saved moments</b> — suggested links, votes, reactions and their video timestamps are held in the active room's memory so everyone sees the same list and recap. They disappear when the live room state expires and are not used for advertising.</li>
-    <li><b>Connection check</b> — only when you start it; the browser exchanges small, bounded test payloads with the room server and tests TURN reachability. Test bytes are discarded immediately and no camera or microphone recording is made.</li>
-    <li><b>Usage statistics</b> — aggregate counters only (e.g. number of rooms created). No tracking cookies, no ad trackers, no profiles.</li>
-    <li><b>Payments</b> — handled entirely by Stripe; we never see your card details.</li>
+    <li>No account, no adverts, no tracking cookies — and we never sell your data.</li>
+    <li>Your video and voice call goes directly between the people in your room and is encrypted. We cannot watch, listen to or record it.</li>
+    <li>Photos and videos you share in the room are kept on our server for at most 6 hours, only for the people in your room.</li>
+    <li>Chat messages pass through our server, are only kept in its memory and are deleted at the latest 24 hours after the room was last used.</li>
+    <li>What you put on the memories wall is stored so your room can see it again later. It is deleted automatically 12 months after the room was last used, or sooner if you ask.</li>
+    <li>Questions or requests? E-mail <a href="mailto:rainier@nexthorizonsglobal.com">rainier@nexthorizonsglobal.com</a>.</li>
+  </ul>
+  </div>
+
+  <h2>Who is responsible</h2>
+  <p>SameCouch is responsible for the personal data processed through samecouch.com (the "controller" under the GDPR). For any privacy question, to use your rights, or to report something, e-mail <a href="mailto:rainier@nexthorizonsglobal.com">rainier@nexthorizonsglobal.com</a>.</p>
+
+  <h2>What we use, why, and for how long</h2>
+
+  <h3>Your name in the room</h3>
+  <p>When you join a room you type a name. It can be anything — a nickname is fine. It is shown to the people in your room, appears next to your chat messages, and is saved with anything you post on the memories wall. Your browser also remembers it on your own device, so you don't have to type it again.</p>
+
+  <h3>Video and voice calls</h3>
+  <p>Your camera and microphone only work after you allow them in your browser. The call goes directly from device to device (peer-to-peer) and is encrypted (WebRTC with DTLS-SRTP). If a direct connection isn't possible, the encrypted call is passed on through our relay server (a "TURN" server), which cannot read it. We never record calls. Up to 8 people can be in a room.</p>
+
+  <h3>Photos and videos you share in the room</h3>
+  <p>When you use "Share photos/videos" (from your computer, or by scanning the QR code with your phone), each file is uploaded once to our server in the United Kingdom over an encrypted connection (HTTPS) and streamed from there to the people in your room. The files can only be reached with your room's private token and are never public. They are deleted automatically after at most 6 hours, and 1 hour after the room becomes empty. The person who shared them can also stop sharing and remove them sooner. If our server can't be used, the app sends the file directly from device to device instead, encrypted (WebRTC/DTLS).</p>
+
+  <h3>Chat messages</h3>
+  <p>Chat messages are sent through our server so everyone in the room receives them. The server keeps the last 300 messages per room in its memory, so people who join later can read what was said. They are deleted automatically 24 hours after the room was last active, and also every time the server restarts. Chat messages are never written to our database. For safety, the operator can read a room's recent chat when investigating abuse — that's why the chat says "Messages may be reviewed for safety". Chat is not end-to-end encrypted.</p>
+
+  <h3>Memories wall</h3>
+  <p>Notes, photos (up to about 3 MB), voice messages and short videos you post on the wall are stored in our database, together with your name and the time, so your room can see them again later. They are deleted automatically 12 months after the room was last used. The room host can remove items, and the person who posted an item can remove it from the same device. Anyone can report an item with the report button; we then look at that item and the room it belongs to, and we remove illegal or abusive content. You can ask us to delete a room or its wall at any time by e-mailing us the room link.</p>
+
+  <h3>Room settings</h3>
+  <p>For each room we store the room code, the chosen theme and decorations, and — if the host sets one — the room password. The password is only stored as a salted scrypt hash, a scrambled form that cannot be turned back into the password. Room settings are deleted together with the wall, 12 months after the room was last used.</p>
+
+  <h3>Videos you watch together</h3>
+  <ul>
+    <li><b>YouTube and Vimeo.</b> Only when you or someone in your room plays one of their videos, it is loaded from YouTube (using the privacy-enhanced youtube-nocookie.com player) or Vimeo. They then receive your IP address and other technical information, and their own privacy policies apply. If you search YouTube inside a room, your search words are sent through our server to YouTube; we do not keep them.</li>
+    <li><b>Video links and subtitles.</b> If you paste a link to a video file, our server may briefly check the link and, if your browser can't play the file directly, convert it on the fly so it can. The video then passes through our server but is not saved. Subtitle files you choose are shared with your room and kept only in the server's memory while the room is in use. The shared watchlist, votes, reactions and saved moments are also only kept in memory while the room is in use.</li>
   </ul>
 
-  <h2>What we never do</h2>
+  <h3>IPTV (optional)</h3>
+  <p>You can connect your own IPTV provider. Before connecting, you must confirm that you have a legal subscription and that your provider allows you to watch together with the people in your room. Your provider's server address, username and password (or playlist link) are then sent to our server. They are kept only in the server's memory for that session — at most 12 hours, and removed earlier when you disconnect or the room empties. They are never stored in our database or logs and never shared with the other people in your room (they only get an anonymous token). The video stream from your provider passes through our server, which may convert it so browsers can play it, and is sent on to the people in your room. We do not save programmes.</p>
+
+  <h3>Push notifications (optional)</h3>
+  <p>If you ask to be notified when someone is in a room, or set a watch-party reminder, we store your browser's push subscription (a technical address for your browser) and your name. This is kept until you turn notifications off, your browser cancels the subscription, or the room is deleted. A reminder is deleted once it has been sent. The notification itself is delivered by your browser maker's push service (for example Google, Apple, Mozilla or Microsoft).</p>
+
+  <h3>Visitor statistics</h3>
+  <p>To count how many different visitors we have each day, the server stores a scrambled code made from your IP address (a keyed HMAC hash) that changes every day. We never store your actual IP address for this. These codes are deleted after 120 days. We don't use analytics services or tracking cookies.</p>
+
+  <h3>Technical logs, security and backups</h3>
   <ul>
-    <li>No selling of data, no advertising profiles, no third-party trackers.</li>
-    <li>No recording of your calls — technically impossible on our side, since media is end-to-end encrypted.</li>
-    <li>No account, so no e-mail lists.</li>
+    <li>Our server's web access logs (IP address, time and the address that was requested) are kept for 14 days, to keep the service safe and to find faults. The server also briefly uses IP addresses in its memory to limit misuse, such as too many requests at once.</li>
+    <li>Our website host Vercel may also record IP addresses in its access logs.</li>
+    <li>Every night we make an encrypted backup of our database, which is kept for 14 days. Something you deleted can therefore remain in a backup for up to 14 days before it disappears for good. Chat messages and IPTV logins are never in backups, because they are never in the database.</li>
+    <li>All connections use encryption (HTTPS/TLS), and access to the servers is limited to the operator.</li>
   </ul>
 
-  <h2>Reaction clips</h2>
-  <p>The "capture a moment" feature records locally on <i>your</i> device only. A clip exists only on your device unless you choose to save or share it. Please ask the people in your room before sharing clips that include them.</p>
+  <h3>Saved on your own device</h3>
+  <p>SameCouch uses your browser's local storage — not tracking cookies — to remember: your name, your language, the rooms you visited, the size of the camera tiles, and the keys that let you remove your own wall posts. Only if you tick "Remember login" are your IPTV server, username and password also saved there, in plain text, on that device. Untick it, or clear your browser's site data, to remove them. Do not use "Remember login" on a shared computer. Clips made with "Save this moment" are recorded only on your own device and stay there unless you choose to save or share them yourself; please ask the people in a clip before sharing it. This information stays on your device and is only used to make the features you choose work; you can delete it at any time through your browser settings.</p>
+
+  <h3>Connection check (optional)</h3>
+  <p>If you start a connection check, your browser exchanges small test messages with our server and tests the relay server. The test data is thrown away immediately and nothing is recorded.</p>
+
+  <h2>How long we keep things</h2>
+  <table>
+    <tr><th>What</th><th>Kept for</th></tr>
+    <tr><td>Video and voice calls</td><td>Not stored by us</td></tr>
+    <tr><td>Photos and videos shared with "Share photos/videos"</td><td>At most 6 hours; 1 hour after the room becomes empty</td></tr>
+    <tr><td>Chat messages</td><td>Server memory only; deleted 24 hours after the room was last active, or at a server restart</td></tr>
+    <tr><td>Memories wall and room settings</td><td>12 months after the room was last used (or sooner on request)</td></tr>
+    <tr><td>IPTV login</td><td>Server memory only; at most 12 hours</td></tr>
+    <tr><td>Push subscription</td><td>Until you turn it off or the room is deleted; reminders until sent</td></tr>
+    <tr><td>Daily visitor codes (hashed IP)</td><td>120 days</td></tr>
+    <tr><td>Server access logs</td><td>14 days</td></tr>
+    <tr><td>Encrypted database backups</td><td>14 days</td></tr>
+  </table>
+
+  <h2>Why we are allowed to use this information</h2>
+  <ul>
+    <li><b>To provide the service you ask for</b> (GDPR article 6(1)(b)): rooms, calls, chat, the memories wall, sharing and IPTV.</li>
+    <li><b>Our legitimate interests</b> (article 6(1)(f)): keeping the service secure, preventing and handling abuse, access logs, counting visitors and making backups. We keep this to the minimum, and you may object (see your rights below).</li>
+    <li><b>Your consent</b> (article 6(1)(a)): push notifications, and the use of your camera and microphone, which you allow through your browser. You can withdraw your consent at any time — this doesn't affect what happened before.</li>
+  </ul>
+
+  <h2>Who else is involved</h2>
+  <ul>
+    <li><b>Vercel</b> (USA) hosts the website itself and may log IP addresses. Transfers to the USA are protected by the safeguards in Vercel's data processing terms, such as the European Commission's standard contractual clauses.</li>
+    <li><b>Netwise Hosting Ltd</b> (London, United Kingdom) provides the virtual server that runs our room server, chat relay, IPTV gateway and relay (TURN) server, and that temporarily holds the photos and videos you share in a room. The European Commission has decided that the UK protects personal data adequately (an "adequacy decision").</li>
+    <li><b>netcup GmbH</b> (Germany) stores our encrypted nightly database backups.</li>
+    <li><b>Google</b>: when your browser sets up a call, it contacts Google's STUN servers (stun.l.google.com), which see your IP address. The app's fonts are loaded from Google Fonts, which also sees your IP address.</li>
+    <li><b>YouTube and Vimeo</b>, only when you or someone in your room plays their videos. Their own privacy policies apply.</li>
+    <li><b>Your browser's push service</b> (Google, Apple, Mozilla or Microsoft), only if you turn on notifications.</li>
+    <li><b>Your own IPTV provider</b>, only when you use IPTV.</li>
+    <li><b>Authorities</b>, only when the law requires it, or to report serious crimes such as child sexual abuse material.</li>
+  </ul>
+  <p>We don't show adverts, don't use analytics or tracking cookies, don't build profiles and never sell your data. We don't make automated decisions about you.</p>
 
   <h2>Your rights</h2>
-  <p>You can ask us to delete a room, its wall and its chat at any time. Contact us at <a href="mailto:privacy@samecouch.com">privacy@samecouch.com</a> and include the room link.</p>
+  <p>You have the right to:</p>
+  <ul>
+    <li><b>see</b> the personal data we hold about you (access);</li>
+    <li>have it <b>corrected</b> (rectification) or <b>deleted</b> (erasure);</li>
+    <li>ask us to <b>temporarily stop using</b> it (restriction);</li>
+    <li><b>object</b> to us using it on the basis of our legitimate interests;</li>
+    <li><b>receive</b> data you gave us in a common format, or have it sent to someone else (data portability);</li>
+    <li><b>withdraw your consent</b> at any time, for example by turning off notifications or camera access in your browser.</li>
+  </ul>
+  <p>E-mail <a href="mailto:rainier@nexthorizonsglobal.com">rainier@nexthorizonsglobal.com</a>. Because SameCouch has no accounts, please include the room link so we can find your data; we may ask a question to check that the request really comes from you. We reply within one month. If you are not happy with how we handle your data, you can complain to the Dutch Data Protection Authority (Autoriteit Persoonsgegevens) at <a href="https://autoriteitpersoonsgegevens.nl" rel="noopener">autoriteitpersoonsgegevens.nl</a>, or to the data protection authority in your own country.</p>
 
-  <h2>Children</h2>
-  <p>The service is not directed at children under 13. Rooms are private-by-link and there is no public discovery or random matching.</p>
+  <h2>Do you have to give us information?</h2>
+  <p>No. You don't need an account, e-mail address or real name. Without camera or microphone permission you can still watch and chat; some features, like notifications or IPTV, only work if you choose to use them.</p>
+
+  <h2>Minimum age</h2>
+  <p>You must be at least 16 to use SameCouch, or have permission from a parent or guardian if you are younger. Rooms are private: they can only be reached with the link, and there is no public listing or random matching.</p>
+
+  <h2>Changes to this policy</h2>
+  <p>If we change how we handle data, we will update this page and the date at the top. For important changes we will also put a notice on the website.</p>
+
+  <h2>Contact</h2>
+  <p>SameCouch — <a href="mailto:rainier@nexthorizonsglobal.com">rainier@nexthorizonsglobal.com</a>. See also our <a href="/terms.html">Terms of Use</a>.</p>
 </main>
 </body>
 </html>

@@ -252,7 +252,7 @@ test("IPTV remux is credential-opaque, room-wide, audible for AC-3 and H.264-com
   const roster = await rosterPromise;
   const connected = await (await fetch(base + "/iptv/connect", {
     method: "POST", headers: { "content-type": "application/json" },
-    body: JSON.stringify({ type: "xtream", room, roomKey: roster.wallKey, server: "http://127.0.0.1:" + providerPort, username: "demo", password: "secret" })
+    body: JSON.stringify({ type: "xtream", room, roomKey: roster.wallKey, consent: true, server: "http://127.0.0.1:" + providerPort, username: "demo", password: "secret" })
   })).json();
   const sourceToken = connected.source.token;
   const sourceEcho = waitForMessage(host, "iptv-source"); host.send(JSON.stringify({ type: "iptv-source", token: sourceToken }));

@@ -168,6 +168,24 @@ app.use((req, res, next) => {
   next();
 });
 
+/* ---- Shared videos/photos: the sharer (often a phone) uploads a file ONCE over HTTPS; everyone in
+   the room streams it from here with Range requests. Replaces sending every byte peer-to-peer to
+   each viewer separately, which over a mobile uplink and a relay took many minutes per viewer.
+   Files are private to the room's token and deleted after at most 6 h (1 h after the room empties). */
+const { createShareUpload } = require("./share-upload");
+const SHARE_DIR = process.env.SHARE_DIR || path.join(path.dirname(process.env.DB_PATH || path.join(__dirname, "..", "data", "wmt.db")), "shares");
+let shareUpload = null;
+try {
+  shareUpload = createShareUpload({
+    dir: SHARE_DIR,
+    wallAllowed: (room, k) => wallAllowed(room, k),
+    roomLive: (room) => { const r = rooms.get(String(room || "")); return !!(r && r.members.size); },
+    broadcast: (room, msg) => { const r = rooms.get(String(room || "")); if (r) broadcastRoom(r, msg); },
+    clientIp, makeLimiter, cors
+  });
+  app.use("/share", shareUpload.router);   // before the JSON parsers: chunk bodies are streamed straight to disk
+} catch (e) { console.warn("[share] upload disabled:", e.message); shareUpload = null; }
+
 const jsonSmall = express.json({ limit: "16kb" });   // most POSTs are tiny
 const jsonWall = express.json({ limit: "8mb" });     // wall photos + voice/video messages (client-side capped)
 app.use((req, res, next) => (req.path === "/wall" ? jsonWall : jsonSmall)(req, res, next));
@@ -183,9 +201,14 @@ function cors(req, res) {
 /* ---- tiny in-memory rate limiter (fixed window) ----
    Per-process only — fine for a single instance. If you ever run multiple
    instances, move these counters to Redis (and add sticky sessions). */
+/* nginx (the only thing that can reach 127.0.0.1:8090) sets X-Real-IP to the TCP peer. The first
+   X-Forwarded-For entry is whatever the CLIENT chose to send, so trusting it let anyone dodge
+   every per-IP limit; it is only a fallback for hosts without X-Real-IP. */
 function clientIp(req) {
-  const xff = (req.headers["x-forwarded-for"] || "").split(",")[0].trim();   // Render/Cloudflare put the real IP here
-  return xff || (req.socket && req.socket.remoteAddress) || "?";
+  const real = String(req.headers["x-real-ip"] || "").trim();
+  if (real) return real.slice(0, 64);
+  const xff = String(req.headers["x-forwarded-for"] || "").split(",").map(s => s.trim()).filter(Boolean);
+  return xff[xff.length - 1] || (req.socket && req.socket.remoteAddress) || "?";
 }
 function makeLimiter(max, windowMs) {
   const hits = new Map();   // key -> { n, reset }
@@ -407,6 +430,7 @@ app.get("/config", (req, res) => {
     hasPush: HAS_PUSH,
     vapidPublic: HAS_PUSH ? VAPID_PUBLIC : "",
     hasWall: store.enabled(),
+    hasShareUpload: !!shareUpload,
     freeDays: store.freeDays(),
     stripeLink: process.env.STRIPE_LINK || ""
   });
@@ -784,31 +808,45 @@ app.post("/room-notify", async (req, res) => {
   if (roomSubCount >= MAX_ROOMSUBS) return res.status(503).json({ error: "busy" });
   let m = roomSubs.get(room); if (!m) { m = new Map(); roomSubs.set(room, m); }
   if (!m.has(sub.endpoint)) roomSubCount++;
-  m.set(sub.endpoint, { sub, name: String(b.name || "Someone").slice(0, 40) });
-  await store.addRoomSub(room, String(sub.endpoint).slice(0, 1000), sub, String(b.name || "Someone").slice(0, 40));
+  const lang = b.lang === "nl" ? "nl" : "en";
+  m.set(sub.endpoint, { sub, name: String(b.name || "Someone").slice(0, 40), lang });
+  await store.addRoomSub(room, String(sub.endpoint).slice(0, 1000), sub, String(b.name || "Someone").slice(0, 40), lang);
   res.json({ ok: true });
 });
 async function notifyRoomAlive(room, arriverName) {
   if (!HAS_PUSH) return;
   let m = roomSubs.get(room); if (!m) { m = new Map(); roomSubs.set(room, m); }
   const stored = await store.getRoomSubs(room);
-  stored.forEach(v => { if (v && v.endpoint && !m.has(v.endpoint)) m.set(v.endpoint, { sub: v.sub, name: v.name }); });
+  stored.forEach(v => { if (v && v.endpoint && !m.has(v.endpoint)) m.set(v.endpoint, { sub: v.sub, name: v.name, lang: v.lang }); });
   if (!m.size) return;
   const last = roomNotifiedAt.get(room) || 0;
   if (Date.now() - last < 60000) return;   // at most once a minute per room
   roomNotifiedAt.set(room, Date.now());
   const url = "/?room=" + encodeURIComponent(room);
-  const payload = JSON.stringify({ title: "Your living room is live 🛋️", body: (arriverName || "Someone") + " just arrived — come hang out", url, tag: "wmt-room-" + room });
+  const who = arriverName || "";
+  const texts = {
+    nl: { title: "Jullie huiskamer is open 🛋️", body: (who || "Iemand") + " is er net — kom gezellig erbij" },
+    en: { title: "Your living room is live 🛋️", body: (who || "Someone") + " just arrived — come hang out" }
+  };
   m.forEach((v, endpoint) => {
-    webpush.sendNotification(v.sub, payload).catch(() => { m.delete(endpoint); roomSubCount=Math.max(0,roomSubCount-1); store.delRoomSub(room, endpoint); });   // drop dead subs
+    const t = texts[v.lang === "nl" ? "nl" : "en"];
+    const payload = JSON.stringify({ title: t.title, body: t.body, url, tag: "wmt-room-" + room });
+    webpush.sendNotification(v.sub, payload).catch(err => {
+      if (err && (err.statusCode === 404 || err.statusCode === 410)) { m.delete(endpoint); roomSubCount = Math.max(0, roomSubCount - 1); store.delRoomSub(room, endpoint); }   // only drop subscriptions the push service says are gone
+    });
   });
 }
 
 /* ---- Persistent wall: notes & photos that stay between sessions (the "living room" memory) ---- */
 app.options("/wall", (req, res) => { cors(req, res); res.setHeader("Access-Control-Allow-Methods", "GET,POST,OPTIONS"); res.sendStatus(204); });
-/* Wall access control: for PASSWORD-LOCKED rooms the wall is only reachable with a membership token
-   that the server hands out on a successful (password-checked) join — guessing a room code is not enough. */
-const WALL_TOKEN_SECRET = crypto.randomBytes(32);
+/* Wall access control: every wall (read, post, delete, report) needs the membership token the server
+   hands out on a successful (password-checked) join — knowing or guessing a room code is not enough.
+   The secret is derived from configured secrets so tokens survive a restart (a random one made
+   every reconnecting client fail its first wall request after each deploy). */
+const WALL_TOKEN_SECRET = crypto.createHash("sha256").update("samecouch-wall|" + (process.env.WALL_TOKEN_SECRET || process.env.MKV_TOKEN_SECRET || TURN_SECRET || ADMIN_PASSWORD || crypto.randomBytes(32).toString("hex"))).digest();
+const blockedRoomCodes = new Set();   // rooms closed by the operator (abuse); loaded from the store at boot
+store.blockedRooms().then(list => list.forEach(c => blockedRoomCodes.add(c))).catch(() => {});
+function wallAllowed(room, k) { return !!room && !blockedRoomCodes.has(room) && safeEqual(String(k || ""), wallTokenFor(room)); }
 function wallTokenFor(room) { return crypto.createHmac("sha256", WALL_TOKEN_SECRET).update("wall|" + room).digest("hex").slice(0, 32); }
 async function wallLocked(room) {
   const live = rooms.get(room);
@@ -824,7 +862,7 @@ app.get("/wall", async (req, res) => {
   res.setHeader("Cache-Control", "no-store");
   const room = String(req.query.room || "").slice(0, 80);
   if (!room) return res.json({ enabled: store.enabled(), items: [] });
-  if (await wallLocked(room) && !safeEqual(String(req.query.k || ""), wallTokenFor(room))) return res.status(403).json({ error: "locked" });
+  if (!wallAllowed(room, req.query.k)) return res.status(403).json({ error: "locked" });
   const items = await store.getWall(room, 100);
   res.json({ enabled: store.enabled(), items });
 });
@@ -835,7 +873,7 @@ app.post("/wall", async (req, res) => {
   const b = req.body || {};
   const room = String(b.room || "").slice(0, 80);
   if (!room) return res.status(400).json({ error: "bad_request" });
-  if (await wallLocked(room) && !safeEqual(String(b.k || ""), wallTokenFor(room))) return res.status(403).json({ error: "locked" });
+  if (!wallAllowed(room, b.k)) return res.status(403).json({ error: "locked" });
   const kind = ["photo", "audio", "video"].includes(b.kind) ? b.kind : "note";
   let data, mime = null;
   if (kind === "note") { data = String(b.text || "").trim().slice(0, 1000); if (!data) return res.status(400).json({ error: "empty" }); }
@@ -848,9 +886,27 @@ app.post("/wall", async (req, res) => {
   }
   const ownerKey = String(b.key || "").slice(0, 64);   // poster keeps the key → only they can remove the item
   const pub = { id: "w" + crypto.randomBytes(6).toString("hex"), room, kind, author: String(b.author || "Someone").slice(0, 40), mime, data, ts: Date.now() };
-  await store.addWall(Object.assign({ editKey: ownerKey ? sha256hex(ownerKey) : null }, pub));
+  const saved = await store.addWall(Object.assign({ editKey: ownerKey ? sha256hex(ownerKey) : null }, pub));
+  if (saved === false) return res.status(500).json({ error: "store_failed" });   // never report a lost post as saved
+  store.touchRoom(room);   // a post keeps the room (and its memories) alive for another retention period
   try { const r = rooms.get(room); if (r) broadcastRoom(r, { type: "wall-add", item: pub }); } catch (e) {}   // live members see it instantly
   res.json({ ok: true, item: pub });
+});
+/* Anyone in the room can flag a wall item for the operator (notice-and-action). The item stays up
+   until it is reviewed in the admin panel; the reporter stays anonymous. */
+app.options("/wall-report", (req, res) => { cors(req, res); res.setHeader("Access-Control-Allow-Methods", "POST,OPTIONS"); res.sendStatus(204); });
+app.post("/wall-report", async (req, res) => {
+  cors(req, res); res.setHeader("Access-Control-Allow-Methods", "POST,OPTIONS");
+  if (!wallWriteLimiter(clientIp(req))) return tooMany(res);
+  if (!store.enabled()) return res.status(503).json({ error: "no_store" });
+  const b = req.body || {};
+  const room = String(b.room || "").slice(0, 80), id = String(b.id || "").slice(0, 40);
+  if (!room || !id) return res.status(400).json({ error: "bad_request" });
+  if (!wallAllowed(room, b.k)) return res.status(403).json({ error: "locked" });
+  const ok = await store.addReport({ id: "rp" + crypto.randomBytes(8).toString("hex"), room, itemId: id, reason: String(b.reason || "").trim().slice(0, 300), ts: Date.now() });
+  if (!ok) return res.status(500).json({ error: "store_failed" });
+  admins.forEach(a => sendJSON(a, { type: "report-new" }));
+  res.json({ ok: true });
 });
 app.post("/wall-delete", async (req, res) => {
   cors(req, res); res.setHeader("Access-Control-Allow-Methods", "GET,POST,OPTIONS");
@@ -859,7 +915,7 @@ app.post("/wall-delete", async (req, res) => {
   const b = req.body || {};
   const room = String(b.room || "").slice(0, 80), id = String(b.id || "").slice(0, 40), key = String(b.key || "").slice(0, 64);
   if (!room || !id || !key) return res.status(400).json({ error: "bad_request" });
-  if (await wallLocked(room) && !safeEqual(String(b.k || ""), wallTokenFor(room))) return res.status(403).json({ error: "locked" });
+  if (!wallAllowed(room, b.k)) return res.status(403).json({ error: "locked" });
   const ok = await store.delWall(room, id, sha256hex(key));   // only deletes when the owner key matches
   if (!ok) return res.status(403).json({ error: "not_yours" });
   try { const r = rooms.get(room); if (r) broadcastRoom(r, { type: "wall-remove", id }); } catch (e) {}
@@ -894,7 +950,13 @@ app.get("/yt-search", (req, res) => {
   }).catch(() => res.status(502).json({ items: [], error: "upstream" }));
 });
 
-app.get("/healthz", (req, res) => res.type("text").send("ok"));
+/* Health: also proves the database answers, so the self-heal timer and any uptime monitor see a
+   broken store instead of a cheerful "ok". */
+app.get("/healthz", async (req, res) => {
+  res.setHeader("Cache-Control", "no-store");
+  const dbOk = store.enabled() ? await store.ping() : true;
+  res.status(dbOk ? 200 : 503).type("text").send(dbOk ? "ok" : "db_error");
+});
 
 /* ---- your own PeerJS signaling server (media transport only) ----
    Both WebSocket servers run in noServer mode; we route upgrades ourselves
@@ -919,6 +981,7 @@ app.use(express.static(PUBLIC, { extensions: ["html"], setHeaders: (res, file) =
  * ==========================================================================*/
 const wss = new WebSocketServer({ noServer: true, maxPayload: 2 * 1024 * 1024 });   // includes room-synced SRT/VTT text (client cap 512 KB)
 const admins = new Set();
+const adminFails = new Map();   // ip -> { n, until } — admin password guesses
 
 /* rooms: Map<roomCode, { members: Map<ws,{peerId,name}>, chat: [], lastActivity }> */
 const rooms = new Map();
@@ -941,7 +1004,26 @@ iptvService = createIptvService({
   internalBase: "http://127.0.0.1:" + PORT
 });
 app.use("/iptv", iptvService.router);
-function hashPass(p) { return crypto.createHash("sha256").update("wmt:" + String(p || "")).digest("hex"); }
+/* Room passwords: salted scrypt ("s1$salt$hash"). Older rooms hold an unsalted sha256 — those still
+   verify, and are re-hashed with scrypt the first time the right password is entered. */
+const scryptAsync = require("util").promisify(crypto.scrypt);
+function legacyPassHash(p) { return crypto.createHash("sha256").update("wmt:" + String(p || "")).digest("hex"); }
+async function hashPass(p) {
+  const salt = crypto.randomBytes(16).toString("hex");
+  const key = await scryptAsync(String(p || ""), salt, 32, { N: 16384, r: 8, p: 1 });
+  return "s1$" + salt + "$" + key.toString("hex");
+}
+async function verifyPass(p, stored) {
+  if (!stored || !p) return false;
+  if (stored.startsWith("s1$")) {
+    const parts = stored.split("$"); if (parts.length !== 3) return false;
+    const key = await scryptAsync(String(p), parts[1], 32, { N: 16384, r: 8, p: 1 }).catch(() => null);
+    return !!key && safeEqual(key.toString("hex"), parts[2]);
+  }
+  return safeEqual(legacyPassHash(p), stored);
+}
+function roomIpKey(ip) { return ip ? crypto.createHmac("sha256", WALL_TOKEN_SECRET).update("ip|" + ip).digest("hex").slice(0, 24) : ""; }
+function ownerHashOf(key) { const k = String(key || ""); return k.length >= 16 ? sha256hex("owner|" + k.slice(0, 80)) : ""; }
 // constant-time string compare (hash first so unequal lengths neither throw nor leak length via timing)
 function safeEqual(a, b) {
   const ha = crypto.createHash("sha256").update(String(a == null ? "" : a)).digest();
@@ -956,7 +1038,10 @@ function cleanGalleryItems(arr) {
     name: String((it && it.name) || "").slice(0, 120),
     type: (it && it.type === "image") ? "image" : "video",
     size: Math.max(0, Math.min(Number((it && it.size)) || 0, 50 * 1024 * 1024 * 1024)),
-    mime: String((it && it.mime) || "").slice(0, 60)
+    mime: String((it && it.mime) || "").slice(0, 60),
+    /* server-hosted copy (uploaded once to /share): only our own private share paths are relayed */
+    url: (it && /^\/share\/[0-9a-f]{32}\/file\?t=[A-Za-z0-9_\-.~%]{8,200}$/.test(String(it.url || ""))) ? String(it.url) : undefined,
+    sid: (it && /^[0-9a-f]{32}$/.test(String(it.sid || ""))) ? String(it.sid) : undefined
   })).filter(it => it.fileId);
 }
 function cleanQueueUrl(value) {
@@ -1012,7 +1097,13 @@ function leaveRoom(ws) {
     const me = r.members.get(ws);
     r.members.delete(ws);
     if (me) broadcastRoom(r, { type: "peer-left", peerId: me.peerId, name: me.name });
-    if (me && r.gallery && r.gallery.presenter === me.peerId) { r.gallery = null; broadcastRoom(r, { type: "gallery-clear", gone: true }); }   // gone:true → viewers keep what they already fully downloaded
+    if (me && r.gallery && r.gallery.presenter === me.peerId) {
+      /* gone:true → viewers keep what they already have. Files uploaded to the server stay playable for
+         the room (and for late joiners) after the sharer's phone leaves or locks. */
+      const hosted = (r.gallery.items || []).filter(it => it.url);
+      r.gallery = hosted.length ? { presenter: null, items: hosted, current: hosted.some(it => it.fileId === r.gallery.current) ? r.gallery.current : hosted[0].fileId } : null;
+      broadcastRoom(r, { type: "gallery-clear", gone: true });
+    }
     /* Whoever supplied the IPTV login takes it with them; an empty room retires it too, so a
        copied token cannot outlive the evening it was shared in. */
     if (me && r.iptvSource && r.iptvSource.peerId === me.peerId) { iptvService.revoke(r.iptvSource.token); r.iptvSource = null; r.iptvNav = null; broadcastRoom(r, { type: "iptv-source", source: null }); }
@@ -1053,13 +1144,60 @@ wss.on("connection", (ws) => {
 
     /* ---------- admin ---------- */
     if (m.type === "admin") {
-      if ((ws._adminTries = (ws._adminTries || 0) + 1) > 10) return;   // throttle brute-force guesses on this connection
+      /* throttle guesses per IP address (per-connection counting reset on every reconnect) */
+      const ak = ws._ip || "?", af = adminFails.get(ak);
+      if (af && af.n >= 10 && af.until > now) { sendJSON(ws, { type: "admin_denied", wait: true }); return; }
       if (ADMIN_PASSWORD && safeEqual(m.password, ADMIN_PASSWORD)) {   // constant-time compare
-        ws._isAdmin = true; ws._adminTries = 0; admins.add(ws);
+        ws._isAdmin = true; adminFails.delete(ak); admins.add(ws);
         sendJSON(ws, { type: "admin_ok" });
         sendJSON(ws, { type: "stats", ...stats() });
         sendJSON(ws, { type: "visitors", today: todayStr(), days: await visitorsReport(30) });
-      } else sendJSON(ws, { type: "admin_denied" });
+        sendJSON(ws, { type: "reports", items: await store.listReports(50), blocked: Array.from(blockedRoomCodes) });
+      } else {
+        const cur = (af && af.until > now) ? af : { n: 0, until: now + 30 * 60000 }; cur.n++; adminFails.set(ak, cur);
+        sendJSON(ws, { type: "admin_denied" });
+      }
+      return;
+    }
+    /* ---- moderation (notice-and-action): reports, item removal, wiping and closing rooms ---- */
+    if (ws._isAdmin && m.type === "admin_reports") {
+      sendJSON(ws, { type: "reports", items: await store.listReports(50), blocked: Array.from(blockedRoomCodes) });
+      return;
+    }
+    if (ws._isAdmin && m.type === "admin_item") {   // full item (photo/video/voice) only on demand — the list stays small
+      const room = String(m.room || "").slice(0, 80), id = String(m.id || "").slice(0, 40);
+      const item = (await store.getWall(room, 500)).find(x => x.id === id) || null;
+      sendJSON(ws, { type: "admin_item", room, id, item });
+      return;
+    }
+    if (ws._isAdmin && m.type === "admin_wall_delete") {
+      const room = String(m.room || "").slice(0, 80), id = String(m.id || "").slice(0, 40);
+      const ok = await store.delWallAny(room, id); await store.closeReportsForItem(room, id);
+      const live = rooms.get(room); if (ok && live) broadcastRoom(live, { type: "wall-remove", id });
+      sendJSON(ws, { type: "reports", items: await store.listReports(50), blocked: Array.from(blockedRoomCodes) });
+      return;
+    }
+    if (ws._isAdmin && m.type === "admin_report_close") {
+      await store.closeReport(String(m.id || "").slice(0, 40));
+      sendJSON(ws, { type: "reports", items: await store.listReports(50), blocked: Array.from(blockedRoomCodes) });
+      return;
+    }
+    if (ws._isAdmin && (m.type === "admin_room_wipe" || m.type === "admin_room_block")) {
+      const room = String(m.room || "").slice(0, 80);
+      if (room) {
+        const live = rooms.get(room);
+        if (m.type === "admin_room_wipe") {
+          const items = await store.getWall(room, 1000);
+          await store.wipeRoom(room);
+          if (live) { items.forEach(it => broadcastRoom(live, { type: "wall-remove", id: it.id })); live.pass = null; live.owner = null; live.label = null; }
+        } else {
+          const on = m.on !== false;
+          await store.blockRoom(room, on);
+          if (on) { blockedRoomCodes.add(room); if (live) live.members.forEach((v, w) => { sendJSON(w, { type: "blocked" }); setTimeout(() => { try { w.close(); } catch (e) {} }, 400); }); }
+          else blockedRoomCodes.delete(room);
+        }
+      }
+      sendJSON(ws, { type: "reports", items: await store.listReports(50), blocked: Array.from(blockedRoomCodes) });
       return;
     }
     if (ws._isAdmin && m.type === "admin_visitors") {
@@ -1081,13 +1219,27 @@ wss.on("connection", (ws) => {
       const r = getRoom(code);
       // NOTE: the persisted host peerId is NOT restored — peer ids are random per session, so a stored
       // host can never match anyone again (it made room settings unreachable in existing rooms).
-      if (!r._loadP) { r._loadP = store.getRoom(code).then(row => { if (row) { if (row.passHash) r.pass = row.passHash; if (row.expiresAt) r._expiresAt = row.expiresAt; if (row.theme) r.theme = row.theme; if (row.decor) { try { r.decor = JSON.parse(row.decor); } catch (e) {} } } }).catch(() => {}); }
-      await r._loadP;   // restore a persisted lock/host (awaited so the password check sees it; concurrent joins share one load)
-      if (r._bans && r._bans.has(String(m.peerId || ""))) { sendJSON(ws, { type: "kicked" }); return; }   // removed by host
+      if (!r._loadP) { r._loadP = store.getRoom(code).then(row => { if (row) { if (row.passHash) r.pass = row.passHash; if (row.expiresAt) r._expiresAt = row.expiresAt; if (row.theme) r.theme = row.theme; if (row.decor) { try { r.decor = JSON.parse(row.decor); } catch (e) {} } if (row.label) r.label = row.label; if (row.owner) r.owner = row.owner; } }).catch(() => {}); }
+      await r._loadP;   // restore a persisted lock/owner (awaited so the password check sees it; concurrent joins share one load)
+      if (blockedRoomCodes.has(code)) { sendJSON(ws, { type: "blocked" }); return; }   // closed by the operator after an abuse report
+      const ipKey = roomIpKey(ws._ip), nowJ = Date.now();
+      const ownerHash = ownerHashOf(m.owner), isOwner = !!(ownerHash && r.owner && safeEqual(ownerHash, r.owner));
+      /* removed by the host: the ban follows the network address for 2 hours, so a reload (new random
+         peer id) no longer walks straight back in. The owner can never be locked out of their room. */
+      if (!isOwner && ((r._bans && r._bans.has(String(m.peerId || ""))) || (ipKey && r._ipBans && (r._ipBans.get(ipKey) || 0) > nowJ))) { sendJSON(ws, { type: "kicked" }); return; }
       if (r.members.size >= MAX_ROOM && !r.members.has(ws)) { sendJSON(ws, { type: "full" }); return; }
-      if (r.pass && !r.members.has(ws) && hashPass(m.pass) !== r.pass) {   // protected room → must supply the right password
-        sendJSON(ws, { type: "need-pass", wrong: !!(m.pass) });
-        return;
+      if (r.pass && !r.members.has(ws) && !isOwner) {   // protected room → must supply the right password (the owner's key opens it)
+        r._passFails = r._passFails || new Map();
+        const f = r._passFails.get(ipKey);
+        if (f && f.n >= 8 && f.until > nowJ) { sendJSON(ws, { type: "need-pass", wrong: true, wait: Math.ceil((f.until - nowJ) / 60000) }); return; }
+        const okPass = await verifyPass(m.pass, r.pass);
+        if (!okPass) {
+          if (m.pass) { const cur = (f && f.until > nowJ) ? f : { n: 0, until: nowJ + 15 * 60000 }; cur.n++; r._passFails.set(ipKey, cur); }
+          sendJSON(ws, { type: "need-pass", wrong: !!(m.pass) });
+          return;
+        }
+        r._passFails.delete(ipKey);
+        if (!r.pass.startsWith("s1$")) { r.pass = await hashPass(m.pass); store.setPass(code, r.pass); }   // upgrade a legacy sha256 hash
       }
       const wasEmpty = r.members.size === 0;   // first arrival → notify anyone watching this room
       const prevPid = r.members.has(ws) ? (r.members.get(ws) || {}).peerId : null;
@@ -1100,15 +1252,23 @@ wss.on("connection", (ws) => {
       r.members.forEach((v, w) => { if (w !== ws && v.peerId === ws._peerId) { r.members.delete(w); w._room = null; } });
       if (prevPid && prevPid !== ws._peerId) broadcastRoom(r, { type: "peer-left", peerId: prevPid }, ws);   // client rebuilt under a new id → let the room forget the old one
       r.members.set(ws, { peerId: ws._peerId, name: ws._name });
-      // the host must be someone who is actually HERE — if not (empty room reopened, host gone), this joiner takes over
+      ws._isOwner = isOwner;
+      /* The owner (whoever created the room on this device, proven by their owner key) always holds
+         host rights. Without the owner present, the longest-present member hosts temporarily — they can
+         run playback and moderate, but only the owner may set a password or rename the room. */
       const hostLive = Array.from(r.members.values()).some(v => v.peerId === r.host);
-      if (!hostLive) { r.host = ws._peerId; store.ensureRoom(code, ws._peerId); broadcastRoom(r, { type: "host", peerId: r.host }, ws); }
-      if (!r._expiresAt && store.enabled()) r._expiresAt = Date.now() + store.freeDays() * 86400000;   // free wall lifetime
+      if (isOwner && r.host !== ws._peerId) { r.host = ws._peerId; broadcastRoom(r, { type: "host", peerId: r.host }, ws); }
+      else if (!hostLive) {
+        r.host = ws._peerId; store.ensureRoom(code, ws._peerId); broadcastRoom(r, { type: "host", peerId: r.host }, ws);
+        if (!r.owner && ownerHash) { r.owner = (await store.claimOwner(code, ownerHash)) || ownerHash; ws._isOwner = safeEqual(ownerHash, r.owner); }   // a new room is claimed by its creator
+      }
+      store.touchRoom(code);   // using the room keeps it (and its memories) for another retention period
+      if (!r._expiresAt && store.enabled()) r._expiresAt = Date.now() + store.freeDays() * 86400000;   // paywall-era banner date (only sent when PAYWALL=on)
       if (wasEmpty) void notifyRoomAlive(code, ws._name).catch(() => {});
       r.lastActivity = Date.now();
       if (!ws._joinedAt) { ws._joinedAt = Date.now(); metrics.joins++; }   // count this session join once
       // tell the joiner who is already here; tell others someone joined
-      sendJSON(ws, { type: "roster", you: { peerId: ws._peerId, name: ws._name }, peers: rosterArr(r), host: r.host === ws._peerId, hasPass: !!r.pass, expiresAt: PAYWALL_ON ? (r._expiresAt || 0) : 0, theme: r.theme || "", decor: Array.isArray(r.decor) ? r.decor : [], wallKey: wallTokenFor(code), queue: queueState(r), highlights: (r.highlights || []).slice(-100) });
+      sendJSON(ws, { type: "roster", you: { peerId: ws._peerId, name: ws._name }, peers: rosterArr(r), host: r.host === ws._peerId, owner: !!ws._isOwner, owned: !!r.owner, label: r.label || "", hasPass: !!r.pass, expiresAt: PAYWALL_ON ? (r._expiresAt || 0) : 0, theme: r.theme || "", decor: Array.isArray(r.decor) ? r.decor : [], wallKey: wallTokenFor(code), queue: queueState(r), highlights: (r.highlights || []).slice(-100) });
       broadcastRoom(r, { type: "peer-joined", peerId: ws._peerId, name: ws._name }, ws);
       if (r.iptvSource && iptvService.hasSession(r.iptvSource.token)) sendJSON(ws, { type: "iptv-source", source: r.iptvSource });   // hasSession, not publicSession: a join must not renew the TTL
       else if (r.iptvSource) { r.iptvSource = null; r.iptvNav = null; }
@@ -1141,29 +1301,41 @@ wss.on("connection", (ws) => {
       const targetId = String(m.peerId || "");
       if (!targetId || targetId === ws._peerId) return;
       r._bans = r._bans || new Set(); r._bans.add(targetId);   // soft ban for this session so they can't instantly rejoin
-      r.members.forEach((v, w) => { if (v.peerId === targetId) { sendJSON(w, { type: "kicked" }); setTimeout(() => { try { w.close(); } catch (e) {} }, 400); } });
+      r._ipBans = r._ipBans || new Map();
+      r.members.forEach((v, w) => {
+        if (v.peerId !== targetId || w._isOwner) return;   // a temporary host can never remove the owner
+        const k = roomIpKey(w._ip); if (k && k !== roomIpKey(ws._ip)) r._ipBans.set(k, Date.now() + 2 * 3600000);   // same network as the host (one household) → peer-id ban only
+        sendJSON(w, { type: "kicked" }); setTimeout(() => { try { w.close(); } catch (e) {} }, 400);
+      });
       return;
     }
 
-    if (m.type === "room-rename") {                 // only the host may rename; the room + wall + everyone move with it
-      if (r.host !== ws._peerId) { sendJSON(ws, { type: "rename-result", ok: false, reason: "denied" }); return; }
-      const newCode = String(m.code || "").toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9\-_]/g, "").replace(/^-+|-+$/g, "").slice(0, 40);
-      if (newCode.length < 2) { sendJSON(ws, { type: "rename-result", ok: false, reason: "bad" }); return; }
-      if (newCode === ws._room) { sendJSON(ws, { type: "rename-result", ok: true, code: newCode }); return; }
-      if (rooms.has(newCode)) { sendJSON(ws, { type: "rename-result", ok: false, reason: "taken" }); return; }
-      const okDb = await store.renameRoom(ws._room, newCode);
-      if (!okDb) { sendJSON(ws, { type: "rename-result", ok: false, reason: "taken" }); return; }
-      rooms.delete(ws._room); rooms.set(newCode, r);
-      r.members.forEach((v, w) => { w._room = newCode; });
-      broadcastRoom(r, { type: "renamed", code: newCode });   // everyone (incl. host) updates their URL + room name
-      pushStats();
+    if (m.type === "claim-owner") {                 // creator's device registers its owner key for a room that has none yet
+      const h = ownerHashOf(m.owner);
+      if (!h || r.owner || r.host !== ws._peerId) return;
+      r.owner = (await store.claimOwner(ws._room, h)) || h; ws._isOwner = safeEqual(h, r.owner);
+      sendJSON(ws, { type: "owner", owner: ws._isOwner, owned: true });
       return;
     }
 
-    if (m.type === "set-pass") {                    // only the host may lock/unlock the room
-      if (r.host !== ws._peerId) { sendJSON(ws, { type: "pass-set", hasPass: !!r.pass, denied: true }); return; }
+    /* Renaming changes only the DISPLAY name. The room code — and so every link already sent to family —
+       keeps working (renaming the code used to silently break those links). */
+    if (m.type === "room-rename") {
+      const mayEdit = r.owner ? !!ws._isOwner : r.host === ws._peerId;
+      if (!mayEdit) { sendJSON(ws, { type: "rename-result", ok: false, reason: "denied" }); return; }
+      const label = String(m.label != null ? m.label : (m.code || "")).replace(/[\u0000-\u001f<>]/g, "").trim().slice(0, 40);
+      r.label = label || null;
+      await store.setLabel(ws._room, r.label);
+      broadcastRoom(r, { type: "room-label", label: r.label || "" });
+      sendJSON(ws, { type: "rename-result", ok: true, label: r.label || "" });
+      return;
+    }
+
+    if (m.type === "set-pass") {                    // only the owner (or, in an unclaimed room, the host) may lock/unlock the room
+      const mayLock = r.owner ? !!ws._isOwner : r.host === ws._peerId;
+      if (!mayLock) { sendJSON(ws, { type: "pass-set", hasPass: !!r.pass, denied: true }); return; }
       const p = String(m.password || "");
-      r.pass = p ? hashPass(p) : null;
+      r.pass = p ? await hashPass(p) : null;
       store.setPass(ws._room, r.pass);   // survive restarts
       sendJSON(ws, { type: "pass-set", hasPass: !!r.pass });
       broadcastRoom(r, { type: "room-locked", hasPass: !!r.pass, by: ws._name }, ws);
@@ -1472,8 +1644,30 @@ if (HAS_PUSH) {
   }, 20000).unref();
 }
 
-/* prune expired free walls (their memories + room) periodically */
-if (store.enabled() && PAYWALL_ON) { store.pruneExpired(); setInterval(() => store.pruneExpired(), 3600000).unref(); }   // free test phase: never delete rooms/walls
+/* Retention: rooms + memories are deleted 12 months (WALL_RETENTION_DAYS) after their last use. */
+if (store.enabled()) { store.pruneExpired(); setInterval(() => store.pruneExpired(), 3600000).unref(); }
+
+/* Chat lives only in memory: forget a room (and its chat) 24 h after it was last active, so chat is
+   not kept indefinitely and idle rooms cannot pile up in memory. */
+const ROOM_IDLE_MS = Math.max(3600000, parseInt(process.env.ROOM_IDLE_HOURS || "24", 10) * 3600000);
+setInterval(() => {
+  const cutoff = Date.now() - ROOM_IDLE_MS;
+  rooms.forEach((r, code) => { if (r.members.size === 0 && (r.lastActivity || 0) < cutoff) rooms.delete(code); });
+  roomNotifiedAt.forEach((ts, code) => { if (ts < cutoff) roomNotifiedAt.delete(code); });
+  adminFails.forEach((f, ip) => { if (f.until < Date.now()) adminFails.delete(ip); });
+}, 10 * 60000).unref();
+
+/* Graceful restart: tell every client the server is restarting (1012) so they reconnect at once
+   instead of waiting for a ping timeout, then exit. */
+function shutdown(sig) {
+  console.log("[shutdown] " + sig + " — closing " + wss.clients.size + " control sockets");
+  wss.clients.forEach(ws => { try { ws.close(1012, "restart"); } catch (e) {} });
+  try { if (shareUpload) shareUpload.close(); } catch (e) {}
+  try { server.close(); } catch (e) {}
+  setTimeout(() => process.exit(0), 1500).unref();
+}
+process.once("SIGTERM", () => shutdown("SIGTERM"));
+process.once("SIGINT", () => shutdown("SIGINT"));
 
 server.listen(PORT, () => {
   console.log("SameCouch server on :" + PORT);

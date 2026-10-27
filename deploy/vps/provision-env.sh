@@ -52,7 +52,7 @@ printf '%s\n' \
   'IPTV_ALLOWED_PORTS=80,443,8000,8080,8443,8880,25461' \
   'IPTV_MEDIA_USER_AGENT=VLC/3.0.21 LibVLC/3.0.21' \
   'IPTV_PUBLIC_BASE=https://turn.watchmovietogether.com:8445' \
-  'VAPID_SUBJECT=mailto:admin@samecouch.com' \
+  'VAPID_SUBJECT=mailto:rainier@nexthorizonsglobal.com' \
   > "$envfile"
 
 export SAMECOUCH_ENV_FILE="$envfile"

@@ -590,6 +590,9 @@ function createIptvService(options) {
     const ip = clientIp(req); if (!allowConnect(ip)) return res.status(429).json({ error: "rate_limited" });
     const body = req.body || {}, room = safeText(body.room, 80), roomKey = safeText(body.roomKey, 128);
     if (!room || !authorizeRoom(room, roomKey)) return res.status(403).json({ error: "room_required" });
+    /* The person connecting must confirm their subscription is legal and allows watching together
+       with the people in this room (required checkbox in the connect form). */
+    if (body.consent !== true) return res.status(400).json({ error: "consent_required" });
     if (sessions.size >= maxSessions) return res.status(503).json({ error: "iptv_busy" });
     const type = body.type === "m3u" ? "m3u" : "xtream";
     try {

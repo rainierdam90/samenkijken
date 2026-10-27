@@ -304,7 +304,8 @@ test("large shared videos use a progressive start buffer with transfer controls"
 
 test("mobile playback acquires and restores a screen wake lock", () => {
   assert.match(html, /navigator\.wakeLock\.request\("screen"\)/);
-  assert.match(html, /mediaIsPlaying\(\)\|\|!!\(galleryXfer&&galleryXfer\.active&&!galleryXfer\.paused\)/);
+  assert.match(html, /mediaIsPlaying\(\)\|\|inCallWithSomeone\(\)[^\n]*!!\(galleryXfer&&galleryXfer\.active&&!galleryXfer\.paused\)/);   // playback, a live call, or an upload keeps the screen awake
+  assert.match(html, /function inCallWithSomeone\(\)/);
   assert.match(html, /visibilitychange[^\n]+updateWakeLock\(\)/);
 });
 

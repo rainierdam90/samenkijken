@@ -57,7 +57,7 @@ test("IPTV credentials stay server-side while catalogs, HLS, VOD, series and sub
   app.use("/iptv",service.router); const appServer=http.createServer(app), appPort=await listen(appServer), appBase=`http://127.0.0.1:${appPort}`;
   t.after(async () => { await Promise.all([close(appServer),close(provider)]); if(beforeTrusted===undefined) delete process.env.IPTV_TRUSTED_PRIVATE_HOSTS; else process.env.IPTV_TRUSTED_PRIVATE_HOSTS=beforeTrusted; if(beforePorts===undefined) delete process.env.IPTV_ALLOWED_PORTS; else process.env.IPTV_ALLOWED_PORTS=beforePorts; });
 
-  const connectResponse=await fetch(appBase+"/iptv/connect",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({type:"xtream",room:"qa-room",roomKey:"qa-key",server:`http://127.0.0.1:${providerPort}`,username:"demo",password:"secret"})});
+  const connectResponse=await fetch(appBase+"/iptv/connect",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({type:"xtream",room:"qa-room",roomKey:"qa-key",consent:true,server:`http://127.0.0.1:${providerPort}`,username:"demo",password:"secret"})});
   assert.equal(connectResponse.status,200); const connectText=await connectResponse.text(); assert.doesNotMatch(connectText,/demo|secret|player_api/); const connected=JSON.parse(connectText), token=connected.source.token;
   assert.equal(connected.categories.live[0].title,"News"); assert.ok(token);
   const auth={"X-SameCouch-IPTV":token};
@@ -80,7 +80,7 @@ test("IPTV credentials stay server-side while catalogs, HLS, VOD, series and sub
   const ranged=await fetch(movie.playback.url,{headers:{range:"bytes=2-5"}}); assert.equal(ranged.status,206); assert.equal(await ranged.text(),"2345");
   assert.equal(seriesCatalog.items[0].kind,"series");
 
-  const m3uResponse=await fetch(appBase+"/iptv/connect",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({type:"m3u",room:"qa-room",roomKey:"qa-key",playlistUrl:`http://127.0.0.1:${providerPort}/playlist.m3u?username=demo&password=secret`})});
+  const m3uResponse=await fetch(appBase+"/iptv/connect",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({type:"m3u",room:"qa-room",roomKey:"qa-key",consent:true,playlistUrl:`http://127.0.0.1:${providerPort}/playlist.m3u?username=demo&password=secret`})});
   const m3uText=await m3uResponse.text(); assert.equal(m3uResponse.status,200); assert.doesNotMatch(m3uText,/demo|secret/); const m3u=JSON.parse(m3uText);
   const m3uCatalog=await (await fetch(appBase+"/iptv/catalog?kind=live",{headers:{"X-SameCouch-IPTV":m3u.source.token}})).json(); assert.equal(m3uCatalog.items[0].title,"M3U News"); assert.doesNotMatch(JSON.stringify(m3uCatalog),/demo|secret/);
 });
@@ -134,7 +134,7 @@ test("provider media redirects may use a public high port without opening privat
     if (before.ports === undefined) delete process.env.IPTV_ALLOWED_PORTS; else process.env.IPTV_ALLOWED_PORTS = before.ports;
   });
 
-  const connected = await (await fetch(appBase + "/iptv/connect", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ type: "xtream", room: "qa-room", roomKey: "qa-key", server: `http://127.0.0.1:${apiPort}`, username: "demo", password: "secret" }) })).json();
+  const connected = await (await fetch(appBase + "/iptv/connect", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ type: "xtream", room: "qa-room", roomKey: "qa-key", consent: true, server: `http://127.0.0.1:${apiPort}`, username: "demo", password: "secret" }) })).json();
   const headers = { "X-SameCouch-IPTV": connected.source.token, "content-type": "application/json" };
   const catalog = await (await fetch(appBase + "/iptv/catalog?kind=live", { headers })).json();
 
@@ -187,7 +187,7 @@ test("Xtream direct_source and TS-only accounts bypass broken synthetic media ro
     if (before.ports === undefined) delete process.env.IPTV_ALLOWED_PORTS; else process.env.IPTV_ALLOWED_PORTS = before.ports;
   });
 
-  const connected = await (await fetch(appBase + "/iptv/connect", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ type: "xtream", room: "qa-room", roomKey: "qa-key", server: `http://127.0.0.1:${providerPort}`, username: "demo", password: "secret" }) })).json();
+  const connected = await (await fetch(appBase + "/iptv/connect", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ type: "xtream", room: "qa-room", roomKey: "qa-key", consent: true, server: `http://127.0.0.1:${providerPort}`, username: "demo", password: "secret" }) })).json();
   const auth = { "X-SameCouch-IPTV": connected.source.token, "content-type": "application/json" };
   const liveCatalogText = await (await fetch(appBase + "/iptv/catalog?kind=live", { headers: auth })).text();
   const movieCatalogText = await (await fetch(appBase + "/iptv/catalog?kind=movie", { headers: auth })).text();
@@ -236,7 +236,7 @@ test("cancelling a player request also cancels an upstream request that has not 
     if (beforePorts === undefined) delete process.env.IPTV_ALLOWED_PORTS; else process.env.IPTV_ALLOWED_PORTS = beforePorts;
   });
 
-  const connected = await (await fetch(appBase + "/iptv/connect", { method:"POST", headers:{"content-type":"application/json"}, body:JSON.stringify({ type:"m3u", room:"qa-room", roomKey:"qa-key", playlistUrl:`http://127.0.0.1:${providerPort}/playlist.m3u` }) })).json();
+  const connected = await (await fetch(appBase + "/iptv/connect", { method:"POST", headers:{"content-type":"application/json"}, body:JSON.stringify({ type:"m3u", room:"qa-room", roomKey:"qa-key",consent:true, playlistUrl:`http://127.0.0.1:${providerPort}/playlist.m3u` }) })).json();
   const headers = { "X-SameCouch-IPTV":connected.source.token, "content-type":"application/json" };
   const catalog = await (await fetch(appBase + "/iptv/catalog?kind=live", { headers })).json();
   const playback = await (await fetch(appBase + "/iptv/resolve", { method:"POST", headers, body:JSON.stringify({ id:catalog.items[0].id }) })).json();
@@ -276,7 +276,7 @@ test("browsing artwork never starves playback or the API budget", async t => {
       .forEach(([key, value]) => { if (value === undefined) delete process.env[key]; else process.env[key] = value; });
   });
 
-  const connected = await (await fetch(appBase + "/iptv/connect", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ type: "m3u", room: "qa-room", roomKey: "qa-key", playlistUrl: `http://127.0.0.1:${providerPort}/playlist.m3u` }) })).json();
+  const connected = await (await fetch(appBase + "/iptv/connect", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ type: "m3u", room: "qa-room", roomKey: "qa-key", consent: true, playlistUrl: `http://127.0.0.1:${providerPort}/playlist.m3u` }) })).json();
   const token = connected.source.token;
   let catalog = await (await fetch(appBase + "/iptv/catalog?kind=live", { headers: { "X-SameCouch-IPTV": token } })).json();
   if (!catalog.items.length) catalog = await (await fetch(appBase + "/iptv/catalog?kind=movie", { headers: { "X-SameCouch-IPTV": token } })).json();
@@ -337,7 +337,7 @@ test("the remux fallback returns an opaque, credential-free stream path", async 
     if (before.ports === undefined) delete process.env.IPTV_ALLOWED_PORTS; else process.env.IPTV_ALLOWED_PORTS = before.ports;
   });
 
-  const connected = await (await fetch(appBase + "/iptv/connect", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ type: "xtream", room: "qa-room", roomKey: "qa-key", server: `http://127.0.0.1:${providerPort}`, username: "demo", password: "secret" }) })).json();
+  const connected = await (await fetch(appBase + "/iptv/connect", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ type: "xtream", room: "qa-room", roomKey: "qa-key", consent: true, server: `http://127.0.0.1:${providerPort}`, username: "demo", password: "secret" }) })).json();
   const token = connected.source.token;
   const catalog = await (await fetch(appBase + "/iptv/catalog?kind=live", { headers: { "X-SameCouch-IPTV": token } })).json();
 

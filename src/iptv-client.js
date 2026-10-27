@@ -25,7 +25,7 @@
         private_address:"iptv_err_blocked", host_not_allowed:"iptv_err_blocked", port_not_allowed:"iptv_err_port",
         source_expired:"iptv_err_expired", room_required:"iptv_err_room", rate_limited:"iptv_err_busy",
         iptv_busy:"iptv_err_busy", playlist_parse:"iptv_err_playlist", dns_failed:"iptv_err_connect",
-        bad_url:"iptv_err_url", bad_scheme:"iptv_err_url", url_auth_not_allowed:"iptv_err_url"
+        bad_url:"iptv_err_url", bad_scheme:"iptv_err_url", url_auth_not_allowed:"iptv_err_url", consent_required:"iptv_err_consent"
       }[code];
       return t(key || "iptv_err_connect");
     }
@@ -157,6 +157,10 @@
       else body.playlistUrl = byId("iptvPlaylist").value.trim();
       const rememberLogin = body.type === "xtream" && byId("iptvRemember").checked;
       if (!body.roomKey) { errorEl.textContent = t("iptv_err_room_wait"); return; }
+      /* required: the person connecting confirms their subscription is legal and allows watching together */
+      const consentBox = byId("iptvConsent");
+      if (!consentBox || !consentBox.checked) { errorEl.textContent = t("iptv_err_consent"); if (consentBox) consentBox.focus(); return; }
+      body.consent = true;
       loading = true; const button = byId("iptvConnect"), old = button.textContent; button.disabled = true; button.textContent = t("iptv_connecting");
       try {
         const data = await responseJson(await fetch(api("/connect"), { method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify(body) }));
@@ -191,7 +195,7 @@
     function close() { if (root) root.classList.remove("show"); }
     function disconnect() { if (options.send) options.send({type:"iptv-source",token:""}); setSource(null); }
     function localize() {
-      const texts = {iptvTitle:"iptv_title",iptvSetupTitle:"iptv_setup_title",iptvSetupSub:"iptv_setup_sub",iptvModeXtream:"iptv_login",iptvModeM3u:"iptv_m3u",iptvServerLbl:"iptv_server",iptvUserLbl:"iptv_user",iptvPassLbl:"iptv_pass",iptvPlaylistLbl:"iptv_playlist",iptvRememberLbl:"iptv_remember",iptvConnect:"iptv_connect",iptvPrivacy:"iptv_privacy",iptvSearchBtn:"iptv_search_btn",iptvMore:"iptv_more",iptvDisconnect:"iptv_other"};
+      const texts = {iptvTitle:"iptv_title",iptvSetupTitle:"iptv_setup_title",iptvSetupSub:"iptv_setup_sub",iptvModeXtream:"iptv_login",iptvModeM3u:"iptv_m3u",iptvServerLbl:"iptv_server",iptvUserLbl:"iptv_user",iptvPassLbl:"iptv_pass",iptvPlaylistLbl:"iptv_playlist",iptvRememberLbl:"iptv_remember",iptvConsentLbl:"iptv_consent",iptvConnect:"iptv_connect",iptvPrivacy:"iptv_privacy",iptvSearchBtn:"iptv_search_btn",iptvMore:"iptv_more",iptvDisconnect:"iptv_other"};
       Object.keys(texts).forEach(id => { const el = byId(id); if (el) el.textContent = t(texts[id]); }); search.placeholder = t("iptv_search_ph");
       const labels = {live:"iptv_live",movie:"iptv_movies",series:"iptv_series"}; kinds.querySelectorAll("[data-kind]").forEach(button => button.textContent = t(labels[button.dataset.kind])); renderCategories();
     }

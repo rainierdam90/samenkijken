@@ -61,37 +61,31 @@ Only **one** remote camera is shown at a time. It rotates every 2 minutes and
 switches immediately to whoever starts talking (with onset/hangover detection so
 brief noises don't cause false switches). You still **hear** everyone.
 
-## Deploy (the realtime server needs a host that keeps a process alive)
+## Deployment
 
-> ⚠️ **Vercel / GitHub Pages won't run this server.** They are serverless/static
-> and don't keep a WebSocket process alive. Use Render, Railway, or Fly — all
-> deploy straight from GitHub. (You *may* still host the static `public/` folder
-> on Vercel and point it at your server with `SERVER_BASE` — see below.)
+Production is split over two hosts:
 
-### Option A — Render (easiest, one Blueprint)
+- **Front-end** — the static `public/` folder is served by **Vercel** at
+  `samecouch.com` (`www.samecouch.com` and the old `watchmovietogether.com`
+  domains redirect there). Vercel deploys automatically on every push to
+  `main`. Edit the root `vercel.json`; `public/vercel.json` is a generated copy
+  (`npm run build:frontend`). Vercel cannot run the Node server.
+- **Backend** — the Node server (`server/server.js`: room server/signaling,
+  chat relay, IPTV gateway, remuxer, admin) runs on a virtual server from
+  **Netwise Hosting Ltd in London, UK**, as the systemd unit
+  `samecouch.service` in `/opt/samecouch`, with nginx terminating TLS in front
+  of it. The **coturn TURN relay** runs on the same server. Config files are in
+  `deploy/vps/`; secrets live only in `/etc/samecouch.env` on the server, never
+  in this repo. Deploys are **manual**: copy the changed files to
+  `/opt/samecouch`, run `systemctl restart samecouch.service`, then check that
+  `coturn` is still active. The front-end reaches the backend through
+  `REMOTE_BACKEND` in `src/index.source.html`.
+- **Data** — the SQLite database is on that server. Encrypted nightly database
+  backups go to a server at **netcup GmbH in Germany** and are kept 14 days;
+  nginx access logs are kept 14 days. If you change hosts or retention, update
+  `public/privacy.html` and `public/privacy-nl.html` too.
 
-1. Push this repo to GitHub.
-2. On Render: **New → Blueprint**, pick the repo. `render.yaml` is detected.
-3. Set environment variables when prompted:
-   - `ADMIN_PASSWORD` — a long random string (admin dashboard login)
-   - `TURN_SECRET` — shared secret with your coturn (see below)
-   - `TURN_URLS` — e.g. `turn:turn.watchmovietogether.com:3478,turns:turn.watchmovietogether.com:5349`
-4. Deploy. Your app is at `https://<name>.onrender.com`, admin at `/admin`.
-5. Add both `samecouch.com` **and** `www.samecouch.com` under the service's
-   **Custom Domains** and point DNS as Render instructs. Do not rely on an HTTP
-   redirect alone: the hosting platform must first issue a valid TLS certificate
-   for `www.samecouch.com`, otherwise browsers fail before the redirect can run.
-   The included Vercel configuration redirects `www` to the apex after TLS is valid.
-
-Free tier sleeps when idle (cold start on first visit). Use a paid instance to
-avoid that. MKV video is stream-copied instead of encoded, so CPU use is low;
-bandwidth still runs through the app whenever direct browser playback is not
-available.
-
-### Option B — Railway / Fly
-
-Same idea: connect the GitHub repo, set the same env vars, `npm start` is the
-start command. Fly: `fly launch` then `fly deploy` (it reads `package.json`).
+`render.yaml` is legacy: the Render service is no longer used.
 
 ### Local development
 
@@ -360,7 +354,7 @@ used; do not replace them with unpinned CDN scripts.
 | `DATABASE_URL` | Postgres persistence for rooms, wall, reminders and room subscriptions | *(SQLite fallback)* |
 | `DB_PATH` | SQLite path when Postgres is not configured | `data/wmt.db` |
 | `VAPID_PUBLIC` / `VAPID_PRIVATE` | Web Push keys for scheduled and room-live notifications | *(push disabled)* |
-| `VAPID_SUBJECT` | Web Push contact URI | `mailto:admin@samecouch.com` |
+| `VAPID_SUBJECT` | Web Push contact URI | `mailto:rainier@nexthorizonsglobal.com` |
 | `FFMPEG_PATH` | optional path to a system FFmpeg binary; otherwise `ffmpeg-static` is used | bundled binary |
 | `MKV_TOKEN_SECRET` | shared secret for short-lived stream tickets; set the same value on every app instance | random per process |
 | `MKV_TOKEN_TTL` | stream-ticket lifetime in seconds | `300` |

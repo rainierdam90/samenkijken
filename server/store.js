@@ -9,8 +9,13 @@
 "use strict";
 
 const WALL_KEEP = parseInt(process.env.WALL_KEEP || "200", 10);
-const FREE_DAYS = parseInt(process.env.FREE_DAYS || "10", 10);   // free wall lifetime
-const FREE_MS = FREE_DAYS * 24 * 3600 * 1000;
+const FREE_DAYS = parseInt(process.env.FREE_DAYS || "10", 10);   // paywall-era free wall lifetime (only shown when PAYWALL=on)
+/* Rooms and their memories wall are kept until this long after the room was LAST USED (a join or
+   a wall post renews it), then deleted automatically. This is the retention promised in the
+   privacy policy — keep the two in sync. */
+const RETENTION_DAYS = Math.max(7, parseInt(process.env.WALL_RETENTION_DAYS || "365", 10));
+const RETENTION_MS = RETENTION_DAYS * 24 * 3600 * 1000;
+const FREE_MS = RETENTION_MS;
 let ready = false;
 let impl = null;
 
@@ -100,10 +105,51 @@ function makeSqlite() {
   try { db.exec("ALTER TABLE rooms ADD COLUMN theme TEXT"); } catch (e) {}          // room ambiance theme
   try { db.exec("ALTER TABLE rooms ADD COLUMN decor TEXT"); } catch (e) {}          // user-placed room decorations (JSON)
   try { db.exec("ALTER TABLE wall ADD COLUMN editKey TEXT"); } catch (e) {}         // hashed owner key → lets the poster remove their own item
+  try { db.exec("ALTER TABLE rooms ADD COLUMN label TEXT"); } catch (e) {}          // display name chosen by the owner (the room code/link never changes)
+  try { db.exec("ALTER TABLE rooms ADD COLUMN owner TEXT"); } catch (e) {}          // hash of the creator's owner key → owner keeps host rights
+  try { db.exec("ALTER TABLE room_subscriptions ADD COLUMN lang TEXT"); } catch (e) {}
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS reports (id TEXT PRIMARY KEY, room TEXT, itemId TEXT, reason TEXT, ts INTEGER, status TEXT);
+    CREATE INDEX IF NOT EXISTS idx_reports_status ON reports (status, ts);
+    CREATE TABLE IF NOT EXISTS blocked_rooms (code TEXT PRIMARY KEY, ts INTEGER);
+    CREATE TABLE IF NOT EXISTS meta (key TEXT PRIMARY KEY, value TEXT);
+  `);
+  /* One-time switch from the old "10 days unless you pay" model (never enforced) to "12 months
+     after last use": give every existing room a full retention period from today so nothing that
+     people already posted disappears the moment pruning is switched on. */
+  try {
+    if (!db.prepare("SELECT 1 FROM meta WHERE key='retention_v1'").get()) {
+      db.prepare("UPDATE rooms SET expiresAt = MAX(COALESCE(expiresAt, 0), ?)").run(Date.now() + RETENTION_MS);
+      db.prepare("INSERT INTO meta (key, value) VALUES ('retention_v1', ?)").run(String(Date.now()));
+    }
+  } catch (e) { console.warn("[store] retention migration failed:", e.message); }
   ready = true;
   console.log("[store] persistence ON (SQLite " + DB_PATH + ")");
   return {
-    async getRoom(code) { try { var r = db.prepare("SELECT passHash, host, expiresAt, theme, decor FROM rooms WHERE code=?").get(code); return r ? { passHash: r.passHash, host: r.host, expiresAt: r.expiresAt || 0, theme: r.theme || null, decor: r.decor || null } : null; } catch (e) { return null; } },
+    async getRoom(code) { try { var r = db.prepare("SELECT passHash, host, expiresAt, theme, decor, label, owner FROM rooms WHERE code=?").get(code); return r ? { passHash: r.passHash, host: r.host, expiresAt: r.expiresAt || 0, theme: r.theme || null, decor: r.decor || null, label: r.label || null, owner: r.owner || null } : null; } catch (e) { return null; } },
+    async touchRoom(code) { try { db.prepare("INSERT INTO rooms (code, createdAt, expiresAt) VALUES (?, ?, ?) ON CONFLICT(code) DO UPDATE SET expiresAt = excluded.expiresAt").run(code, Date.now(), Date.now() + RETENTION_MS); } catch (e) {} },
+    async setLabel(code, label) { try { db.prepare("INSERT INTO rooms (code, createdAt, expiresAt, label) VALUES (?, ?, ?, ?) ON CONFLICT(code) DO UPDATE SET label = excluded.label").run(code, Date.now(), Date.now() + RETENTION_MS, label || null); return true; } catch (e) { return false; } },
+    /* the first owner key that arrives wins; returns the stored owner hash afterwards */
+    async claimOwner(code, ownerHash) { try {
+        db.prepare("INSERT INTO rooms (code, createdAt, expiresAt, owner) VALUES (?, ?, ?, ?) ON CONFLICT(code) DO UPDATE SET owner = COALESCE(rooms.owner, excluded.owner)").run(code, Date.now(), Date.now() + RETENTION_MS, ownerHash);
+        var r = db.prepare("SELECT owner FROM rooms WHERE code=?").get(code); return r ? r.owner : null;
+      } catch (e) { return null; } },
+    async ping() { try { db.prepare("SELECT 1").get(); return true; } catch (e) { return false; } },
+    async addReport(rep) { try { db.prepare("INSERT INTO reports (id, room, itemId, reason, ts, status) VALUES (?, ?, ?, ?, ?, 'open')").run(rep.id, rep.room, rep.itemId, rep.reason || null, rep.ts); return true; } catch (e) { return false; } },
+    async listReports(limit) { try {
+        return db.prepare("SELECT r.id, r.room, r.itemId, r.reason, r.ts, w.kind, w.author, w.mime, CASE WHEN w.kind='note' THEN w.data ELSE NULL END AS text FROM reports r LEFT JOIN wall w ON w.id = r.itemId AND w.room = r.room WHERE r.status='open' ORDER BY r.ts DESC LIMIT ?").all(limit || 50);
+      } catch (e) { return []; } },
+    async closeReport(id) { try { db.prepare("UPDATE reports SET status='closed' WHERE id=?").run(id); } catch (e) {} },
+    async closeReportsForItem(room, itemId) { try { db.prepare("UPDATE reports SET status='closed' WHERE room=? AND itemId=?").run(room, itemId); } catch (e) {} },
+    async wipeRoom(code) { try {
+        db.prepare("DELETE FROM wall WHERE room=?").run(code);
+        db.prepare("DELETE FROM room_subscriptions WHERE room=?").run(code);
+        db.prepare("UPDATE reports SET status='closed' WHERE room=?").run(code);
+        db.prepare("DELETE FROM rooms WHERE code=?").run(code);
+        return true;
+      } catch (e) { return false; } },
+    async blockRoom(code, on) { try { if (on) db.prepare("INSERT OR IGNORE INTO blocked_rooms (code, ts) VALUES (?, ?)").run(code, Date.now()); else db.prepare("DELETE FROM blocked_rooms WHERE code=?").run(code); return true; } catch (e) { return false; } },
+    async blockedRooms() { try { return db.prepare("SELECT code FROM blocked_rooms").all().map(x => x.code); } catch (e) { return []; } },
     async setTheme(code, theme) { try { db.prepare("UPDATE rooms SET theme=? WHERE code=?").run(theme || null, code); } catch (e) {} },
     async setDecor(code, decor) { try { db.prepare("UPDATE rooms SET decor=? WHERE code=?").run(decor || null, code); } catch (e) {} },
     async ensureRoom(code, host) { try { db.prepare("INSERT INTO rooms (code, host, createdAt, expiresAt) VALUES (?, ?, ?, ?) ON CONFLICT(code) DO UPDATE SET host = COALESCE(rooms.host, excluded.host), expiresAt = COALESCE(rooms.expiresAt, excluded.expiresAt)").run(code, host || null, Date.now(), Date.now() + FREE_MS); } catch (e) {} },
@@ -118,7 +164,8 @@ function makeSqlite() {
     async addWall(it) { try {
         db.prepare("INSERT INTO wall (id, room, kind, author, mime, data, ts, editKey) VALUES (?, ?, ?, ?, ?, ?, ?, ?)").run(it.id, it.room, it.kind, it.author || null, it.mime || null, it.data || null, it.ts, it.editKey || null);
         db.prepare("DELETE FROM wall WHERE id IN (SELECT id FROM wall WHERE room=? ORDER BY ts DESC LIMIT -1 OFFSET ?)").run(it.room, WALL_KEEP);
-      } catch (e) {} },
+        return true;
+      } catch (e) { console.warn("[store] wall write failed:", e.message); return false; } },
     async delWall(room, id, keyHash) { try { var r = db.prepare("DELETE FROM wall WHERE room=? AND id=? AND editKey=?").run(room, id, keyHash); return r.changes > 0; } catch (e) { return false; } },
     async delWallAny(room, id) { try { var r = db.prepare("DELETE FROM wall WHERE room=? AND id=?").run(room, id); return r.changes > 0; } catch (e) { return false; } },
     async getWall(code, limit) { try { return db.prepare("SELECT id, kind, author, mime, data, ts FROM wall WHERE room=? ORDER BY ts ASC LIMIT ?").all(code, limit || WALL_KEEP); } catch (e) { return []; } },
@@ -129,10 +176,19 @@ function makeSqlite() {
     async dueReminders(now, limit) { try { return db.prepare("SELECT id, subscription, at, title, body, url FROM push_reminders WHERE at <= ? ORDER BY at ASC LIMIT ?").all(now, limit || 100).map(x=>({ id:x.id, sub:JSON.parse(x.subscription), at:x.at, title:x.title, body:x.body, url:x.url })); } catch (e) { return []; } },
     async delReminder(id) { try { db.prepare("DELETE FROM push_reminders WHERE id=?").run(id); } catch (e) {} },
     async pruneReminders(before) { try { db.prepare("DELETE FROM push_reminders WHERE at < ?").run(before); } catch (e) {} },
-    async addRoomSub(room, endpoint, sub, name) { try { db.prepare("INSERT INTO room_subscriptions (room, endpoint, subscription, name) VALUES (?, ?, ?, ?) ON CONFLICT(room,endpoint) DO UPDATE SET subscription=excluded.subscription, name=excluded.name").run(room, endpoint, JSON.stringify(sub), name); return true; } catch (e) { return false; } },
-    async getRoomSubs(room) { try { return db.prepare("SELECT endpoint, subscription, name FROM room_subscriptions WHERE room=?").all(room).map(x=>({ endpoint:x.endpoint, sub:JSON.parse(x.subscription), name:x.name })); } catch (e) { return []; } },
+    async addRoomSub(room, endpoint, sub, name, lang) { try { db.prepare("INSERT INTO room_subscriptions (room, endpoint, subscription, name, lang) VALUES (?, ?, ?, ?, ?) ON CONFLICT(room,endpoint) DO UPDATE SET subscription=excluded.subscription, name=excluded.name, lang=excluded.lang").run(room, endpoint, JSON.stringify(sub), name, lang || null); return true; } catch (e) { return false; } },
+    async getRoomSubs(room) { try { return db.prepare("SELECT endpoint, subscription, name, lang FROM room_subscriptions WHERE room=?").all(room).map(x=>({ endpoint:x.endpoint, sub:JSON.parse(x.subscription), name:x.name, lang:x.lang || null })); } catch (e) { return []; } },
     async delRoomSub(room, endpoint) { try { db.prepare("DELETE FROM room_subscriptions WHERE room=? AND endpoint=?").run(room, endpoint); } catch (e) {} },
-    async pruneExpired() { try { var now = Date.now(); db.prepare("DELETE FROM wall WHERE room IN (SELECT code FROM rooms WHERE expiresAt IS NOT NULL AND expiresAt < ?)").run(now); db.prepare("DELETE FROM rooms WHERE expiresAt IS NOT NULL AND expiresAt < ?").run(now); } catch (e) {} }
+    async pruneExpired() { try {
+        var now = Date.now(), dead = "SELECT code FROM rooms WHERE expiresAt IS NOT NULL AND expiresAt < ?";
+        db.prepare("DELETE FROM wall WHERE room IN (" + dead + ")").run(now);
+        db.prepare("DELETE FROM room_subscriptions WHERE room IN (" + dead + ")").run(now);
+        db.prepare("DELETE FROM reports WHERE room IN (" + dead + ")").run(now);
+        db.prepare("DELETE FROM rooms WHERE expiresAt IS NOT NULL AND expiresAt < ?").run(now);
+        /* walls without a rooms row (legacy) follow the same rule, measured from their newest item */
+        db.prepare("DELETE FROM wall WHERE room NOT IN (SELECT code FROM rooms) AND room IN (SELECT room FROM wall GROUP BY room HAVING MAX(ts) < ?)").run(now - RETENTION_MS);
+        db.prepare("DELETE FROM reports WHERE status='closed' AND ts < ?").run(now - 180 * 86400000);
+      } catch (e) { console.warn("[store] prune failed:", e.message); } }
   };
 }
 
@@ -147,6 +203,18 @@ const noop = async () => {};
 module.exports = {
   enabled() { return ready; },
   freeDays() { return FREE_DAYS; },
+  retentionDays() { return RETENTION_DAYS; },
+  touchRoom: (c) => impl && impl.touchRoom ? impl.touchRoom(c) : noop(),
+  setLabel: (c, l) => impl && impl.setLabel ? impl.setLabel(c, l) : Promise.resolve(false),
+  claimOwner: (c, h) => impl && impl.claimOwner ? impl.claimOwner(c, h) : Promise.resolve(h),
+  ping: () => impl && impl.ping ? impl.ping() : Promise.resolve(!impl),
+  addReport: (r) => impl && impl.addReport ? impl.addReport(r) : Promise.resolve(false),
+  listReports: (n) => impl && impl.listReports ? impl.listReports(n) : Promise.resolve([]),
+  closeReport: (id) => impl && impl.closeReport ? impl.closeReport(id) : noop(),
+  closeReportsForItem: (r, i) => impl && impl.closeReportsForItem ? impl.closeReportsForItem(r, i) : noop(),
+  wipeRoom: (c) => impl && impl.wipeRoom ? impl.wipeRoom(c) : Promise.resolve(false),
+  blockRoom: (c, on) => impl && impl.blockRoom ? impl.blockRoom(c, on) : Promise.resolve(false),
+  blockedRooms: () => impl && impl.blockedRooms ? impl.blockedRooms() : Promise.resolve([]),
   getRoom: (c) => impl ? impl.getRoom(c) : Promise.resolve(null),
   ensureRoom: (c, h) => impl ? impl.ensureRoom(c, h) : noop(),
   setPass: (c, p) => impl ? impl.setPass(c, p) : noop(),
@@ -165,7 +233,7 @@ module.exports = {
   dueReminders: (n, l) => impl && impl.dueReminders ? impl.dueReminders(n, l) : Promise.resolve([]),
   delReminder: (id) => impl && impl.delReminder ? impl.delReminder(id) : noop(),
   pruneReminders: (n) => impl && impl.pruneReminders ? impl.pruneReminders(n) : noop(),
-  addRoomSub: (r, e, s, n) => impl && impl.addRoomSub ? impl.addRoomSub(r, e, s, n) : Promise.resolve(false),
+  addRoomSub: (r, e, s, n, l) => impl && impl.addRoomSub ? impl.addRoomSub(r, e, s, n, l) : Promise.resolve(false),
   getRoomSubs: (r) => impl && impl.getRoomSubs ? impl.getRoomSubs(r) : Promise.resolve([]),
   delRoomSub: (r, e) => impl && impl.delRoomSub ? impl.delRoomSub(r, e) : noop(),
   pruneExpired: () => impl && impl.pruneExpired ? impl.pruneExpired() : noop()

@@ -216,7 +216,7 @@
   .iptv-fields{display:grid;gap:10px}.iptv-fields[hidden]{display:none}.iptv-fields label{display:grid;gap:5px;color:var(--muted);font-size:12px}
   .iptv input,.iptv select{min-width:0;background:var(--bg);border:1px solid var(--line);color:var(--txt);border-radius:10px;padding:11px 12px;font:inherit}
   .iptv input:focus,.iptv select:focus{outline:none;border-color:rgba(244,177,74,.62)}
-  .iptv-remember{display:flex;align-items:center;gap:8px;margin-top:11px;color:var(--muted);font-size:12px;cursor:pointer}.iptv-remember input{width:16px;height:16px;margin:0;accent-color:var(--gold)}
+  .iptv-remember{display:flex;align-items:center;gap:8px;margin-top:11px;color:var(--muted);font-size:12px;cursor:pointer}.iptv-consent{align-items:flex-start;color:var(--fg,#f3eadf);font-size:12.5px;line-height:1.45}.iptv-consent input{margin-top:2px;flex:0 0 auto}.iptv-remember input{width:16px;height:16px;margin:0;accent-color:var(--gold)}
   .iptv-connect{width:100%;margin-top:14px}.iptv-error{min-height:19px;color:var(--bad);font-size:13px;margin-top:8px}.iptv-privacy{font-size:11px!important;margin:10px 0 0!important;color:#8f857c!important}
   .iptv-browser{display:none;flex:1;min-height:0;flex-direction:column}.iptv-browser.show{display:flex}
   .iptv-toolbar{display:flex;gap:9px;align-items:center;padding:11px 16px;border-bottom:1px solid var(--line);flex-wrap:wrap}.iptv-toolbar .iptv-kinds{flex:0 0 auto}.iptv-toolbar select{max-width:230px}.iptv-search{display:flex;gap:7px;flex:1 1 220px}.iptv-search input{flex:1}
@@ -550,7 +550,8 @@
   .share-opt p{margin:0; font-size:12px; color:var(--muted); line-height:1.45}
   .qrbox{width:168px; height:168px; background:#fff; border-radius:12px; padding:10px; display:flex; align-items:center; justify-content:center}
   .qrbox img, .qrbox canvas{width:100%!important; height:100%!important; display:block}
-  .share-or{display:flex; align-items:center; color:var(--muted); font-size:12px; text-transform:uppercase; letter-spacing:1px}
+  .share-or{display:flex; align-items:center; justify-content:center; color:var(--muted); font-size:12px; text-transform:uppercase; letter-spacing:1px}
+  .share-opts{flex-direction:column}   /* the two options stack; "or" sits between them instead of drifting to the side */
   @media (max-width:560px){ .share-or{display:none} }
 
   .companion{position:fixed; inset:0; z-index:215; display:none; flex-direction:column; align-items:center; justify-content:center; gap:6px; padding:26px; text-align:center;
@@ -682,6 +683,35 @@
     .topbar.open > .share{ display:flex }
     .topbar.open > #langSel{ display:block }
   }
+
+  /* launch fixes: phones */
+  @media (max-width:760px){
+    .topbar.open > .grow, .topbar.open > .share{ width:100%; max-width:100%; min-width:0; box-sizing:border-box }
+    .topbar.open > .grow input, .topbar.open > .share #linkText{ min-width:0; flex:1 1 auto; overflow:hidden; text-overflow:ellipsis }
+    .topbar.open > .grow .btn, .topbar.open > .share .btn{ flex:0 0 auto }
+    /* every control visible on two rows (chat and fullscreen used to scroll off-screen unseen) */
+    .floatctrls{ flex-wrap:wrap!important; overflow-x:visible!important; justify-content:center!important }
+    .floatctrls #micBtn, .floatctrls #camBtn{ order:-3 } .floatctrls #chatBtn, .floatctrls #fsBtn{ order:-2 }
+    /* keep the welcome card's buttons clear of the camera tiles */
+    .placeholder{ align-items:flex-start; overflow-y:auto; padding-bottom:230px }
+    .stage.game-on .cams{ top:60px; bottom:auto }
+    .cams{ bottom:calc(122px + env(safe-area-inset-bottom)) }                        /* above the two-row control bar */
+    .stage.file-mode .cams{ bottom:calc(186px + env(safe-area-inset-bottom)) }
+    .stage.chat-open .cams{ top:12px; bottom:auto }
+    /* phones: sharing family photos/videos is the everyday action — IPTV goes behind the menu */
+    .topbar > #shareMediaBtn{ display:inline-flex!important }
+    .topbar > #iptvBtn{ display:none }
+    .topbar.open > #iptvBtn{ display:inline-flex }
+    .g-guess{ padding-right:96px }
+  }
+  .l-codetip{ font-size:12px; color:var(--muted); margin:8px auto 0; max-width:420px; text-align:center }
+  /* iPhone Safari has no element fullscreen: fill the window instead, calls and controls included */
+  body.pseudo-fs .topbar{ display:none!important }
+  body.pseudo-fs .stage{ position:fixed!important; inset:0; z-index:80; width:100vw; height:100vh; height:100dvh; margin:0; border-radius:0 }
+  .conn-lost{ position:fixed; top:10px; left:50%; transform:translateX(-50%); z-index:9999; display:none; background:#6b2e26; color:#fff; padding:9px 16px; border-radius:12px; font-size:13px; box-shadow:0 8px 30px rgba(0,0,0,.4); max-width:calc(100vw - 24px); text-align:center }
+  .conn-lost.show{ display:block }
+  .wall-report{ background:none; border:0; color:var(--muted); font-size:11px; cursor:pointer; padding:2px 6px; margin-left:6px; opacity:.75 }
+  .wall-report:hover{ opacity:1; text-decoration:underline }
 
   /* 2026 launch redesign — visual layer only; application hooks remain unchanged */
   :root{

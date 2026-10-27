@@ -20,9 +20,9 @@ const COMMON_WHAT = {
     "There is no app to install and no account to create. You make a room with one click, send the link on WhatsApp, and you're together — usually in under ten seconds."
   ]
 };
-const FAQ_FREE = { q: "Is SameCouch free?", a: "Yes. Rooms, synced watching, video calling and chat are free. Your shared memories wall stays free for 10 days, and you can extend it for a small fee if you want to keep it longer." };
+const FAQ_FREE = { q: "Is SameCouch free?", a: "Yes, completely. Rooms, video calls, watching together, chat and the memories wall are all free — no subscriptions, no payments. Your memories are kept until 12 months after the room was last used." };
 const FAQ_APP = { q: "Do I need to install anything?", a: "No. It runs in the browser on any phone, tablet or computer — no extension, no app, no sign-up. Just open the link." };
-const FAQ_PRIVATE = { q: "Is it private?", a: "Yes. Rooms only exist for people who have the link, the host can set a password, and video/audio go directly between participants with end-to-end encryption." };
+const FAQ_PRIVATE = { q: "Is it private?", a: "Yes. Rooms only exist for people who have the link, the host can set a password, and video calls are encrypted from device to device — when a direct connection isn't possible they pass through our relay server, which can't read them." };
 const FAQ_PEOPLE = { q: "How many people can join?", a: "Up to 8 people in one room — enough for a whole family evening or a movie night with friends in different countries." };
 
 function altSection(name, points) {
@@ -32,7 +32,7 @@ function altSection(name, points) {
       "100% browser-based: no extension, no app download, no account — one link and you're in.",
       "Faces first: small floating webcam bubbles over the video, so you watch each other's reactions, not just the screen.",
       "A room that remembers: photos, notes and clips stay on your shared wall between sessions.",
-      "Private by default: rooms are link-only, password-protectable, and video/audio are end-to-end encrypted peer-to-peer.",
+      "Private by default: rooms are link-only and password-protectable, and video calls are encrypted from device to device.",
       "Works with YouTube, Vimeo, direct video links, your own files and photo albums — playback stays in sync for everyone."
     ]}
   ];
@@ -79,7 +79,7 @@ const PAGES = [
       ]),
       COMMON_WHAT
     ],
-    faq: [FAQ_APP, { q: "Can we watch Netflix on SameCouch?", a: "No — and that's deliberate. SameCouch focuses on YouTube, Vimeo and your own videos and memories, which everyone can watch without paid subscriptions and without legal grey areas." }, FAQ_PEOPLE]
+    faq: [FAQ_APP, { q: "Can we watch Netflix on SameCouch?", a: "No — and that's deliberate. SameCouch focuses on YouTube, Vimeo and your own videos and memories — no extra subscription needed." }, FAQ_PEOPLE]
   },
   {
     slug: "watch2gether-alternative",
@@ -129,7 +129,7 @@ const PAGES = [
     h1: "A Scener alternative that works on any device",
     intro: [
       "Scener pioneered the virtual movie theater for streaming services, using a Chrome extension and your own subscriptions.",
-      "SameCouch takes the opposite approach: no extension, no subscriptions needed, works on phones — built for YouTube and the videos and memories you already own."
+      "SameCouch takes the opposite approach: no extension, works on phones — watch YouTube, Vimeo and your own videos and memories, no extra subscription needed."
     ],
     sections: [
       ...altSection("Scener", [
@@ -431,7 +431,9 @@ const urls = [
   { loc: SITE + "/", pr: "1.0", cf: "weekly" },
   ...PAGES.map(p => ({ loc: `${SITE}/${p.slug}.html`, pr: "0.8", cf: "monthly" })),
   { loc: SITE + "/privacy.html", pr: "0.3", cf: "yearly" },
-  { loc: SITE + "/terms.html", pr: "0.3", cf: "yearly" }
+  { loc: SITE + "/terms.html", pr: "0.3", cf: "yearly" },
+  { loc: SITE + "/privacy-nl.html", pr: "0.3", cf: "yearly" },
+  { loc: SITE + "/terms-nl.html", pr: "0.3", cf: "yearly" }
 ];
 const sitemap = `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n` +
   urls.map(u => `  <url><loc>${u.loc}</loc><changefreq>${u.cf}</changefreq><priority>${u.pr}</priority></url>`).join("\n") +
