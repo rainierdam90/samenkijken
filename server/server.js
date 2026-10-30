@@ -187,6 +187,10 @@ try {
   app.use("/share", shareUpload.router);   // before the JSON parsers: chunk bodies are streamed straight to disk
 } catch (e) { console.warn("[share] upload disabled:", e.message); shareUpload = null; }
 
+/* ---- Discover: free, legal things to watch/listen to together (Internet Archive, radio, PeerTube) ---- */
+const { createDiscover } = require("./discover");
+app.use("/discover", createDiscover({ makeLimiter, clientIp, cors, blockedIp }).router);
+
 const jsonSmall = express.json({ limit: "16kb" });   // most POSTs are tiny
 const jsonWall = express.json({ limit: "8mb" });     // wall photos + voice/video messages (client-side capped)
 app.use((req, res, next) => (req.path === "/wall" ? jsonWall : jsonSmall)(req, res, next));
@@ -432,6 +436,7 @@ app.get("/config", (req, res) => {
     vapidPublic: HAS_PUSH ? VAPID_PUBLIC : "",
     hasWall: store.enabled(),
     hasShareUpload: !!shareUpload,
+    hasDiscover: true,
     freeDays: store.freeDays(),
     stripeLink: process.env.STRIPE_LINK || ""
   });

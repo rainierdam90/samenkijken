@@ -118,6 +118,7 @@
   <main class="stage" id="stage">
     <div id="decorLayer" aria-hidden="true"></div>
     <video id="movie" playsinline controls controlslist="nofullscreen nodownload noremoteplayback" preload="metadata"></video>
+    <div class="radio-card" id="radioCard" hidden><div class="radio-ic" aria-hidden="true">📻</div><div class="radio-name" id="radioCardName"></div><div class="radio-sub" id="radioCardSub">Live radio</div></div>
     <video id="screenVideo" autoplay playsinline></video>
     <img id="galleryImg" alt="" />
     <div id="ytwrap"></div>
@@ -477,6 +478,7 @@
       <h3 id="pickTitle">What shall we watch?</h3>
       <div class="pick-tabs">
         <button type="button" class="pick-tab active" data-k="youtube" id="pkt_youtube">YouTube</button>
+        <button type="button" class="pick-tab" data-k="discover" id="pkt_discover">Discover</button>
         <button type="button" class="pick-tab" data-k="vimeo" id="pkt_vimeo">Vimeo</button>
         <button type="button" class="pick-tab" data-k="url" id="pkt_url">Video URL</button>
         <button type="button" class="pick-tab" data-k="device" id="pkt_device">This device</button>
@@ -485,6 +487,16 @@
       <div id="pickUrlRow" class="pick-row"><input id="pickUrl" type="text" inputmode="url" spellcheck="false" placeholder="Paste a YouTube link…" /><button type="button" class="btn primary" id="pickLoad">Load</button></div>
       <p class="m-sub" id="pickHint" style="margin-top:12px"><button type="button" class="l-link-btn" id="pickSearch">Search YouTube ↗</button></p>
       <div id="pickFileRow" style="display:none"><button type="button" class="btn primary" id="pickFileBtn" style="width:100%">📁 <span id="pickChooseTxt">Choose photos &amp; videos</span></button></div>
+      <div id="pickDiscover" style="display:none">
+        <div class="disc-src">
+          <button type="button" class="disc-btn active" data-src="archive" id="disc_archive">🎬 Films</button>
+          <button type="button" class="disc-btn" data-src="radio" id="disc_radio">📻 Radio</button>
+          <button type="button" class="disc-btn" data-src="peertube" id="disc_peertube">🎞️ PeerTube</button>
+        </div>
+        <div class="pick-row"><input id="discQ" type="search" spellcheck="false" autocomplete="off" placeholder="Search…" /><button type="button" class="btn primary" id="discGo">Search</button></div>
+        <p class="m-sub disc-note" id="discNote"></p>
+        <div class="disc-grid" id="discGrid" aria-live="polite"></div>
+      </div>
       <div id="pickQrWrap" style="display:none; text-align:center"><div class="qrbox" id="pickQr" style="margin:0 auto 12px"></div><p class="m-sub" id="pickQrSub" style="margin:0">Scan to add photos &amp; videos from your phone — no camera needed.</p></div>
     </div>
   </div>

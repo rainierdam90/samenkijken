@@ -747,6 +747,30 @@
   .conn-lost.show{ display:block }
   .wall-report{ background:none; border:0; color:var(--muted); font-size:11px; cursor:pointer; padding:2px 6px; margin-left:6px; opacity:.75 }
   .wall-report:hover{ opacity:1; text-decoration:underline }
+  /* Discover */
+  #picker.discover .modal-card{ max-width:760px }
+  .disc-src{ display:flex; gap:6px; margin:0 0 10px }
+  .disc-btn{ flex:1 1 0; padding:8px 6px; border-radius:10px; border:1px solid var(--line); background:transparent; color:var(--muted); font:inherit; font-size:13px; cursor:pointer }
+  .disc-btn.active{ border-color:var(--amber); color:var(--txt,#f6efe5); background:rgba(233,163,59,.12) }
+  .disc-note{ margin:8px 0 10px!important; font-size:12px!important }
+  .disc-grid{ display:grid; grid-template-columns:repeat(auto-fill,minmax(150px,1fr)); gap:10px; max-height:52vh; overflow-y:auto; padding:2px }
+  .disc-card{ display:flex; flex-direction:column; gap:4px; text-align:left; background:var(--panel-2); border:1px solid var(--line); border-radius:12px; padding:6px; color:inherit; font:inherit; cursor:pointer; min-width:0 }
+  .disc-card:hover,.disc-card:focus-visible{ border-color:var(--amber) }
+  .disc-card.busy{ opacity:.55; pointer-events:none }
+  .disc-thumb{ aspect-ratio:16/10; border-radius:8px; overflow:hidden; background:#0b0a0c; display:flex; align-items:center; justify-content:center; font-size:28px }
+  .disc-card.radio .disc-thumb{ aspect-ratio:1/1 }
+  .disc-thumb img{ width:100%; height:100%; object-fit:cover }
+  .disc-card.radio .disc-thumb img{ object-fit:contain; padding:10px; background:#fff }
+  .disc-title{ font-size:13px; font-weight:600; line-height:1.3; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden }
+  .disc-meta{ font-size:11.5px; color:var(--muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis }
+  .disc-empty{ grid-column:1/-1; text-align:center; color:var(--muted); padding:24px 8px; font-size:13px }
+  @media (max-width:560px){ .disc-grid{ grid-template-columns:repeat(2,minmax(0,1fr)); max-height:58vh } }
+  /* radio: a calm card instead of a black video area */
+  .radio-card{ position:absolute; inset:0; z-index:4; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:8px; pointer-events:none; background:radial-gradient(circle at 50% 40%, rgba(233,163,59,.22), rgba(16,14,12,.96) 62%); text-align:center; padding:20px }
+  .radio-card[hidden]{ display:none }
+  .radio-ic{ font-size:64px; filter:drop-shadow(0 8px 24px rgba(0,0,0,.5)) }
+  .radio-name{ font-size:24px; font-weight:700; max-width:90%; overflow-wrap:anywhere }
+  .radio-sub{ font-size:13px; color:var(--amber); letter-spacing:.08em; text-transform:uppercase }
 
   /* 2026 launch redesign — visual layer only; application hooks remain unchanged */
   :root{
@@ -973,6 +997,7 @@
   <main class="stage" id="stage">
     <div id="decorLayer" aria-hidden="true"></div>
     <video id="movie" playsinline controls controlslist="nofullscreen nodownload noremoteplayback" preload="metadata"></video>
+    <div class="radio-card" id="radioCard" hidden><div class="radio-ic" aria-hidden="true">📻</div><div class="radio-name" id="radioCardName"></div><div class="radio-sub" id="radioCardSub">Live radio</div></div>
     <video id="screenVideo" autoplay playsinline></video>
     <img id="galleryImg" alt="" />
     <div id="ytwrap"></div>
@@ -1332,6 +1357,7 @@
       <h3 id="pickTitle">What shall we watch?</h3>
       <div class="pick-tabs">
         <button type="button" class="pick-tab active" data-k="youtube" id="pkt_youtube">YouTube</button>
+        <button type="button" class="pick-tab" data-k="discover" id="pkt_discover">Discover</button>
         <button type="button" class="pick-tab" data-k="vimeo" id="pkt_vimeo">Vimeo</button>
         <button type="button" class="pick-tab" data-k="url" id="pkt_url">Video URL</button>
         <button type="button" class="pick-tab" data-k="device" id="pkt_device">This device</button>
@@ -1340,6 +1366,16 @@
       <div id="pickUrlRow" class="pick-row"><input id="pickUrl" type="text" inputmode="url" spellcheck="false" placeholder="Paste a YouTube link…" /><button type="button" class="btn primary" id="pickLoad">Load</button></div>
       <p class="m-sub" id="pickHint" style="margin-top:12px"><button type="button" class="l-link-btn" id="pickSearch">Search YouTube ↗</button></p>
       <div id="pickFileRow" style="display:none"><button type="button" class="btn primary" id="pickFileBtn" style="width:100%">📁 <span id="pickChooseTxt">Choose photos &amp; videos</span></button></div>
+      <div id="pickDiscover" style="display:none">
+        <div class="disc-src">
+          <button type="button" class="disc-btn active" data-src="archive" id="disc_archive">🎬 Films</button>
+          <button type="button" class="disc-btn" data-src="radio" id="disc_radio">📻 Radio</button>
+          <button type="button" class="disc-btn" data-src="peertube" id="disc_peertube">🎞️ PeerTube</button>
+        </div>
+        <div class="pick-row"><input id="discQ" type="search" spellcheck="false" autocomplete="off" placeholder="Search…" /><button type="button" class="btn primary" id="discGo">Search</button></div>
+        <p class="m-sub disc-note" id="discNote"></p>
+        <div class="disc-grid" id="discGrid" aria-live="polite"></div>
+      </div>
       <div id="pickQrWrap" style="display:none; text-align:center"><div class="qrbox" id="pickQr" style="margin:0 auto 12px"></div><p class="m-sub" id="pickQrSub" style="margin:0">Scan to add photos &amp; videos from your phone — no camera needed.</p></div>
     </div>
   </div>
@@ -1701,6 +1737,23 @@
         share_uploading:"Uploaden {p}% — houd dit scherm open",share_upload_done:"Geüpload ✓ — je kunt je telefoon nu vergrendelen.",share_upload_fail:"Uploaden mislukt — controleer je verbinding en probeer het opnieuw.",share_waiting:"Wachten op de upload… {p}%"}
     };
     Object.keys(LAUNCHCOPY).forEach(function(k){ if(I18N[k]) Object.keys(LAUNCHCOPY[k]).forEach(function(j){ I18N[k][j]=LAUNCHCOPY[k][j]; }); });
+    var DISCCOPY={
+      en:{disc_tab:"Discover",disc_search:"Search",disc_films:"🎬 Films",disc_radio:"📻 Radio",disc_peertube:"🎞️ PeerTube",
+        disc_ph_archive:"Search classic films & cartoons…",disc_ph_radio:"Search a radio station…",disc_ph_peertube:"Search PeerTube videos…",
+        disc_note_archive:"Free public-domain films and cartoons from the Internet Archive — legal to watch together.",
+        disc_note_radio:"Live radio from around the world via radio-browser.info — listen together.",
+        disc_note_peertube:"Videos from PeerTube, the open video platform of independent creators and institutions.",
+        disc_loading:"Loading…",disc_none:"Nothing found — try another word.",disc_error:"That didn't work right now. Try again in a moment.",
+        disc_opening:"Opening…",disc_playing:"Now playing: {t}",disc_playing_slow:"Now playing: {t} — films from the Internet Archive sometimes need 10–20 seconds to start.",disc_not_playable:"This one can't play in the browser — pick another.",radio_live:"Live radio"},
+      nl:{disc_tab:"Ontdekken",disc_search:"Zoeken",disc_films:"🎬 Films",disc_radio:"📻 Radio",disc_peertube:"🎞️ PeerTube",
+        disc_ph_archive:"Zoek klassieke films en tekenfilms…",disc_ph_radio:"Zoek een radiozender…",disc_ph_peertube:"Zoek video's op PeerTube…",
+        disc_note_archive:"Gratis films en tekenfilms uit het publieke domein, via het Internet Archive — legaal om samen te kijken.",
+        disc_note_radio:"Live radio uit de hele wereld via radio-browser.info — luister samen.",
+        disc_note_peertube:"Video's van PeerTube, het open videoplatform van onafhankelijke makers en instellingen.",
+        disc_loading:"Laden…",disc_none:"Niets gevonden — probeer een ander woord.",disc_error:"Dit lukt nu even niet. Probeer het zo opnieuw.",
+        disc_opening:"Openen…",disc_playing:"Nu: {t}",disc_playing_slow:"Nu: {t} — films van het Internet Archive hebben soms 10–20 seconden nodig om te starten.",disc_not_playable:"Deze kan niet in de browser worden afgespeeld — kies een andere.",radio_live:"Live radio"}
+    };
+    Object.keys(DISCCOPY).forEach(function(k){ if(I18N[k]) Object.keys(DISCCOPY[k]).forEach(function(j){ I18N[k][j]=DISCCOPY[k][j]; }); });
     var amOwner=false, roomOwned=false, roomLabel="";
     var landingMode="home";
 
@@ -1755,6 +1808,8 @@
       setText("wallAddHint",tr("wall_hint_add")); setText("wallSend",tr("wall_send")); setText("passRemove",tr("pass_remove")); setText("ld_code_tip",tr("name_tip_room")); setText("ld_contact",tr("contact"));
       Array.prototype.forEach.call(document.querySelectorAll(".share-or"),function(e){ e.textContent=tr("or_word"); });
       setTitle("peerBlock",tr("t_block")); setTitle("peerKick",tr("t_kick")); setTitle("camMinus",tr("t_smaller")); setTitle("camPlus",tr("t_larger")); setTitle("gPrev",tr("t_prev")); setTitle("gNext",tr("t_next")); setTitle("topSettingsBtn",tr("room_settings_btn"));
+      setText("pkt_discover",tr("disc_tab")); setText("discGo",tr("disc_search")); setText("disc_archive",tr("disc_films")); setText("disc_radio",tr("disc_radio")); setText("disc_peertube",tr("disc_peertube")); setText("radioCardSub",tr("radio_live"));
+      var ds=(typeof discSrc==="string"&&discSrc)||"archive"; if($("discQ")) $("discQ").placeholder=tr("disc_ph_"+ds); setText("discNote",tr("disc_note_"+ds));
       var lp=$("ld_privacy"), lt=$("ld_terms"); if(lp) lp.href=lang==="nl"?"/privacy-nl.html":"/privacy.html"; if(lt) lt.href=lang==="nl"?"/terms-nl.html":"/terms.html";
     }
 
@@ -2662,7 +2717,7 @@
       movie.addEventListener("canplay",directReady); movie.addEventListener("error",fallback); timer=setTimeout(fallback,8000);
       movie.src=url; movie.load();
     }
-    function clearPlayers(){ if(typeof resetSyncCorrection==="function") resetSyncCorrection(); iptvRemuxRequestId++; iptvSelectedStreamingSub=null; clearMkvPreparation(); clearHlsPlayer(); clearIptvMse(); try{ movie.pause(); }catch(e){} clearSubtitleLocal(); try{ movie.removeAttribute("src"); movie.load(); }catch(e){} movie.style.display="none"; if(galleryImg) galleryImg.style.display="none"; if(typeof screenVideo!=="undefined"&&screenVideo) screenVideo.style.display="none"; if(ytPlayer){ try{ ytPlayer.destroy(); }catch(e){} ytPlayer=null; } if(vimPlayer){ try{ vimPlayer.destroy(); }catch(e){} vimPlayer=null; vimReady=false; vimBuffering=false; } ytwrap.style.display="none"; ytwrap.innerHTML=""; try{ frame.src="about:blank"; }catch(e){} framewrap.style.display="none"; clearTimeout(gateCheckTimer); clearTimeout(gateFallbackTimer); gateDismissed=false; playgate.hidden=true; pending=null; movieErrored=false; updateStageChrome(); updateWakeLock(); }
+    function clearPlayers(){ var rc0=$("radioCard"); if(rc0) rc0.hidden=true; if(typeof resetSyncCorrection==="function") resetSyncCorrection(); iptvRemuxRequestId++; iptvSelectedStreamingSub=null; clearMkvPreparation(); clearHlsPlayer(); clearIptvMse(); try{ movie.pause(); }catch(e){} clearSubtitleLocal(); try{ movie.removeAttribute("src"); movie.load(); }catch(e){} movie.style.display="none"; if(galleryImg) galleryImg.style.display="none"; if(typeof screenVideo!=="undefined"&&screenVideo) screenVideo.style.display="none"; if(ytPlayer){ try{ ytPlayer.destroy(); }catch(e){} ytPlayer=null; } if(vimPlayer){ try{ vimPlayer.destroy(); }catch(e){} vimPlayer=null; vimReady=false; vimBuffering=false; } ytwrap.style.display="none"; ytwrap.innerHTML=""; try{ frame.src="about:blank"; }catch(e){} framewrap.style.display="none"; clearTimeout(gateCheckTimer); clearTimeout(gateFallbackTimer); gateDismissed=false; playgate.hidden=true; pending=null; movieErrored=false; updateStageChrome(); updateWakeLock(); }
     function setEmbedUI(on){ cdwidget.hidden=!on; if(!on){ clearInterval(cdTimer); cdNum.textContent="\u25B6"; cdNum.classList.remove("go"); cdBtn.disabled=false; cdBusy=false; } }
     /* only ever hand the player/iframe a safe scheme — a malicious peer could push a "video" with a javascript:/data: url */
     function safeUrl(u){ u=String(u||""); return (/^https?:\/\//i.test(u)||/^blob:/i.test(u))?u:""; }
@@ -2681,6 +2736,7 @@
       else if(m==="vimeo"){ setEmbedUI(false); ytwrap.style.display="block"; loadVimeo(url); }
       else { setEmbedUI(true); framewrap.style.display="flex"; try{ frame.src=url||"about:blank"; }catch(e){} openTab.href=url||"#"; }
       updateStageChrome(); updateSubtitleUI(); if(typeof updateRoomView==="function") updateRoomView(); renderCams();
+      var rc=$("radioCard"); if(rc){ var isRadio=(m==="file"&&id==="radio"); rc.hidden=!isRadio; if(isRadio) setText("radioCardName",String(meta.title||"Radio").slice(0,120)); }
       if(fallback) setTimeout(function(){ if(currentMedia&&currentMedia.url===url&&currentMedia.id===id) remuxIptvCurrent(fallback); },0);
     }
     function applyIptvPlayback(data){
@@ -2747,7 +2803,8 @@
     function setPickTab(k){
       pickKind=k;
       [].slice.call(document.querySelectorAll(".pick-tab")).forEach(function(b){ b.classList.toggle("active", b.getAttribute("data-k")===k); });
-      var isDevice=(k==="device"), isPhone=(k==="phone"), isUrl=!isDevice&&!isPhone;
+      var isDevice=(k==="device"), isPhone=(k==="phone"), isDisc=(k==="discover"), isUrl=!isDevice&&!isPhone&&!isDisc;
+      if($("pickDiscover")) $("pickDiscover").style.display=isDisc?"":"none"; if(pickerEl) pickerEl.classList.toggle("discover",isDisc); if(isDisc) discEnsure();
       if($("pickUrlRow")) $("pickUrlRow").style.display=isUrl?"flex":"none";
       if($("pickHint")) $("pickHint").style.display=(k==="youtube")?"":"none";
       if($("pickFileRow")) $("pickFileRow").style.display=isDevice?"":"none";
@@ -2755,7 +2812,7 @@
       if(isPhone){ var q=$("pickQr"); if(q) q.textContent="…"; ensureQrLibrary().then(function(){ renderQrInto(q); }).catch(function(){ renderQrInto(q); }); }
       if($("pickUrl")) $("pickUrl").placeholder=tr(k==="vimeo"?"ph_vimeo":k==="url"?"ph_videourl":"ph_yt");
     }
-    function openPicker(){ if(pickerEl){ setPickTab(pickKind); pickerEl.classList.add("show"); setTimeout(function(){ if($("pickUrl")&&pickKind!=="device"&&pickKind!=="phone") $("pickUrl").focus(); },60); } }
+    function openPicker(){ if(pickerEl){ setPickTab(pickKind); pickerEl.classList.add("show"); setTimeout(function(){ if($("pickUrl")&&pickKind!=="device"&&pickKind!=="phone"&&pickKind!=="discover") $("pickUrl").focus(); },60); } }
     [].slice.call(document.querySelectorAll(".pick-tab")).forEach(function(b){ b.addEventListener("click", function(){ setPickTab(b.getAttribute("data-k")); }); });
     if($("pickOpenBtn")) $("pickOpenBtn").addEventListener("click", openPicker);
     if($("pickX")) $("pickX").addEventListener("click", function(){ pickerEl.classList.remove("show"); });
@@ -2763,6 +2820,55 @@
     if($("pickUrl")) $("pickUrl").addEventListener("keydown", function(e){ if((e.key==="Enter"&&!e.isComposing)&&$("pickLoad")) $("pickLoad").click(); });
     if($("pickSearch")) $("pickSearch").addEventListener("click", function(){ try{ window.open("https://www.youtube.com/","_blank","noopener"); }catch(e){} });   // find a video on YouTube, then paste its link here (in-app YouTube search was removed)
     if($("pickFileBtn")) $("pickFileBtn").addEventListener("click", function(){ if(fileInput){ try{ fileInput.accept="video/*,image/*"; }catch(e){} pickerEl.classList.remove("show"); fileInput.click(); } });
+    /* ---- Discover: free, legal films (Internet Archive), live radio (Radio Browser) and PeerTube videos.
+            The server searches and resolves a direct media file; it then plays in the normal synced player. ---- */
+    var discSrc="archive", discLoaded={}, discReq=0;
+    function discEnsure(){ setDiscSrc(discSrc); }
+    function setDiscSrc(src){
+      discSrc=src; [].slice.call(document.querySelectorAll(".disc-btn")).forEach(function(b){ b.classList.toggle("active",b.getAttribute("data-src")===src); });
+      var q=$("discQ"); if(q){ q.value=(discLoaded[src]&&discLoaded[src].q)||""; q.placeholder=tr("disc_ph_"+src); }
+      setText("discNote",tr("disc_note_"+src));
+      if(discLoaded[src]) renderDisc(discLoaded[src].items); else discSearch();
+    }
+    function discMessage(text){ var grid=$("discGrid"); if(!grid) return; grid.innerHTML=""; var e=document.createElement("div"); e.className="disc-empty"; e.textContent=text; grid.appendChild(e); }
+    function discSearch(){
+      var q=(($("discQ")&&$("discQ").value)||"").trim(), src=discSrc, req=++discReq;
+      discMessage(tr("disc_loading"));
+      var p=new URLSearchParams(); if(q) p.set("q",q); if(src==="radio"&&!q&&lang==="nl") p.set("country","NL"); if(src==="peertube") p.set("lang",lang);
+      fetch(httpBase()+"/discover/"+src+"?"+p.toString()).then(function(r){ if(!r.ok) throw new Error("search"); return r.json(); }).then(function(d){
+        if(req!==discReq) return; discLoaded[src]={ q:q, items:(d&&Array.isArray(d.items))?d.items:[] }; renderDisc(discLoaded[src].items);
+      }).catch(function(){ if(req===discReq) discMessage(tr("disc_error")); });
+    }
+    function renderDisc(items){
+      var grid=$("discGrid"); if(!grid) return; grid.innerHTML="";
+      if(!items.length){ discMessage(tr("disc_none")); return; }
+      var src=discSrc;
+      items.forEach(function(it){
+        var b=document.createElement("button"); b.type="button"; b.className="disc-card"+(src==="radio"?" radio":""); b.title=it.title||"";
+        var th=document.createElement("div"); th.className="disc-thumb"; var icon=src==="radio"?"📻":"🎬";
+        if(it.thumb){ var im=document.createElement("img"); im.loading="lazy"; im.decoding="async"; im.alt=""; im.referrerPolicy="no-referrer"; im.src=it.thumb; im.onerror=function(){ th.textContent=icon; }; th.appendChild(im); } else th.textContent=icon;
+        var t=document.createElement("div"); t.className="disc-title"; t.textContent=it.title||"";
+        var m=document.createElement("div"); m.className="disc-meta"; m.textContent=it.meta||"";
+        b.appendChild(th); b.appendChild(t); b.appendChild(m);
+        b.addEventListener("click",function(){ playDiscover(src,it,b); });
+        grid.appendChild(b);
+      });
+    }
+    function playDiscover(src,it,btn){
+      if(btn) btn.classList.add("busy"); toast(tr("disc_opening"),4000);
+      fetch(httpBase()+"/discover/"+src+"/play?id="+encodeURIComponent(it.id)).then(function(r){ return r.json().catch(function(){ return {}; }).then(function(d){ if(!r.ok||!d||!d.url) throw new Error((d&&d.error)||"play"); return d; }); }).then(function(d){
+        var title=String(d.title||it.title||"").slice(0,180), live=!!d.live, dur=+d.duration||0, kind=(src==="radio")?"radio":src;   // "radio" shows the radio card for everyone
+        applyMedia("file",d.url,kind,{ title:title, live:live, duration:dur });
+        if(currentMedia) currentMedia.mine=true;
+        rtSend({ type:"video", mode:"file", url:d.url, id:kind, title:title, live:live, duration:dur });
+        if(urlInput) urlInput.value=d.url; if(typeof updateLoadBtn==="function") updateLoadBtn();
+        if(pickerEl) pickerEl.classList.remove("show");
+        toast(tr(src==="archive"?"disc_playing_slow":"disc_playing").replace("{t}",title),src==="archive"?9000:5000);   // archive.org redirects to a storage node first: 10–20 s to start is normal
+      }).catch(function(e){ toast((e&&e.message==="not_playable")?tr("disc_not_playable"):tr("disc_error"),6500); }).then(function(){ if(btn) btn.classList.remove("busy"); });
+    }
+    [].slice.call(document.querySelectorAll(".disc-btn")).forEach(function(b){ b.addEventListener("click",function(){ setDiscSrc(b.getAttribute("data-src")); }); });
+    if($("discGo")) $("discGo").addEventListener("click",discSearch);
+    if($("discQ")) $("discQ").addEventListener("keydown",function(e){ if(e.key==="Enter"&&!e.isComposing){ e.preventDefault(); discSearch(); } });
     /* Enter always means "play this link": with a video already playing it used to hit the Stop button
        and stop the video for everyone instead of switching to the newly pasted link. */
     urlInput.addEventListener("keydown", function(e){ if(e.key!=="Enter"||e.isComposing) return; e.preventDefault(); var v=(urlInput.value||"").trim(); if(linkActive()&&currentMedia&&v===currentMedia.url) return; loadUrl(v); });

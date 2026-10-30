@@ -303,6 +303,23 @@
         share_uploading:"Uploaden {p}% — houd dit scherm open",share_upload_done:"Geüpload ✓ — je kunt je telefoon nu vergrendelen.",share_upload_fail:"Uploaden mislukt — controleer je verbinding en probeer het opnieuw.",share_waiting:"Wachten op de upload… {p}%"}
     };
     Object.keys(LAUNCHCOPY).forEach(function(k){ if(I18N[k]) Object.keys(LAUNCHCOPY[k]).forEach(function(j){ I18N[k][j]=LAUNCHCOPY[k][j]; }); });
+    var DISCCOPY={
+      en:{disc_tab:"Discover",disc_search:"Search",disc_films:"🎬 Films",disc_radio:"📻 Radio",disc_peertube:"🎞️ PeerTube",
+        disc_ph_archive:"Search classic films & cartoons…",disc_ph_radio:"Search a radio station…",disc_ph_peertube:"Search PeerTube videos…",
+        disc_note_archive:"Free public-domain films and cartoons from the Internet Archive — legal to watch together.",
+        disc_note_radio:"Live radio from around the world via radio-browser.info — listen together.",
+        disc_note_peertube:"Videos from PeerTube, the open video platform of independent creators and institutions.",
+        disc_loading:"Loading…",disc_none:"Nothing found — try another word.",disc_error:"That didn't work right now. Try again in a moment.",
+        disc_opening:"Opening…",disc_playing:"Now playing: {t}",disc_playing_slow:"Now playing: {t} — films from the Internet Archive sometimes need 10–20 seconds to start.",disc_not_playable:"This one can't play in the browser — pick another.",radio_live:"Live radio"},
+      nl:{disc_tab:"Ontdekken",disc_search:"Zoeken",disc_films:"🎬 Films",disc_radio:"📻 Radio",disc_peertube:"🎞️ PeerTube",
+        disc_ph_archive:"Zoek klassieke films en tekenfilms…",disc_ph_radio:"Zoek een radiozender…",disc_ph_peertube:"Zoek video's op PeerTube…",
+        disc_note_archive:"Gratis films en tekenfilms uit het publieke domein, via het Internet Archive — legaal om samen te kijken.",
+        disc_note_radio:"Live radio uit de hele wereld via radio-browser.info — luister samen.",
+        disc_note_peertube:"Video's van PeerTube, het open videoplatform van onafhankelijke makers en instellingen.",
+        disc_loading:"Laden…",disc_none:"Niets gevonden — probeer een ander woord.",disc_error:"Dit lukt nu even niet. Probeer het zo opnieuw.",
+        disc_opening:"Openen…",disc_playing:"Nu: {t}",disc_playing_slow:"Nu: {t} — films van het Internet Archive hebben soms 10–20 seconden nodig om te starten.",disc_not_playable:"Deze kan niet in de browser worden afgespeeld — kies een andere.",radio_live:"Live radio"}
+    };
+    Object.keys(DISCCOPY).forEach(function(k){ if(I18N[k]) Object.keys(DISCCOPY[k]).forEach(function(j){ I18N[k][j]=DISCCOPY[k][j]; }); });
     var amOwner=false, roomOwned=false, roomLabel="";
     var landingMode="home";
 
@@ -357,6 +374,8 @@
       setText("wallAddHint",tr("wall_hint_add")); setText("wallSend",tr("wall_send")); setText("passRemove",tr("pass_remove")); setText("ld_code_tip",tr("name_tip_room")); setText("ld_contact",tr("contact"));
       Array.prototype.forEach.call(document.querySelectorAll(".share-or"),function(e){ e.textContent=tr("or_word"); });
       setTitle("peerBlock",tr("t_block")); setTitle("peerKick",tr("t_kick")); setTitle("camMinus",tr("t_smaller")); setTitle("camPlus",tr("t_larger")); setTitle("gPrev",tr("t_prev")); setTitle("gNext",tr("t_next")); setTitle("topSettingsBtn",tr("room_settings_btn"));
+      setText("pkt_discover",tr("disc_tab")); setText("discGo",tr("disc_search")); setText("disc_archive",tr("disc_films")); setText("disc_radio",tr("disc_radio")); setText("disc_peertube",tr("disc_peertube")); setText("radioCardSub",tr("radio_live"));
+      var ds=(typeof discSrc==="string"&&discSrc)||"archive"; if($("discQ")) $("discQ").placeholder=tr("disc_ph_"+ds); setText("discNote",tr("disc_note_"+ds));
       var lp=$("ld_privacy"), lt=$("ld_terms"); if(lp) lp.href=lang==="nl"?"/privacy-nl.html":"/privacy.html"; if(lt) lt.href=lang==="nl"?"/terms-nl.html":"/terms.html";
     }
 
@@ -1264,7 +1283,7 @@
       movie.addEventListener("canplay",directReady); movie.addEventListener("error",fallback); timer=setTimeout(fallback,8000);
       movie.src=url; movie.load();
     }
-    function clearPlayers(){ if(typeof resetSyncCorrection==="function") resetSyncCorrection(); iptvRemuxRequestId++; iptvSelectedStreamingSub=null; clearMkvPreparation(); clearHlsPlayer(); clearIptvMse(); try{ movie.pause(); }catch(e){} clearSubtitleLocal(); try{ movie.removeAttribute("src"); movie.load(); }catch(e){} movie.style.display="none"; if(galleryImg) galleryImg.style.display="none"; if(typeof screenVideo!=="undefined"&&screenVideo) screenVideo.style.display="none"; if(ytPlayer){ try{ ytPlayer.destroy(); }catch(e){} ytPlayer=null; } if(vimPlayer){ try{ vimPlayer.destroy(); }catch(e){} vimPlayer=null; vimReady=false; vimBuffering=false; } ytwrap.style.display="none"; ytwrap.innerHTML=""; try{ frame.src="about:blank"; }catch(e){} framewrap.style.display="none"; clearTimeout(gateCheckTimer); clearTimeout(gateFallbackTimer); gateDismissed=false; playgate.hidden=true; pending=null; movieErrored=false; updateStageChrome(); updateWakeLock(); }
+    function clearPlayers(){ var rc0=$("radioCard"); if(rc0) rc0.hidden=true; if(typeof resetSyncCorrection==="function") resetSyncCorrection(); iptvRemuxRequestId++; iptvSelectedStreamingSub=null; clearMkvPreparation(); clearHlsPlayer(); clearIptvMse(); try{ movie.pause(); }catch(e){} clearSubtitleLocal(); try{ movie.removeAttribute("src"); movie.load(); }catch(e){} movie.style.display="none"; if(galleryImg) galleryImg.style.display="none"; if(typeof screenVideo!=="undefined"&&screenVideo) screenVideo.style.display="none"; if(ytPlayer){ try{ ytPlayer.destroy(); }catch(e){} ytPlayer=null; } if(vimPlayer){ try{ vimPlayer.destroy(); }catch(e){} vimPlayer=null; vimReady=false; vimBuffering=false; } ytwrap.style.display="none"; ytwrap.innerHTML=""; try{ frame.src="about:blank"; }catch(e){} framewrap.style.display="none"; clearTimeout(gateCheckTimer); clearTimeout(gateFallbackTimer); gateDismissed=false; playgate.hidden=true; pending=null; movieErrored=false; updateStageChrome(); updateWakeLock(); }
     function setEmbedUI(on){ cdwidget.hidden=!on; if(!on){ clearInterval(cdTimer); cdNum.textContent="\u25B6"; cdNum.classList.remove("go"); cdBtn.disabled=false; cdBusy=false; } }
     /* only ever hand the player/iframe a safe scheme — a malicious peer could push a "video" with a javascript:/data: url */
     function safeUrl(u){ u=String(u||""); return (/^https?:\/\//i.test(u)||/^blob:/i.test(u))?u:""; }
@@ -1283,6 +1302,7 @@
       else if(m==="vimeo"){ setEmbedUI(false); ytwrap.style.display="block"; loadVimeo(url); }
       else { setEmbedUI(true); framewrap.style.display="flex"; try{ frame.src=url||"about:blank"; }catch(e){} openTab.href=url||"#"; }
       updateStageChrome(); updateSubtitleUI(); if(typeof updateRoomView==="function") updateRoomView(); renderCams();
+      var rc=$("radioCard"); if(rc){ var isRadio=(m==="file"&&id==="radio"); rc.hidden=!isRadio; if(isRadio) setText("radioCardName",String(meta.title||"Radio").slice(0,120)); }
       if(fallback) setTimeout(function(){ if(currentMedia&&currentMedia.url===url&&currentMedia.id===id) remuxIptvCurrent(fallback); },0);
     }
     function applyIptvPlayback(data){
@@ -1349,7 +1369,8 @@
     function setPickTab(k){
       pickKind=k;
       [].slice.call(document.querySelectorAll(".pick-tab")).forEach(function(b){ b.classList.toggle("active", b.getAttribute("data-k")===k); });
-      var isDevice=(k==="device"), isPhone=(k==="phone"), isUrl=!isDevice&&!isPhone;
+      var isDevice=(k==="device"), isPhone=(k==="phone"), isDisc=(k==="discover"), isUrl=!isDevice&&!isPhone&&!isDisc;
+      if($("pickDiscover")) $("pickDiscover").style.display=isDisc?"":"none"; if(pickerEl) pickerEl.classList.toggle("discover",isDisc); if(isDisc) discEnsure();
       if($("pickUrlRow")) $("pickUrlRow").style.display=isUrl?"flex":"none";
       if($("pickHint")) $("pickHint").style.display=(k==="youtube")?"":"none";
       if($("pickFileRow")) $("pickFileRow").style.display=isDevice?"":"none";
@@ -1357,7 +1378,7 @@
       if(isPhone){ var q=$("pickQr"); if(q) q.textContent="…"; ensureQrLibrary().then(function(){ renderQrInto(q); }).catch(function(){ renderQrInto(q); }); }
       if($("pickUrl")) $("pickUrl").placeholder=tr(k==="vimeo"?"ph_vimeo":k==="url"?"ph_videourl":"ph_yt");
     }
-    function openPicker(){ if(pickerEl){ setPickTab(pickKind); pickerEl.classList.add("show"); setTimeout(function(){ if($("pickUrl")&&pickKind!=="device"&&pickKind!=="phone") $("pickUrl").focus(); },60); } }
+    function openPicker(){ if(pickerEl){ setPickTab(pickKind); pickerEl.classList.add("show"); setTimeout(function(){ if($("pickUrl")&&pickKind!=="device"&&pickKind!=="phone"&&pickKind!=="discover") $("pickUrl").focus(); },60); } }
     [].slice.call(document.querySelectorAll(".pick-tab")).forEach(function(b){ b.addEventListener("click", function(){ setPickTab(b.getAttribute("data-k")); }); });
     if($("pickOpenBtn")) $("pickOpenBtn").addEventListener("click", openPicker);
     if($("pickX")) $("pickX").addEventListener("click", function(){ pickerEl.classList.remove("show"); });
@@ -1365,6 +1386,55 @@
     if($("pickUrl")) $("pickUrl").addEventListener("keydown", function(e){ if((e.key==="Enter"&&!e.isComposing)&&$("pickLoad")) $("pickLoad").click(); });
     if($("pickSearch")) $("pickSearch").addEventListener("click", function(){ try{ window.open("https://www.youtube.com/","_blank","noopener"); }catch(e){} });   // find a video on YouTube, then paste its link here (in-app YouTube search was removed)
     if($("pickFileBtn")) $("pickFileBtn").addEventListener("click", function(){ if(fileInput){ try{ fileInput.accept="video/*,image/*"; }catch(e){} pickerEl.classList.remove("show"); fileInput.click(); } });
+    /* ---- Discover: free, legal films (Internet Archive), live radio (Radio Browser) and PeerTube videos.
+            The server searches and resolves a direct media file; it then plays in the normal synced player. ---- */
+    var discSrc="archive", discLoaded={}, discReq=0;
+    function discEnsure(){ setDiscSrc(discSrc); }
+    function setDiscSrc(src){
+      discSrc=src; [].slice.call(document.querySelectorAll(".disc-btn")).forEach(function(b){ b.classList.toggle("active",b.getAttribute("data-src")===src); });
+      var q=$("discQ"); if(q){ q.value=(discLoaded[src]&&discLoaded[src].q)||""; q.placeholder=tr("disc_ph_"+src); }
+      setText("discNote",tr("disc_note_"+src));
+      if(discLoaded[src]) renderDisc(discLoaded[src].items); else discSearch();
+    }
+    function discMessage(text){ var grid=$("discGrid"); if(!grid) return; grid.innerHTML=""; var e=document.createElement("div"); e.className="disc-empty"; e.textContent=text; grid.appendChild(e); }
+    function discSearch(){
+      var q=(($("discQ")&&$("discQ").value)||"").trim(), src=discSrc, req=++discReq;
+      discMessage(tr("disc_loading"));
+      var p=new URLSearchParams(); if(q) p.set("q",q); if(src==="radio"&&!q&&lang==="nl") p.set("country","NL"); if(src==="peertube") p.set("lang",lang);
+      fetch(httpBase()+"/discover/"+src+"?"+p.toString()).then(function(r){ if(!r.ok) throw new Error("search"); return r.json(); }).then(function(d){
+        if(req!==discReq) return; discLoaded[src]={ q:q, items:(d&&Array.isArray(d.items))?d.items:[] }; renderDisc(discLoaded[src].items);
+      }).catch(function(){ if(req===discReq) discMessage(tr("disc_error")); });
+    }
+    function renderDisc(items){
+      var grid=$("discGrid"); if(!grid) return; grid.innerHTML="";
+      if(!items.length){ discMessage(tr("disc_none")); return; }
+      var src=discSrc;
+      items.forEach(function(it){
+        var b=document.createElement("button"); b.type="button"; b.className="disc-card"+(src==="radio"?" radio":""); b.title=it.title||"";
+        var th=document.createElement("div"); th.className="disc-thumb"; var icon=src==="radio"?"📻":"🎬";
+        if(it.thumb){ var im=document.createElement("img"); im.loading="lazy"; im.decoding="async"; im.alt=""; im.referrerPolicy="no-referrer"; im.src=it.thumb; im.onerror=function(){ th.textContent=icon; }; th.appendChild(im); } else th.textContent=icon;
+        var t=document.createElement("div"); t.className="disc-title"; t.textContent=it.title||"";
+        var m=document.createElement("div"); m.className="disc-meta"; m.textContent=it.meta||"";
+        b.appendChild(th); b.appendChild(t); b.appendChild(m);
+        b.addEventListener("click",function(){ playDiscover(src,it,b); });
+        grid.appendChild(b);
+      });
+    }
+    function playDiscover(src,it,btn){
+      if(btn) btn.classList.add("busy"); toast(tr("disc_opening"),4000);
+      fetch(httpBase()+"/discover/"+src+"/play?id="+encodeURIComponent(it.id)).then(function(r){ return r.json().catch(function(){ return {}; }).then(function(d){ if(!r.ok||!d||!d.url) throw new Error((d&&d.error)||"play"); return d; }); }).then(function(d){
+        var title=String(d.title||it.title||"").slice(0,180), live=!!d.live, dur=+d.duration||0, kind=(src==="radio")?"radio":src;   // "radio" shows the radio card for everyone
+        applyMedia("file",d.url,kind,{ title:title, live:live, duration:dur });
+        if(currentMedia) currentMedia.mine=true;
+        rtSend({ type:"video", mode:"file", url:d.url, id:kind, title:title, live:live, duration:dur });
+        if(urlInput) urlInput.value=d.url; if(typeof updateLoadBtn==="function") updateLoadBtn();
+        if(pickerEl) pickerEl.classList.remove("show");
+        toast(tr(src==="archive"?"disc_playing_slow":"disc_playing").replace("{t}",title),src==="archive"?9000:5000);   // archive.org redirects to a storage node first: 10–20 s to start is normal
+      }).catch(function(e){ toast((e&&e.message==="not_playable")?tr("disc_not_playable"):tr("disc_error"),6500); }).then(function(){ if(btn) btn.classList.remove("busy"); });
+    }
+    [].slice.call(document.querySelectorAll(".disc-btn")).forEach(function(b){ b.addEventListener("click",function(){ setDiscSrc(b.getAttribute("data-src")); }); });
+    if($("discGo")) $("discGo").addEventListener("click",discSearch);
+    if($("discQ")) $("discQ").addEventListener("keydown",function(e){ if(e.key==="Enter"&&!e.isComposing){ e.preventDefault(); discSearch(); } });
     /* Enter always means "play this link": with a video already playing it used to hit the Stop button
        and stop the video for everyone instead of switching to the newly pasted link. */
     urlInput.addEventListener("keydown", function(e){ if(e.key!=="Enter"||e.isComposing) return; e.preventDefault(); var v=(urlInput.value||"").trim(); if(linkActive()&&currentMedia&&v===currentMedia.url) return; loadUrl(v); });
