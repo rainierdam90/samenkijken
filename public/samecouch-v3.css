@@ -737,6 +737,9 @@
   .radio-ic{ font-size:64px; filter:drop-shadow(0 8px 24px rgba(0,0,0,.5)) }
   .radio-name{ font-size:24px; font-weight:700; max-width:90%; overflow-wrap:anywhere }
   .radio-sub{ font-size:13px; color:var(--amber); letter-spacing:.08em; text-transform:uppercase }
+  /* the card covers the native controls, so it carries its own play/pause */
+  .radio-play{ pointer-events:auto; margin-top:10px; display:inline-flex; align-items:center; gap:10px; font-family:inherit; font-size:16px; font-weight:600; cursor:pointer; color:#2a1c06; background:linear-gradient(180deg, var(--amber-2), var(--amber)); border:none; border-radius:999px; padding:13px 26px; box-shadow:0 12px 30px rgba(0,0,0,.4) }
+  .radio-play.on{ color:var(--txt); background:rgba(255,255,255,.1); box-shadow:none; border:1px solid rgba(255,255,255,.18) }
 
   /* 2026 launch redesign — visual layer only; application hooks remain unchanged */
   :root{

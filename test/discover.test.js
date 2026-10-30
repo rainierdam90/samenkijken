@@ -43,6 +43,7 @@ test("Radio: only https streams in a browser-playable codec that passed the last
   ] }) });
   const list = await d._internal.radioSearch("", "NL");
   assert.deepEqual(list.map(x => x.title), ["Good"]);
+  assert.equal(list[0].url, "https://stream.example/live");
 });
 
 test("PeerTube: refuses private/bogus hosts and picks the best file up to 720p", async () => {

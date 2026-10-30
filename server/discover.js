@@ -92,7 +92,8 @@ function createDiscover(options) {
     const list = await radioGet("/json/stations/search?" + p.toString());
     return (Array.isArray(list) ? list : []).filter(radioOk).slice(0, 30).map(s => ({
       id: clean(s.stationuuid, 40), title: clean(s.name, 100), meta: [clean(s.country, 40), String(s.codec || "").toUpperCase(), s.bitrate ? s.bitrate + " kbps" : ""].filter(Boolean).join(" · "),
-      thumb: httpsOnly(s.favicon)
+      thumb: httpsOnly(s.favicon),
+      url: httpsOnly(s.url_resolved || s.url)   // lets the browser start the stream inside the tap itself (Safari's autoplay rule)
     }));
   }
   async function radioPlay(uuid) {

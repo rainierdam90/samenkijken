@@ -310,14 +310,14 @@
         disc_note_radio:"Live radio from around the world via radio-browser.info — listen together.",
         disc_note_peertube:"Videos from PeerTube, the open video platform of independent creators and institutions.",
         disc_loading:"Loading…",disc_none:"Nothing found — try another word.",disc_error:"That didn't work right now. Try again in a moment.",
-        disc_opening:"Opening…",disc_playing:"Now playing: {t}",disc_playing_slow:"Now playing: {t} — films from the Internet Archive sometimes need 10–20 seconds to start.",disc_not_playable:"This one can't play in the browser — pick another.",radio_live:"Live radio"},
+        disc_opening:"Opening…",disc_playing:"Now playing: {t}",disc_playing_slow:"Now playing: {t} — films from the Internet Archive sometimes need 10–20 seconds to start.",disc_not_playable:"This one can't play in the browser — pick another.",radio_live:"Live radio",radio_play:"Listen",radio_pause:"Pause"},
       nl:{disc_tab:"Ontdekken",disc_search:"Zoeken",disc_films:"🎬 Films",disc_radio:"📻 Radio",disc_peertube:"🎞️ PeerTube",
         disc_ph_archive:"Zoek klassieke films en tekenfilms…",disc_ph_radio:"Zoek een radiozender…",disc_ph_peertube:"Zoek video's op PeerTube…",
         disc_note_archive:"Gratis films en tekenfilms uit het publieke domein, via het Internet Archive — legaal om samen te kijken.",
         disc_note_radio:"Live radio uit de hele wereld via radio-browser.info — luister samen.",
         disc_note_peertube:"Video's van PeerTube, het open videoplatform van onafhankelijke makers en instellingen.",
         disc_loading:"Laden…",disc_none:"Niets gevonden — probeer een ander woord.",disc_error:"Dit lukt nu even niet. Probeer het zo opnieuw.",
-        disc_opening:"Openen…",disc_playing:"Nu: {t}",disc_playing_slow:"Nu: {t} — films van het Internet Archive hebben soms 10–20 seconden nodig om te starten.",disc_not_playable:"Deze kan niet in de browser worden afgespeeld — kies een andere.",radio_live:"Live radio"}
+        disc_opening:"Openen…",disc_playing:"Nu: {t}",disc_playing_slow:"Nu: {t} — films van het Internet Archive hebben soms 10–20 seconden nodig om te starten.",disc_not_playable:"Deze kan niet in de browser worden afgespeeld — kies een andere.",radio_live:"Live radio",radio_play:"Luisteren",radio_pause:"Pauzeren"}
     };
     Object.keys(DISCCOPY).forEach(function(k){ if(I18N[k]) Object.keys(DISCCOPY[k]).forEach(function(j){ I18N[k][j]=DISCCOPY[k][j]; }); });
     var amOwner=false, roomOwned=false, roomLabel="";
@@ -374,7 +374,7 @@
       setText("wallAddHint",tr("wall_hint_add")); setText("wallSend",tr("wall_send")); setText("passRemove",tr("pass_remove")); setText("ld_code_tip",tr("name_tip_room")); setText("ld_contact",tr("contact"));
       Array.prototype.forEach.call(document.querySelectorAll(".share-or"),function(e){ e.textContent=tr("or_word"); });
       setTitle("peerBlock",tr("t_block")); setTitle("peerKick",tr("t_kick")); setTitle("camMinus",tr("t_smaller")); setTitle("camPlus",tr("t_larger")); setTitle("gPrev",tr("t_prev")); setTitle("gNext",tr("t_next")); setTitle("topSettingsBtn",tr("room_settings_btn"));
-      setText("pkt_discover",tr("disc_tab")); setText("discoverBtnTxt",tr("disc_tab")); setText("discGo",tr("disc_search")); setText("disc_archive",tr("disc_films")); setText("disc_radio",tr("disc_radio")); setText("disc_peertube",tr("disc_peertube")); setText("radioCardSub",tr("radio_live"));
+      setText("pkt_discover",tr("disc_tab")); setText("discoverBtnTxt",tr("disc_tab")); setText("discGo",tr("disc_search")); setText("disc_archive",tr("disc_films")); setText("disc_radio",tr("disc_radio")); setText("disc_peertube",tr("disc_peertube")); setText("radioCardSub",tr("radio_live")); if(typeof updateRadioBtn==="function") updateRadioBtn();
       var ds=(typeof discSrc==="string"&&discSrc)||"archive"; if($("discQ")) $("discQ").placeholder=tr("disc_ph_"+ds); setText("discNote",tr("disc_note_"+ds));
       var lp=$("ld_privacy"), lt=$("ld_terms"); if(lp) lp.href=lang==="nl"?"/privacy-nl.html":"/privacy.html"; if(lt) lt.href=lang==="nl"?"/terms-nl.html":"/terms.html";
     }
@@ -1302,7 +1302,7 @@
       else if(m==="vimeo"){ setEmbedUI(false); ytwrap.style.display="block"; loadVimeo(url); }
       else { setEmbedUI(true); framewrap.style.display="flex"; try{ frame.src=url||"about:blank"; }catch(e){} openTab.href=url||"#"; }
       updateStageChrome(); updateSubtitleUI(); if(typeof updateRoomView==="function") updateRoomView(); renderCams();
-      var rc=$("radioCard"); if(rc){ var isRadio=(m==="file"&&id==="radio"); rc.hidden=!isRadio; if(isRadio) setText("radioCardName",String(meta.title||"Radio").slice(0,120)); }
+      var rc=$("radioCard"); if(rc){ var isRadio=(m==="file"&&id==="radio"); rc.hidden=!isRadio; if(isRadio){ setText("radioCardName",String(meta.title||"Radio").slice(0,120)); updateRadioBtn(); } }
       if(fallback) setTimeout(function(){ if(currentMedia&&currentMedia.url===url&&currentMedia.id===id) remuxIptvCurrent(fallback); },0);
     }
     function applyIptvPlayback(data){
@@ -1423,17 +1423,30 @@
       });
     }
     function playDiscover(src,it,btn){
+      if(src==="radio"&&/^https:\/\//i.test(it.url||"")){   // stream address already known: start inside the tap itself, so even iPhone Safari plays it with sound
+        startDiscover(src,{ url:it.url, title:it.title, live:true, duration:0 },it);
+        fetch(httpBase()+"/discover/radio/play?id="+encodeURIComponent(it.id)).catch(function(){});   // counts the listen in the radio directory
+        return;
+      }
       if(btn) btn.classList.add("busy"); toast(tr("disc_opening"),4000);
       fetch(httpBase()+"/discover/"+src+"/play?id="+encodeURIComponent(it.id)).then(function(r){ return r.json().catch(function(){ return {}; }).then(function(d){ if(!r.ok||!d||!d.url) throw new Error((d&&d.error)||"play"); return d; }); }).then(function(d){
-        var title=String(d.title||it.title||"").slice(0,180), live=!!d.live, dur=+d.duration||0, kind=(src==="radio")?"radio":src;   // "radio" shows the radio card for everyone
-        applyMedia("file",d.url,kind,{ title:title, live:live, duration:dur });
-        if(currentMedia) currentMedia.mine=true;
-        rtSend({ type:"video", mode:"file", url:d.url, id:kind, title:title, live:live, duration:dur });
-        if(urlInput) urlInput.value=d.url; if(typeof updateLoadBtn==="function") updateLoadBtn();
-        if(pickerEl) pickerEl.classList.remove("show");
-        toast(tr(src==="archive"?"disc_playing_slow":"disc_playing").replace("{t}",title),src==="archive"?9000:5000);   // archive.org redirects to a storage node first: 10–20 s to start is normal
+        startDiscover(src,d,it);
       }).catch(function(e){ toast((e&&e.message==="not_playable")?tr("disc_not_playable"):tr("disc_error"),6500); }).then(function(){ if(btn) btn.classList.remove("busy"); });
     }
+    function startDiscover(src,d,it){
+      var title=String(d.title||it.title||"").slice(0,180), live=!!d.live, dur=+d.duration||0, kind=(src==="radio")?"radio":src;   // "radio" shows the radio card for everyone
+      applyMedia("file",d.url,kind,{ title:title, live:live, duration:dur });
+      if(currentMedia) currentMedia.mine=true;
+      rtSend({ type:"video", mode:"file", url:d.url, id:kind, title:title, live:live, duration:dur });
+      if(urlInput) urlInput.value=d.url; if(typeof updateLoadBtn==="function") updateLoadBtn();
+      if(pickerEl) pickerEl.classList.remove("show");
+      if(live) playMedia(true);   // live radio has nothing to wait for: start it now — the play event starts it for the whole room
+      toast(tr(src==="archive"?"disc_playing_slow":"disc_playing").replace("{t}",title),src==="archive"?9000:5000);   // archive.org redirects to a storage node first: 10–20 s to start is normal
+    }
+    /* the radio card covers the native controls, so it carries its own play/pause (which syncs like any play/pause) */
+    function updateRadioBtn(){ var b=$("radioPlay"); if(!b||!movie) return; var on=!movie.paused; b.classList.toggle("on",on); setText("radioPlayIc",on?"❚❚":"▶"); setText("radioPlayTxt",tr(on?"radio_pause":"radio_play")); }
+    if($("radioPlay")) $("radioPlay").addEventListener("click",function(e){ e.stopPropagation(); if(movie.paused){ playgate.hidden=true; playMedia(true); } else pauseMedia(); });
+    movie.addEventListener("play",updateRadioBtn); movie.addEventListener("pause",updateRadioBtn);
     [].slice.call(document.querySelectorAll(".disc-btn")).forEach(function(b){ b.addEventListener("click",function(){ setDiscSrc(b.getAttribute("data-src")); }); });
     if($("discGo")) $("discGo").addEventListener("click",discSearch);
     if($("discQ")) $("discQ").addEventListener("keydown",function(e){ if(e.key==="Enter"&&!e.isComposing){ e.preventDefault(); discSearch(); } });
