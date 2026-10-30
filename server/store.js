@@ -150,6 +150,21 @@ function makeSqlite() {
       } catch (e) { return false; } },
     async blockRoom(code, on) { try { if (on) db.prepare("INSERT OR IGNORE INTO blocked_rooms (code, ts) VALUES (?, ?)").run(code, Date.now()); else db.prepare("DELETE FROM blocked_rooms WHERE code=?").run(code); return true; } catch (e) { return false; } },
     async blockedRooms() { try { return db.prepare("SELECT code FROM blocked_rooms").all().map(x => x.code); } catch (e) { return []; } },
+    /* admin overview: every room (and legacy walls without a rooms row) with its wall contents —
+       counts and sizes only, never the media itself */
+    async roomsOverview(limit) { try {
+        const agg = "SELECT room, SUM(kind='photo') AS photos, SUM(kind='video') AS videos, SUM(kind='audio') AS audio, SUM(kind='note') AS notes, MAX(ts) AS lastPost, SUM(LENGTH(data)) AS bytes FROM wall GROUP BY room";
+        return db.prepare(
+          "SELECT * FROM (" +
+          "SELECT r.code AS code, r.label AS label, (r.passHash IS NOT NULL AND r.passHash<>'') AS hasPass, (r.owner IS NOT NULL) AS owned, r.createdAt AS createdAt, r.expiresAt AS expiresAt, " +
+          "COALESCE(w.photos,0) AS photos, COALESCE(w.videos,0) AS videos, COALESCE(w.audio,0) AS audio, COALESCE(w.notes,0) AS notes, w.lastPost AS lastPost, COALESCE(w.bytes,0) AS bytes, (b.code IS NOT NULL) AS blocked " +
+          "FROM rooms r LEFT JOIN (" + agg + ") w ON w.room = r.code LEFT JOIN blocked_rooms b ON b.code = r.code " +
+          "UNION ALL " +
+          "SELECT w.room, NULL, 0, 0, NULL, NULL, w.photos, w.videos, w.audio, w.notes, w.lastPost, w.bytes, (b.code IS NOT NULL) " +
+          "FROM (" + agg + ") w LEFT JOIN blocked_rooms b ON b.code = w.room WHERE w.room NOT IN (SELECT code FROM rooms)" +
+          ") ORDER BY (lastPost IS NULL), lastPost DESC, createdAt DESC LIMIT ?"   // expressions in ORDER BY need the union wrapped
+        ).all(limit || 5000);
+      } catch (e) { console.warn("[store] overview failed:", e.message); return []; } },
     async setTheme(code, theme) { try { db.prepare("UPDATE rooms SET theme=? WHERE code=?").run(theme || null, code); } catch (e) {} },
     async setDecor(code, decor) { try { db.prepare("UPDATE rooms SET decor=? WHERE code=?").run(decor || null, code); } catch (e) {} },
     async ensureRoom(code, host) { try { db.prepare("INSERT INTO rooms (code, host, createdAt, expiresAt) VALUES (?, ?, ?, ?) ON CONFLICT(code) DO UPDATE SET host = COALESCE(rooms.host, excluded.host), expiresAt = COALESCE(rooms.expiresAt, excluded.expiresAt)").run(code, host || null, Date.now(), Date.now() + FREE_MS); } catch (e) {} },
@@ -215,6 +230,7 @@ module.exports = {
   wipeRoom: (c) => impl && impl.wipeRoom ? impl.wipeRoom(c) : Promise.resolve(false),
   blockRoom: (c, on) => impl && impl.blockRoom ? impl.blockRoom(c, on) : Promise.resolve(false),
   blockedRooms: () => impl && impl.blockedRooms ? impl.blockedRooms() : Promise.resolve([]),
+  roomsOverview: (n) => impl && impl.roomsOverview ? impl.roomsOverview(n) : Promise.resolve([]),
   getRoom: (c) => impl ? impl.getRoom(c) : Promise.resolve(null),
   ensureRoom: (c, h) => impl ? impl.ensureRoom(c, h) : noop(),
   setPass: (c, p) => impl ? impl.setPass(c, p) : noop(),

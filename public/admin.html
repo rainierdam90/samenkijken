@@ -57,6 +57,23 @@
   .vrow .vbarwrap{ background:var(--panel-2); border-radius:999px; height:10px; overflow:hidden }
   .vrow .vbar{ height:100%; background:linear-gradient(90deg,var(--amber),var(--amber-2)); border-radius:999px; min-width:3px }
   .vrow .vn{ text-align:right; font-weight:700; font-size:14px }
+  /* system + all-rooms sections */
+  .cards.four{ grid-template-columns:repeat(4,1fr) } @media (max-width:980px){ .cards.four{ grid-template-columns:repeat(2,1fr) } }
+  .card .n.sm{ font-size:24px } .card .s{ color:var(--muted); font-size:12px; margin-top:6px; line-height:1.4 }
+  .card.warn .n{ color:var(--bad) } .card.ok .n{ color:var(--good) }
+  .filters{ display:flex; flex-wrap:wrap; gap:14px; align-items:center; margin:0 0 10px; font-size:13px; color:var(--muted) }
+  .filters label{ display:flex; align-items:center; gap:6px; cursor:pointer } .filters input[type=checkbox]{ accent-color:var(--amber) }
+  .filters input[type=search]{ background:var(--panel-2); border:1px solid var(--line); color:var(--txt); border-radius:10px; padding:7px 10px; min-width:200px; font:inherit }
+  .tablewrap{ background:var(--panel); border:1px solid var(--line); border-radius:16px; overflow:auto; max-height:560px; margin-bottom:22px }
+  .rtable{ width:100%; border-collapse:collapse; font-size:13px }
+  .rtable th{ position:sticky; top:0; background:var(--panel-2); color:var(--muted); font-weight:600; text-align:left; padding:9px 10px; white-space:nowrap; z-index:1 }
+  .rtable td{ padding:8px 10px; border-top:1px solid rgba(255,255,255,.05); vertical-align:middle; white-space:nowrap }
+  .rtable td.code{ font-family:ui-monospace,SFMono-Regular,Menlo,monospace } .rtable td.num{ text-align:right }
+  .tag{ display:inline-block; border-radius:999px; padding:1px 8px; font-size:11.5px; border:1px solid var(--line) }
+  .tag.on{ color:var(--good) } .tag.off{ color:var(--bad) } .tag.live{ color:var(--amber); border-color:rgba(244,177,74,.4) }
+  .mini{ cursor:pointer; font:inherit; font-size:12px; border-radius:8px; padding:4px 9px; border:1px solid var(--line); background:var(--panel-2); color:var(--txt); margin-right:4px }
+  .mini:hover{ border-color:var(--amber) }
+  .flash{ font-size:13px; color:var(--good); min-height:18px; margin:-4px 0 10px }
 </style>
 </head>
 <body>
@@ -91,6 +108,17 @@
       <div class="card"><div class="n" id="mAvg">0</div><div class="l">Avg. session (min)</div></div>
       <div class="card"><div class="n" id="mShares">0</div><div class="l">Link shares</div></div>
     </div>
+    <div class="seclabel">Server <span class="sub" id="sysSub">health, storage, video and backups</span><button class="ref" id="sRefresh">Refresh</button></div>
+    <div class="cards four">
+      <div class="card" id="sysUptimeCard"><div class="n sm" id="sysUptime">–</div><div class="l">Running since last restart</div><div class="s" id="sysNode"></div></div>
+      <div class="card" id="sysLoadCard"><div class="n sm" id="sysLoad">–</div><div class="l">CPU load (1 / 5 / 15 min)</div><div class="s" id="sysCpus"></div></div>
+      <div class="card" id="sysMemCard"><div class="n sm" id="sysMem">–</div><div class="l">Memory in use</div><div class="s" id="sysMemS"></div></div>
+      <div class="card" id="sysDiskCard"><div class="n sm" id="sysDisk">–</div><div class="l">Disk free</div><div class="s" id="sysDiskS"></div></div>
+      <div class="card"><div class="n sm" id="sysShares">–</div><div class="l">Shared videos/photos on server</div><div class="s" id="sysSharesS"></div></div>
+      <div class="card"><div class="n sm" id="sysMkv">–</div><div class="l">Video conversions running</div><div class="s" id="sysMkvS"></div></div>
+      <div class="card"><div class="n sm" id="sysIptv">–</div><div class="l">IPTV in use</div><div class="s" id="sysIptvS"></div></div>
+      <div class="card" id="sysBackupCard"><div class="n sm" id="sysBackup">–</div><div class="l">Last backup</div><div class="s" id="sysBackupS"></div></div>
+    </div>
     <div class="seclabel">Unique visitors <span class="sub">per day · counted by IP</span><button class="ref" id="vRefresh">Refresh</button></div>
     <div class="cards">
       <div class="card live"><div class="n" id="vToday">0</div><div class="l">Unique visitors today</div></div>
@@ -108,6 +136,19 @@
         <div class="chatlog" id="chatlog"><div class="empty">Click a room on the left to read its chat. Messages are shown live for moderation.</div></div>
       </div>
     </div>
+    <div class="seclabel">All rooms <span class="sub" id="ovSub">counts only — the media itself is never shown here</span><button class="ref" id="oRefresh">Refresh</button></div>
+    <div class="filters">
+      <input type="search" id="ovSearch" placeholder="Search room code or name" />
+      <label><input type="checkbox" id="fMedia" checked /> with photos/videos</label>
+      <label><input type="checkbox" id="fContent" /> with any content</label>
+      <label><input type="checkbox" id="fNoPass" /> no password</label>
+      <label><input type="checkbox" id="fPass" /> with password</label>
+      <label><input type="checkbox" id="fEmpty" /> nobody inside now</label>
+      <label><input type="checkbox" id="fLive" /> live now</label>
+      <label><input type="checkbox" id="fBlocked" /> closed</label>
+    </div>
+    <div class="flash" id="ovFlash"></div>
+    <div class="tablewrap"><table class="rtable"><thead><tr><th>Room</th><th>Name</th><th>Now</th><th>Password</th><th>Owner</th><th class="num">Photos</th><th class="num">Videos</th><th class="num">Voice</th><th class="num">Notes</th><th class="num">Size</th><th>Last post</th><th>Kept until</th><th>Actions</th></tr></thead><tbody id="ovBody"><tr><td colspan="13" class="empty">Loading…</td></tr></tbody></table></div>
     <div class="seclabel">Reports <span class="sub">wall items flagged by people in a room (notice-and-action)</span><button class="ref" id="rRefresh">Refresh</button></div>
     <div class="vlist" id="reportsList"><div class="empty">No open reports.</div></div>
     <div id="itemPreview" class="note" style="display:none"></div>
@@ -144,7 +185,7 @@
   }
   var authed=false;
   function handle(m){
-    if(m.type==="admin_ok"){ authed=true; setConn("ok"); showDash(); if(watching){ ws.send(JSON.stringify({ type:"admin_watch", room:watching })); } return; }
+    if(m.type==="admin_ok"){ authed=true; setConn("ok"); showDash(); if(watching){ ws.send(JSON.stringify({ type:"admin_watch", room:watching })); } send({ type:"admin_system" }); send({ type:"admin_overview" }); return; }
     if(m.type==="admin_denied"){ authed=false; $("loginErr").textContent="Wrong password."; try{ sessionStorage.removeItem("wmt_admin_pw"); }catch(e){} try{ ws.close(); }catch(e){} return; }
     if(m.type==="stats"){ renderStats(m); return; }
     if(m.type==="visitors"){ renderVisitors(m); return; }
@@ -153,6 +194,9 @@
     if(m.type==="reports"){ renderReports(m.items||[], m.blocked||[]); return; }
     if(m.type==="report-new"){ send({ type:"admin_reports" }); return; }
     if(m.type==="admin_item"){ renderItem(m); return; }
+    if(m.type==="system"){ renderSystem(m); return; }
+    if(m.type==="overview"){ overview=m; renderOverview(); return; }
+    if(m.type==="admin_done"){ flash(m.action==="password_removed"?("Password removed from room "+m.room+" — it works immediately, no restart needed."):("New password set for room "+m.room+".")); send({ type:"admin_overview" }); return; }
   }
   function send(o){ if(ws&&ws.readyState===1&&authed) ws.send(JSON.stringify(o)); }
   function btn(label,fn){ var b=document.createElement("button"); b.className="btn"; b.type="button"; b.textContent=label; b.style.marginLeft="6px"; b.addEventListener("click",fn); return b; }
@@ -184,6 +228,71 @@
     box.appendChild(btn("Close preview",function(){ box.style.display="none"; box.innerHTML=""; }));
   }
   function modRoom(){ return ($("modRoom").value||"").trim().toLowerCase(); }
+
+  /* ---- server health + all rooms ---- */
+  var overview=null, flashTimer=null;
+  function fmtBytes(n){ n=+n||0; if(n>=1073741824) return (n/1073741824).toFixed(1)+" GB"; if(n>=1048576) return (n/1048576).toFixed(1)+" MB"; if(n>=1024) return Math.round(n/1024)+" KB"; return Math.round(n)+" B"; }
+  function fmtDate(ts){ if(!ts) return "–"; try{ return new Date(ts).toLocaleDateString(undefined,{ day:"numeric", month:"short", year:"numeric" }); }catch(e){ return "–"; } }
+  function fmtWhen(ts){ if(!ts) return "never"; try{ return new Date(ts).toLocaleString(undefined,{ day:"numeric", month:"short", hour:"2-digit", minute:"2-digit" }); }catch(e){ return "–"; } }
+  function fmtDur(sec){ sec=Math.max(0,sec|0); var d=Math.floor(sec/86400), h=Math.floor(sec%86400/3600), mi=Math.floor(sec%3600/60); return d?(d+"d "+h+"h"):(h?(h+"h "+mi+"m"):(mi+"m")); }
+  function cardState(id,state){ var c=$(id); if(!c) return; c.classList.remove("warn","ok"); if(state) c.classList.add(state); }
+  function renderSystem(s){
+    var sv=s.server||{}, rm=s.rooms||{};
+    $("sysUptime").textContent=fmtDur(sv.uptimeSec); $("sysNode").textContent="Node "+(sv.node||"")+" · "+(rm.inMemory||0)+" rooms in memory · "+(rm.sockets||0)+" connections";
+    var load=sv.load||[0,0,0], cpus=sv.cpus||1;
+    $("sysLoad").textContent=load.map(function(x){ return (+x).toFixed(2); }).join(" / "); $("sysCpus").textContent=cpus+" CPU cores — above "+cpus+" the server is overloaded"; cardState("sysLoadCard", load[0]>cpus?"warn":"");
+    var used=(sv.memTotal||0)-(sv.memFree||0), pct=sv.memTotal?Math.round(used/sv.memTotal*100):0;
+    $("sysMem").textContent=pct+"%"; $("sysMemS").textContent=fmtBytes(used)+" of "+fmtBytes(sv.memTotal)+" · SameCouch itself: "+fmtBytes(sv.rss); cardState("sysMemCard", pct>90?"warn":"");
+    if(s.disk){ var fpct=Math.round(s.disk.free/s.disk.total*100); $("sysDisk").textContent=fmtBytes(s.disk.free); $("sysDiskS").textContent=fpct+"% of "+fmtBytes(s.disk.total)+" free · database "+fmtBytes(s.dbBytes); cardState("sysDiskCard", s.disk.free<3*1073741824?"warn":""); }
+    var sh=s.shares;
+    if(sh){ $("sysShares").textContent=sh.shares+" file"+(sh.shares===1?"":"s"); $("sysSharesS").textContent=fmtBytes(sh.bytesReceived)+" stored"+(sh.uploading?" · "+sh.uploading+" uploading now":"")+(sh.waiting?" · "+sh.waiting+" viewers waiting":"")+" · deleted after max. 6 h"; }
+    else { $("sysShares").textContent="off"; $("sysSharesS").textContent="server upload disabled — sharing falls back to peer-to-peer"; }
+    var mk=s.mkv||{}; $("sysMkv").textContent=(mk.streams||0)+" / "+(mk.maxStreams||0); $("sysMkvS").textContent="video streams (MKV / IPTV) · "+(mk.transcodes||0)+" / "+(mk.maxTranscodes||0)+" heavy conversions (live IPTV, HEVC)";
+    var ip=s.iptv||{}; $("sysIptv").textContent=(ip.rooms||0)+" room"+(ip.rooms===1?"":"s"); $("sysIptvS").textContent=(ip.sessions||0)+" provider logins in memory · "+(ip.activeStreams||0)+" streams open";
+    var b=s.backup;
+    if(b&&b.time){ var ageH=(Date.now()-b.time)/3600000; $("sysBackup").textContent=fmtWhen(b.time); $("sysBackupS").textContent=fmtBytes(b.bytes)+" encrypted · "+(s.lastPull?("fetched by the Next Horizons server "+fmtWhen(s.lastPull)):"NOT yet fetched by the Next Horizons server"); cardState("sysBackupCard", (ageH>30||!s.lastPull)?"warn":"ok"); }
+    else { $("sysBackup").textContent="unknown"; $("sysBackupS").textContent="no backup status found yet"; cardState("sysBackupCard","warn"); }
+    $("sysSub").textContent="updated "+new Date(s.ts).toLocaleTimeString();
+  }
+  function flash(msg){ var f=$("ovFlash"); f.textContent=msg; clearTimeout(flashTimer); flashTimer=setTimeout(function(){ f.textContent=""; },7000); }
+  function renderOverview(){
+    if(!overview) return;
+    var body=$("ovBody"), q=($("ovSearch").value||"").trim().toLowerCase();
+    var f={ media:$("fMedia").checked, content:$("fContent").checked, nopass:$("fNoPass").checked, pass:$("fPass").checked, empty:$("fEmpty").checked, live:$("fLive").checked, blocked:$("fBlocked").checked };
+    var all=overview.rooms||[], withMedia=0, unprotected=0, liveN=0;
+    all.forEach(function(r){ var media=(r.photos||0)+(r.videos||0)+(r.audio||0); if(media) withMedia++; if(media&&!r.hasPass) unprotected++; if(r.live) liveN++; });
+    var rows=all.filter(function(r){
+      var media=(r.photos||0)+(r.videos||0), any=media+(r.audio||0)+(r.notes||0);
+      if(q&&String(r.code).indexOf(q)<0&&String(r.label||"").toLowerCase().indexOf(q)<0) return false;
+      if(f.media&&!media) return false; if(f.content&&!any) return false;
+      if(f.nopass&&r.hasPass) return false; if(f.pass&&!r.hasPass) return false;
+      if(f.empty&&r.live) return false; if(f.live&&!r.live) return false; if(f.blocked&&!r.blocked) return false;
+      return true;
+    });
+    $("ovSub").textContent=all.length+" rooms · "+withMedia+" with media · "+unprotected+" with media but no password · "+liveN+" live now · kept "+Math.round((overview.retentionDays||365)/30)+" months after last use";
+    body.innerHTML="";
+    function note(text){ var tr=document.createElement("tr"), td=document.createElement("td"); td.colSpan=13; td.className="empty"; td.textContent=text; tr.appendChild(td); body.appendChild(tr); }
+    if(!rows.length){ note("No rooms match these filters."); return; }
+    rows.slice(0,500).forEach(function(r){
+      var tr=document.createElement("tr");
+      function cell(text,cls){ var td=document.createElement("td"); if(cls) td.className=cls; td.textContent=text; tr.appendChild(td); return td; }
+      function tag(text,cls){ var td=document.createElement("td"), s=document.createElement("span"); s.className="tag "+cls; s.textContent=text; td.appendChild(s); tr.appendChild(td); }
+      cell(r.code,"code"); cell(r.label||"");
+      if(r.blocked) tag("closed","off"); else if(r.live) tag(r.live+" inside"+(r.iptv?" · IPTV":""),"live"); else cell("empty");
+      tag(r.hasPass?"yes":"no", r.hasPass?"on":"off"); cell(r.owned?"linked":"–");
+      cell(String(r.photos||0),"num"); cell(String(r.videos||0),"num"); cell(String(r.audio||0),"num"); cell(String(r.notes||0),"num");
+      cell(r.bytes?fmtBytes(r.bytes*0.75):"–","num");   // stored as base64 → ~75% is the real file size
+      cell(fmtDate(r.lastPost)); cell(fmtDate(r.expiresAt));
+      var act=document.createElement("td");
+      function mini(label,fn){ var b=document.createElement("button"); b.type="button"; b.className="mini"; b.textContent=label; b.addEventListener("click",fn); act.appendChild(b); }
+      if(r.hasPass) mini("Remove password",function(){ if(confirm("Remove the password of room "+r.code+"? Anyone with the link can then enter. Do this only for the room's owner.")) send({ type:"admin_room_setpass", room:r.code, password:"" }); });
+      mini(r.hasPass?"New password…":"Set password…",function(){ var p=prompt("New password for room "+r.code+" — pass it on to the owner:",""); if(p&&p.trim()) send({ type:"admin_room_setpass", room:r.code, password:p.trim() }); });
+      if(r.live) mini("Read chat",function(){ watchRoom(r.code); window.scrollTo({ top:0, behavior:"smooth" }); });
+      mini("Use code",function(){ $("modRoom").value=r.code; $("modRoom").scrollIntoView({ behavior:"smooth", block:"center" }); });
+      tr.appendChild(act); body.appendChild(tr);
+    });
+    if(rows.length>500) note("Showing the first 500 of "+rows.length+" — narrow the filters or search.");
+  }
 
   function dayOffset(today, n){ try{ var d=new Date(today+"T00:00:00Z"); d.setUTCDate(d.getUTCDate()-n); return d.toISOString().slice(0,10); }catch(e){ return ""; } }
   function fmtDay(s){ try{ var d=new Date(s+"T00:00:00Z"); return d.toLocaleDateString(undefined,{weekday:"short",month:"short",day:"numeric"}); }catch(e){ return s; } }
@@ -264,10 +373,15 @@
   $("loginBtn").addEventListener("click", doLogin);
   $("pw").addEventListener("keydown", function(e){ if(e.key==="Enter") doLogin(); });
   $("vRefresh").addEventListener("click", requestVisitors);
+  $("sRefresh").addEventListener("click", function(){ send({ type:"admin_system" }); });
+  $("oRefresh").addEventListener("click", function(){ send({ type:"admin_overview" }); });
+  ["ovSearch","fMedia","fContent","fNoPass","fPass","fEmpty","fLive","fBlocked"].forEach(function(id){ $(id).addEventListener(id==="ovSearch"?"input":"change", renderOverview); });
+  setInterval(function(){ if(authed&&!document.hidden) send({ type:"admin_system" }); }, 20000);
+  setInterval(function(){ if(authed&&!document.hidden) send({ type:"admin_overview" }); }, 60000);
   $("rRefresh").addEventListener("click", function(){ send({ type:"admin_reports" }); });
-  $("modWipe").addEventListener("click", function(){ var r=modRoom(); if(r&&confirm("Permanently delete ALL memories, the password and the name of room "+r+"?")) send({ type:"admin_room_wipe", room:r }); });
-  $("modBlock").addEventListener("click", function(){ var r=modRoom(); if(r&&confirm("Close room "+r+"? Everyone in it is removed and nobody can enter until you reopen it.")) send({ type:"admin_room_block", room:r, on:true }); });
-  $("modUnblock").addEventListener("click", function(){ var r=modRoom(); if(r) send({ type:"admin_room_block", room:r, on:false }); });
+  $("modWipe").addEventListener("click", function(){ var r=modRoom(); if(r&&confirm("Permanently delete ALL memories, the password and the name of room "+r+"?")){ send({ type:"admin_room_wipe", room:r }); send({ type:"admin_overview" }); flash("Room "+r+" wiped."); } });
+  $("modBlock").addEventListener("click", function(){ var r=modRoom(); if(r&&confirm("Close room "+r+"? Everyone in it is removed and nobody can enter until you reopen it.")){ send({ type:"admin_room_block", room:r, on:true }); send({ type:"admin_overview" }); flash("Room "+r+" closed."); } });
+  $("modUnblock").addEventListener("click", function(){ var r=modRoom(); if(r){ send({ type:"admin_room_block", room:r, on:false }); send({ type:"admin_overview" }); flash("Room "+r+" reopened."); } });
   setInterval(requestVisitors, 60000);   // keep the daily-visitors view fresh
   $("signout").addEventListener("click", function(){ authed=false; try{ sessionStorage.removeItem("wmt_admin_pw"); }catch(e){} try{ ws.close(); }catch(e){} location.reload(); });
 

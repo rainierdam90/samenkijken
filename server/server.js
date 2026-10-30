@@ -26,6 +26,7 @@ const https = require("https");
 const dns = require("dns").promises;
 const net = require("net");
 const path = require("path");
+const fs = require("fs");
 const crypto = require("crypto");
 const { spawn, spawnSync } = require("child_process");
 const express = require("express");
@@ -1180,6 +1181,64 @@ wss.on("connection", (ws) => {
     if (ws._isAdmin && m.type === "admin_report_close") {
       await store.closeReport(String(m.id || "").slice(0, 40));
       sendJSON(ws, { type: "reports", items: await store.listReports(50), blocked: Array.from(blockedRoomCodes) });
+      return;
+    }
+    /* every room with its wall contents + live state (counts only — never the media itself) */
+    if (ws._isAdmin && m.type === "admin_overview") {
+      const rows = await store.roomsOverview(5000);
+      const seen = new Set();
+      rows.forEach(row => {
+        seen.add(row.code);
+        const live = rooms.get(row.code);
+        row.live = live ? live.members.size : 0;
+        row.iptv = !!(live && live.iptvSource);
+        row.inMemory = !!live;
+        row.hasPass = !!row.hasPass; row.owned = !!row.owned; row.blocked = !!row.blocked || blockedRoomCodes.has(row.code);
+      });
+      rooms.forEach((live, code) => {   // rooms that exist only in memory (no database row yet)
+        if (seen.has(code) || !live.members.size) return;
+        rows.unshift({ code, label: live.label || null, hasPass: !!live.pass, owned: !!live.owner, photos: 0, videos: 0, audio: 0, notes: 0, bytes: 0, lastPost: null, live: live.members.size, iptv: !!live.iptvSource, inMemory: true, blocked: blockedRoomCodes.has(code) });
+      });
+      sendJSON(ws, { type: "overview", rooms: rows, retentionDays: store.retentionDays(), ts: Date.now() });
+      return;
+    }
+    /* remove (empty password) or set a room's password — in the database AND in a room that is
+       currently held in memory, so it takes effect immediately without a restart */
+    if (ws._isAdmin && m.type === "admin_room_setpass") {
+      const room = String(m.room || "").slice(0, 80), p = String(m.password || "").slice(0, 200);
+      if (room) {
+        const hash = p ? await hashPass(p) : null;
+        await store.setPass(room, hash);
+        const live = rooms.get(room);
+        if (live) {
+          try { await live._loadP; } catch (e) {}
+          live.pass = hash; if (live._passFails) live._passFails.clear();
+          broadcastRoom(live, { type: "room-locked", hasPass: !!hash, by: "SameCouch" });
+        }
+        sendJSON(ws, { type: "admin_done", action: p ? "password_set" : "password_removed", room });
+      }
+      return;
+    }
+    /* server health at a glance: load, memory, disk, uploads, video conversion, IPTV, backups */
+    if (ws._isAdmin && m.type === "admin_system") {
+      const os = require("os");
+      const dbPath = process.env.DB_PATH || path.join(__dirname, "..", "data", "wmt.db");
+      const fileSize = f => { try { return fs.statSync(f).size; } catch (e) { return 0; } };
+      let disk = null;
+      try { const s = fs.statfsSync(path.dirname(dbPath)); disk = { total: s.blocks * s.bsize, free: s.bavail * s.bsize }; } catch (e) {}
+      let backup = null;
+      try { backup = JSON.parse(fs.readFileSync(process.env.BACKUP_STATUS_FILE || path.join(path.dirname(dbPath), "backup-status.json"), "utf8")); } catch (e) {}
+      let lastPull = null;
+      try { lastPull = fs.statSync(process.env.BACKUP_PULL_MARK || "/var/lib/scbackup/last-pull").mtimeMs; } catch (e) {}
+      let iptvRooms = 0; rooms.forEach(r => { if (r.iptvSource) iptvRooms++; });
+      sendJSON(ws, { type: "system", ts: Date.now(),
+        server: { uptimeSec: Math.round(process.uptime()), load: os.loadavg(), cpus: os.cpus().length, memTotal: os.totalmem(), memFree: os.freemem(), rss: process.memoryUsage().rss, node: process.version },
+        disk, dbBytes: fileSize(dbPath) + fileSize(dbPath + "-wal"),
+        rooms: { inMemory: rooms.size, sockets: wss.clients.size, blocked: blockedRoomCodes.size },
+        shares: shareUpload ? shareUpload.stats() : null,
+        mkv: { streams: activeMkvStreams, transcodes: activeMkvTranscodes, sharedTranscodes: activeSharedTranscodes.size, maxStreams: MKV_MAX_STREAMS, maxTranscodes: MKV_MAX_TRANSCODES },
+        iptv: Object.assign({ rooms: iptvRooms }, iptvService.stats()),
+        backup, lastPull, retentionDays: store.retentionDays() });
       return;
     }
     if (ws._isAdmin && (m.type === "admin_room_wipe" || m.type === "admin_room_block")) {
