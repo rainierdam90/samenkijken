@@ -700,6 +700,7 @@
     .stage.chat-open .cams{ top:12px; bottom:auto }
     /* phones: sharing family photos/videos is the everyday action — IPTV goes behind the menu */
     .topbar > #shareMediaBtn{ display:inline-flex!important }
+    .topbar > #discoverBtn{ display:inline-flex!important }   /* free films & radio: always one tap away on phones too */
     .topbar > #iptvBtn{ display:none }
     .topbar.open > #iptvBtn{ display:inline-flex }
     .g-guess{ padding-right:96px }

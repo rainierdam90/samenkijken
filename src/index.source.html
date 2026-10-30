@@ -735,6 +735,7 @@
     .stage.chat-open .cams{ top:12px; bottom:auto }
     /* phones: sharing family photos/videos is the everyday action — IPTV goes behind the menu */
     .topbar > #shareMediaBtn{ display:inline-flex!important }
+    .topbar > #discoverBtn{ display:inline-flex!important }   /* free films & radio: always one tap away on phones too */
     .topbar > #iptvBtn{ display:none }
     .topbar.open > #iptvBtn{ display:inline-flex }
     .g-guess{ padding-right:96px }
@@ -982,6 +983,7 @@
         <button type="button" class="btn primary" id="loadBtn">Load</button>
       </div>
     </div>
+    <button type="button" class="btn ghost" id="discoverBtn">🧭 <span id="discoverBtnTxt">Discover</span></button>
     <button type="button" class="btn ghost" id="iptvBtn">📺 IPTV</button>
     <button type="button" class="btn ghost" id="shareMediaBtn">&#128247; Share</button>
     <button type="button" class="btn ghost" id="screenBtn">&#128421; <span id="screenBtnTxt">Browse together</span></button>
@@ -1808,7 +1810,7 @@
       setText("wallAddHint",tr("wall_hint_add")); setText("wallSend",tr("wall_send")); setText("passRemove",tr("pass_remove")); setText("ld_code_tip",tr("name_tip_room")); setText("ld_contact",tr("contact"));
       Array.prototype.forEach.call(document.querySelectorAll(".share-or"),function(e){ e.textContent=tr("or_word"); });
       setTitle("peerBlock",tr("t_block")); setTitle("peerKick",tr("t_kick")); setTitle("camMinus",tr("t_smaller")); setTitle("camPlus",tr("t_larger")); setTitle("gPrev",tr("t_prev")); setTitle("gNext",tr("t_next")); setTitle("topSettingsBtn",tr("room_settings_btn"));
-      setText("pkt_discover",tr("disc_tab")); setText("discGo",tr("disc_search")); setText("disc_archive",tr("disc_films")); setText("disc_radio",tr("disc_radio")); setText("disc_peertube",tr("disc_peertube")); setText("radioCardSub",tr("radio_live"));
+      setText("pkt_discover",tr("disc_tab")); setText("discoverBtnTxt",tr("disc_tab")); setText("discGo",tr("disc_search")); setText("disc_archive",tr("disc_films")); setText("disc_radio",tr("disc_radio")); setText("disc_peertube",tr("disc_peertube")); setText("radioCardSub",tr("radio_live"));
       var ds=(typeof discSrc==="string"&&discSrc)||"archive"; if($("discQ")) $("discQ").placeholder=tr("disc_ph_"+ds); setText("discNote",tr("disc_note_"+ds));
       var lp=$("ld_privacy"), lt=$("ld_terms"); if(lp) lp.href=lang==="nl"?"/privacy-nl.html":"/privacy.html"; if(lt) lt.href=lang==="nl"?"/terms-nl.html":"/terms.html";
     }
@@ -2815,6 +2817,8 @@
     function openPicker(){ if(pickerEl){ setPickTab(pickKind); pickerEl.classList.add("show"); setTimeout(function(){ if($("pickUrl")&&pickKind!=="device"&&pickKind!=="phone"&&pickKind!=="discover") $("pickUrl").focus(); },60); } }
     [].slice.call(document.querySelectorAll(".pick-tab")).forEach(function(b){ b.addEventListener("click", function(){ setPickTab(b.getAttribute("data-k")); }); });
     if($("pickOpenBtn")) $("pickOpenBtn").addEventListener("click", openPicker);
+    /* top-bar entry: Discover was only reachable from the welcome card, which disappears once something plays */
+    if($("discoverBtn")) $("discoverBtn").addEventListener("click", function(){ pickKind="discover"; openPicker(); });
     if($("pickX")) $("pickX").addEventListener("click", function(){ pickerEl.classList.remove("show"); });
     if($("pickLoad")) $("pickLoad").addEventListener("click", function(){ if(loadUrl($("pickUrl").value,pickKind==="url")){ pickerEl.classList.remove("show"); $("pickUrl").value=""; } });
     if($("pickUrl")) $("pickUrl").addEventListener("keydown", function(e){ if((e.key==="Enter"&&!e.isComposing)&&$("pickLoad")) $("pickLoad").click(); });
@@ -4643,7 +4647,7 @@
     var topbarEl=document.querySelector(".topbar"), barToggle=$("barToggle");
     function setBar(open){ if(!topbarEl) return; topbarEl.classList.toggle("open",open); if(barToggle) barToggle.setAttribute("aria-expanded",open?"true":"false"); }
     if(barToggle) barToggle.addEventListener("click", function(){ setBar(!topbarEl.classList.contains("open")); });
-    ["loadBtn","browseBtn","shareMediaBtn","copyBtn"].forEach(function(id){ var el=$(id); if(el) el.addEventListener("click", function(){ setBar(false); }); });
+    ["loadBtn","browseBtn","shareMediaBtn","copyBtn","discoverBtn","iptvBtn"].forEach(function(id){ var el=$(id); if(el) el.addEventListener("click", function(){ setBar(false); }); });
     function buildSchedLink(code,ms,title){ var u=location.origin+location.pathname+"?room="+encodeURIComponent(code)+"&at="+ms; if(title) u+="&t="+encodeURIComponent(title); return u; }
     function calDates(ms){ function f(d){ return d.getUTCFullYear()+pad2(d.getUTCMonth()+1)+pad2(d.getUTCDate())+"T"+pad2(d.getUTCHours())+pad2(d.getUTCMinutes())+"00Z"; } return { start:f(new Date(ms)), end:f(new Date(ms+2*3600*1000)) }; }
     function gcalUrl(info){ var cd=calDates(info.at); return "https://calendar.google.com/calendar/render?action=TEMPLATE&text="+encodeURIComponent(tr("cal_event")+": "+info.title)+"&dates="+cd.start+"/"+cd.end+"&details="+encodeURIComponent(info.url); }
