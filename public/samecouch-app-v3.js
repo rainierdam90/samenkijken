@@ -310,14 +310,20 @@
         disc_note_radio:"Live radio from around the world via radio-browser.info — listen together.",
         disc_note_peertube:"Videos from PeerTube, the open video platform of independent creators and institutions.",
         disc_loading:"Loading…",disc_none:"Nothing found — try another word.",disc_error:"That didn't work right now. Try again in a moment.",
-        disc_opening:"Opening…",disc_playing:"Now playing: {t}",disc_playing_slow:"Now playing: {t} — films from the Internet Archive sometimes need 10–20 seconds to start.",disc_not_playable:"This one can't play in the browser — pick another.",radio_live:"Live radio",radio_play:"Listen",radio_pause:"Pause"},
+        disc_opening:"Opening…",disc_playing:"Now playing: {t}",disc_playing_slow:"Now playing: {t} — films from the Internet Archive sometimes need 10–20 seconds to start.",disc_not_playable:"This one can't play in the browser — pick another.",radio_live:"Live radio",radio_play:"Listen",radio_pause:"Pause",
+        disc_more:"Load more",dc_popular:"Popular",dc_comedy:"Comedy",dc_cartoons:"Cartoons",dc_crime:"Crime & mystery",dc_drama:"Drama",dc_horror:"Horror",dc_western:"Western",dc_scifi:"Sci-fi",dc_adventure:"Adventure",dc_romance:"Romance",dc_silent:"Silent films",dc_docs:"Documentaries",
+        dc_nl:"Netherlands",dc_pop:"Pop",dc_rock:"Rock",dc_dance:"Dance",dc_top40:"Top 40","dc_80s":"80s","dc_90s":"90s",dc_jazz:"Jazz",dc_classical:"Classical",dc_chill:"Chill",dc_news:"News & talk",dc_kids:"Kids",
+        dc_films:"Films",dc_music:"Music",dc_animals:"Animals & nature",dc_travel:"Travel",dc_science:"Science & tech",dc_education:"Learning",dc_gaming:"Gaming",dc_food:"Food",dc_sports:"Sports"},
       nl:{disc_tab:"Ontdekken",disc_search:"Zoeken",disc_films:"🎬 Films",disc_radio:"📻 Radio",disc_peertube:"🎞️ PeerTube",
         disc_ph_archive:"Zoek klassieke films en tekenfilms…",disc_ph_radio:"Zoek een radiozender…",disc_ph_peertube:"Zoek video's op PeerTube…",
         disc_note_archive:"Gratis films en tekenfilms uit het publieke domein, via het Internet Archive — legaal om samen te kijken.",
         disc_note_radio:"Live radio uit de hele wereld via radio-browser.info — luister samen.",
         disc_note_peertube:"Video's van PeerTube, het open videoplatform van onafhankelijke makers en instellingen.",
         disc_loading:"Laden…",disc_none:"Niets gevonden — probeer een ander woord.",disc_error:"Dit lukt nu even niet. Probeer het zo opnieuw.",
-        disc_opening:"Openen…",disc_playing:"Nu: {t}",disc_playing_slow:"Nu: {t} — films van het Internet Archive hebben soms 10–20 seconden nodig om te starten.",disc_not_playable:"Deze kan niet in de browser worden afgespeeld — kies een andere.",radio_live:"Live radio",radio_play:"Luisteren",radio_pause:"Pauzeren"}
+        disc_opening:"Openen…",disc_playing:"Nu: {t}",disc_playing_slow:"Nu: {t} — films van het Internet Archive hebben soms 10–20 seconden nodig om te starten.",disc_not_playable:"Deze kan niet in de browser worden afgespeeld — kies een andere.",radio_live:"Live radio",radio_play:"Luisteren",radio_pause:"Pauzeren",
+        disc_more:"Meer laden",dc_popular:"Populair",dc_comedy:"Komedie",dc_cartoons:"Tekenfilms",dc_crime:"Misdaad & mysterie",dc_drama:"Drama",dc_horror:"Horror",dc_western:"Western",dc_scifi:"Sciencefiction",dc_adventure:"Avontuur",dc_romance:"Romantiek",dc_silent:"Stomme films",dc_docs:"Documentaires",
+        dc_nl:"Nederland",dc_pop:"Pop",dc_rock:"Rock",dc_dance:"Dance",dc_top40:"Top 40","dc_80s":"Jaren 80","dc_90s":"Jaren 90",dc_jazz:"Jazz",dc_classical:"Klassiek",dc_chill:"Chill",dc_news:"Nieuws & praat",dc_kids:"Kinderen",
+        dc_films:"Films",dc_music:"Muziek",dc_animals:"Dieren & natuur",dc_travel:"Reizen",dc_science:"Wetenschap & tech",dc_education:"Leren",dc_gaming:"Gaming",dc_food:"Eten",dc_sports:"Sport"}
     };
     Object.keys(DISCCOPY).forEach(function(k){ if(I18N[k]) Object.keys(DISCCOPY[k]).forEach(function(j){ I18N[k][j]=DISCCOPY[k][j]; }); });
     var amOwner=false, roomOwned=false, roomLabel="";
@@ -374,7 +380,7 @@
       setText("wallAddHint",tr("wall_hint_add")); setText("wallSend",tr("wall_send")); setText("passRemove",tr("pass_remove")); setText("ld_code_tip",tr("name_tip_room")); setText("ld_contact",tr("contact"));
       Array.prototype.forEach.call(document.querySelectorAll(".share-or"),function(e){ e.textContent=tr("or_word"); });
       setTitle("peerBlock",tr("t_block")); setTitle("peerKick",tr("t_kick")); setTitle("camMinus",tr("t_smaller")); setTitle("camPlus",tr("t_larger")); setTitle("gPrev",tr("t_prev")); setTitle("gNext",tr("t_next")); setTitle("topSettingsBtn",tr("room_settings_btn"));
-      setText("pkt_discover",tr("disc_tab")); setText("discoverBtnTxt",tr("disc_tab")); setText("discGo",tr("disc_search")); setText("disc_archive",tr("disc_films")); setText("disc_radio",tr("disc_radio")); setText("disc_peertube",tr("disc_peertube")); setText("radioCardSub",tr("radio_live")); if(typeof updateRadioBtn==="function") updateRadioBtn();
+      setText("pkt_discover",tr("disc_tab")); setText("discoverBtnTxt",tr("disc_tab")); setText("discGo",tr("disc_search")); setText("disc_archive",tr("disc_films")); setText("disc_radio",tr("disc_radio")); setText("disc_peertube",tr("disc_peertube")); setText("radioCardSub",tr("radio_live")); if(typeof updateRadioBtn==="function") updateRadioBtn(); if(typeof renderDiscCats==="function"){ renderDiscCats(); updateDiscMore(); }
       var ds=(typeof discSrc==="string"&&discSrc)||"archive"; if($("discQ")) $("discQ").placeholder=tr("disc_ph_"+ds); setText("discNote",tr("disc_note_"+ds));
       var lp=$("ld_privacy"), lt=$("ld_terms"); if(lp) lp.href=lang==="nl"?"/privacy-nl.html":"/privacy.html"; if(lt) lt.href=lang==="nl"?"/terms-nl.html":"/terms.html";
     }
@@ -1390,27 +1396,57 @@
     if($("pickFileBtn")) $("pickFileBtn").addEventListener("click", function(){ if(fileInput){ try{ fileInput.accept="video/*,image/*"; }catch(e){} pickerEl.classList.remove("show"); fileInput.click(); } });
     /* ---- Discover: free, legal films (Internet Archive), live radio (Radio Browser) and PeerTube videos.
             The server searches and resolves a direct media file; it then plays in the normal synced player. ---- */
-    var discSrc="archive", discLoaded={}, discReq=0;
+    var discSrc="archive", discLoaded={}, discReq=0, discBusy=false, discCat={ archive:"", peertube:"" };
+    /* genres per source ("" = the popular front page); the server only accepts these keys */
+    var DISC_CATS={
+      archive:["","comedy","cartoons","crime","drama","horror","western","scifi","adventure","romance","silent","docs"],
+      radio:["","nl","pop","rock","dance","top40","80s","90s","jazz","classical","chill","news","kids"],
+      peertube:["","films","music","comedy","animals","travel","science","education","gaming","food","sports"]
+    };
     function discEnsure(){ setDiscSrc(discSrc); }
     function setDiscSrc(src){
       discSrc=src; [].slice.call(document.querySelectorAll(".disc-btn")).forEach(function(b){ b.classList.toggle("active",b.getAttribute("data-src")===src); });
+      if(!(src in discCat)) discCat[src]=(src==="radio"&&lang==="nl")?"nl":"";   // Dutch visitors start with Dutch stations
       var q=$("discQ"); if(q){ q.value=(discLoaded[src]&&discLoaded[src].q)||""; q.placeholder=tr("disc_ph_"+src); }
-      setText("discNote",tr("disc_note_"+src));
+      setText("discNote",tr("disc_note_"+src)); renderDiscCats();
       if(discLoaded[src]) renderDisc(discLoaded[src].items); else discSearch();
+      updateDiscMore();
     }
+    function renderDiscCats(){
+      var box=$("discCats"); if(!box||!discCat) return; box.innerHTML="";
+      (DISC_CATS[discSrc]||[]).forEach(function(c){
+        var b=document.createElement("button"); b.type="button"; b.className="disc-cat"+((discCat[discSrc]||"")===c?" active":""); b.textContent=tr("dc_"+(c||"popular"));
+        b.addEventListener("click",function(){ if((discCat[discSrc]||"")===c&&discLoaded[discSrc]) return; discCat[discSrc]=c; renderDiscCats(); discSearch(); });
+        box.appendChild(b);
+      });
+    }
+    function updateDiscMore(){
+      var b=$("discMore"); if(!b||!discLoaded) return; var cur=discLoaded[discSrc];
+      b.hidden=!(cur&&cur.more&&cur.items.length); b.disabled=discBusy; b.textContent=tr(discBusy?"disc_loading":"disc_more");
+    }
+    function discKey(src,it){ return src==="radio"?String((it.title||"")+"|"+(it.meta||"")).toLowerCase():src==="archive"?String(it.title||it.id).toLowerCase().replace(/[^a-z0-9]+/g,""):String(it.id); }   // directories list some stations/films twice ("McLintock!" and "Mclintock")
+    function discFresh(src,items,seen){ return items.filter(function(it){ var k=discKey(src,it); if(seen[k]) return false; seen[k]=1; return true; }); }
     function discMessage(text){ var grid=$("discGrid"); if(!grid) return; grid.innerHTML=""; var e=document.createElement("div"); e.className="disc-empty"; e.textContent=text; grid.appendChild(e); }
-    function discSearch(){
-      var q=(($("discQ")&&$("discQ").value)||"").trim(), src=discSrc, req=++discReq;
-      discMessage(tr("disc_loading"));
-      var p=new URLSearchParams(); if(q) p.set("q",q); if(src==="radio"&&!q&&lang==="nl") p.set("country","NL"); if(src==="peertube") p.set("lang",lang);
+    function discSearch(more){
+      var src=discSrc, cur=discLoaded[src];
+      if(more&&(!cur||!cur.more||discBusy)) return;
+      var q=more?cur.q:((($("discQ")&&$("discQ").value)||"").trim()), cat=more?cur.cat:(discCat[src]||""), page=more?cur.page+1:1, req=++discReq;
+      if(!more){ discMessage(tr("disc_loading")); discLoaded[src]=null; }
+      discBusy=true; updateDiscMore();
+      var p=new URLSearchParams(); if(q) p.set("q",q); if(src==="radio"&&cat==="nl") p.set("country","NL"); else if(cat) p.set("cat",cat); if(page>1) p.set("page",String(page)); if(src==="peertube") p.set("lang",lang);
       fetch(httpBase()+"/discover/"+src+"?"+p.toString()).then(function(r){ if(!r.ok) throw new Error("search"); return r.json(); }).then(function(d){
-        if(req!==discReq) return; discLoaded[src]={ q:q, items:(d&&Array.isArray(d.items))?d.items:[] }; renderDisc(discLoaded[src].items);
-      }).catch(function(){ if(req===discReq) discMessage(tr("disc_error")); });
+        if(req!==discReq) return; var items=(d&&Array.isArray(d.items))?d.items:[];
+        if(more){ var seen={}; cur.items.forEach(function(it){ seen[discKey(src,it)]=1; }); items=discFresh(src,items,seen); cur.items=cur.items.concat(items); cur.page=page; cur.more=!!(d&&d.more); if(discSrc===src) appendDisc(items,src); }
+        else { discLoaded[src]={ q:q, cat:cat, page:1, more:!!(d&&d.more), items:discFresh(src,items,{}) }; if(discSrc===src) renderDisc(discLoaded[src].items); }
+      }).catch(function(){ if(req!==discReq) return; if(more) toast(tr("disc_error"),5000); else discMessage(tr("disc_error")); }).then(function(){ if(req===discReq){ discBusy=false; updateDiscMore(); } });
     }
     function renderDisc(items){
       var grid=$("discGrid"); if(!grid) return; grid.innerHTML="";
       if(!items.length){ discMessage(tr("disc_none")); return; }
-      var src=discSrc;
+      appendDisc(items,discSrc);
+    }
+    function appendDisc(items,src){
+      var grid=$("discGrid"); if(!grid) return;
       items.forEach(function(it){
         var b=document.createElement("button"); b.type="button"; b.className="disc-card"+(src==="radio"?" radio":""); b.title=it.title||"";
         var th=document.createElement("div"); th.className="disc-thumb"; var icon=src==="radio"?"📻":"🎬";
@@ -1448,7 +1484,12 @@
     if($("radioPlay")) $("radioPlay").addEventListener("click",function(e){ e.stopPropagation(); if(movie.paused){ playgate.hidden=true; playMedia(true); } else pauseMedia(); });
     movie.addEventListener("play",updateRadioBtn); movie.addEventListener("pause",updateRadioBtn);
     [].slice.call(document.querySelectorAll(".disc-btn")).forEach(function(b){ b.addEventListener("click",function(){ setDiscSrc(b.getAttribute("data-src")); }); });
-    if($("discGo")) $("discGo").addEventListener("click",discSearch);
+    if($("discGo")) $("discGo").addEventListener("click",function(){ discSearch(); });
+    if($("discMore")){
+      $("discMore").addEventListener("click",function(){ discSearch(true); });
+      /* scrolling to the end of the list loads the next page by itself; the button stays as the fallback */
+      if(typeof IntersectionObserver==="function"){ try{ var discMoreCard=$("discMore").closest(".modal-card"); new IntersectionObserver(function(es){ es.forEach(function(e){ if(e.isIntersecting&&!$("discMore").hidden&&pickerEl&&pickerEl.classList.contains("show")) discSearch(true); }); },{ root:discMoreCard||null, rootMargin:"0px 0px 240px 0px" }).observe($("discMore")); }catch(e){} }
+    }
     if($("discQ")) $("discQ").addEventListener("keydown",function(e){ if(e.key==="Enter"&&!e.isComposing){ e.preventDefault(); discSearch(); } });
     /* Enter always means "play this link": with a video already playing it used to hit the Stop button
        and stop the video for everyone instead of switching to the newly pasted link. */

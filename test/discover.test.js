@@ -32,6 +32,18 @@ test("Internet Archive: picks the best browser-playable MP4 and refuses items wi
   await assert.rejects(d._internal.archivePlay("../etc/passwd"), e => e.code === "bad_request");
 });
 
+test("Internet Archive search: a genre maps to a fixed query and a full page says more exist", async () => {
+  let seen = "";
+  const docs = Array.from({ length: 24 }, (_, i) => ({ identifier: "film_" + i, title: "Film " + i }));
+  const d = createDiscover({ blockedIp, fetchImpl: fakeFetch({ "https://archive.org/advancedsearch.php": (url) => { seen = decodeURIComponent(url); return { response: { docs } }; } }) });
+  const r = await d._internal.archiveSearch("", 2, "western");
+  assert.equal(r.items.length, 24); assert.equal(r.more, true);
+  assert.match(seen, /subject:\(western OR westerns\)/); assert.match(seen, /&page=2&/);
+  await d._internal.archiveSearch("", 1, "cartoons");
+  assert.match(seen, /\?q=\(collection:classic_cartoons OR \(collection:animationandcartoons AND \(year:\[1900 TO 1959\]/);
+  assert.doesNotMatch(seen, /feature_films/);   // a collection-scoped genre replaces the default collections
+});
+
 test("Radio: only https streams in a browser-playable codec that passed the last check", async () => {
   const station = (o) => Object.assign({ stationuuid: "11111111-1111-1111-1111-111111111111", name: "S", codec: "MP3", lastcheckok: 1, url_resolved: "https://stream.example/live" }, o);
   const d = createDiscover({ blockedIp, fetchImpl: fakeFetch({ "https://de1.api.radio-browser.info/json/stations/search": [
@@ -41,8 +53,9 @@ test("Radio: only https streams in a browser-playable codec that passed the last
     station({ name: "Broken", lastcheckok: 0 }),
     station({ name: "Weird codec", codec: "WMA" })
   ] }) });
-  const list = await d._internal.radioSearch("", "NL");
+  const { items: list, more } = await d._internal.radioSearch("", "NL");
   assert.deepEqual(list.map(x => x.title), ["Good"]);
+  assert.equal(more, false);   // fewer than a full page came back
   assert.equal(list[0].url, "https://stream.example/live");
 });
 

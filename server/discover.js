@@ -16,6 +16,25 @@ const UA = "SameCouch/1.0 (+https://samecouch.com; discover)";
 const RADIO_HOSTS = ["de1.api.radio-browser.info", "nl1.api.radio-browser.info", "fi1.api.radio-browser.info"];
 const ARCHIVE_COLLECTIONS = "(feature_films OR classic_cartoons OR silent_films OR film_noir)";
 const PLAYABLE_RADIO_CODECS = new Set(["MP3", "AAC", "AAC+", "OGG", "OPUS", "MPEG"]);
+/* categories are fixed whitelists: the browser only ever sends a key, never a raw upstream query.
+   Archive subjects are free-text tags, so each lists the common spellings. */
+const FILM_CATS = {
+  comedy: "subject:(comedy OR comedies)",
+  /* the big community cartoon collection also holds modern uploads: only pre-1960 (public domain) or openly licensed */
+  cartoons: "(collection:classic_cartoons OR (collection:animationandcartoons AND (year:[1900 TO 1959] OR licenseurl:*creativecommons* OR licenseurl:*publicdomain*)))",
+  crime: "subject:(\"film noir\" OR noir OR crime OR mystery OR detective OR thriller)",
+  drama: "subject:(drama)",
+  horror: "subject:(horror)",
+  western: "subject:(western OR westerns)",
+  scifi: "subject:(\"science fiction\" OR \"sci-fi\" OR scifi)",
+  adventure: "subject:(adventure OR action)",
+  romance: "subject:(romance OR romantic)",
+  silent: "collection:silent_films",
+  docs: "subject:(documentary)"
+};
+const RADIO_TAGS = { pop: "pop", rock: "rock", dance: "dance", top40: "top 40", "80s": "80s", "90s": "90s", jazz: "jazz", classical: "classical", chill: "chillout", news: "news", kids: "kids" };
+const PEERTUBE_CATS = { music: 1, films: 2, sports: 5, travel: 6, gaming: 7, comedy: 9, education: 13, science: 15, animals: 16, food: 18 };   // no "Kids": it is almost all re-uploaded TV series
+const ARCHIVE_ROWS = 24, RADIO_ROWS = 60, PEERTUBE_ROWS = 24;
 
 function createDiscover(options) {
   const opts = options || {};
@@ -50,20 +69,25 @@ function createDiscover(options) {
   const httpsOnly = (u) => { try { const x = new URL(String(u || "")); return x.protocol === "https:" ? x.toString() : ""; } catch (e) { return ""; } };
 
   /* ---------------- Internet Archive ---------------- */
-  async function archiveSearch(q, page) {
+  async function archiveSearch(q, page, cat) {
     const words = q.replace(/[^\p{L}\p{N} '-]/gu, " ").trim();
     const terms = words ? " AND (title:(" + words + ") OR subject:(" + words + "))" : "";
+    const catQ = FILM_CATS[cat] || "";
+    const scope = /^\(?collection:/.test(catQ) ? catQ : "collection:" + ARCHIVE_COLLECTIONS + (catQ ? " AND " + catQ : "");
     /* only items that actually carry a browser-playable MP4, and keep the default family-friendly
        (the most-downloaded public-domain list is full of 1930s "exploitation" films) */
     const playable = " AND format:(\"h.264\" OR \"MPEG4\" OR \"512Kb MPEG4\" OR \"h.264 IA\")";
-    const family = " AND -title:(sex OR sexy OR nude OR nudist OR erotic OR stripper OR burlesque) AND -subject:(sex OR sexploitation OR exploitation OR erotica OR erotic OR adult OR nudity OR burlesque OR drugs)";
-    const url = "https://archive.org/advancedsearch.php?q=" + encodeURIComponent("collection:" + ARCHIVE_COLLECTIONS + " AND mediatype:movies AND -access-restricted-item:true" + playable + family + terms) +
-      "&fl[]=identifier&fl[]=title&fl[]=year&fl[]=runtime&fl[]=downloads&sort[]=downloads+desc&rows=24&page=" + page + "&output=json";
+    const family = " AND -title:(sex OR sexy OR nude OR nudist OR naked OR bares OR topless OR erotic OR stripper OR burlesque OR molester OR rape) AND -subject:(sex OR sexploitation OR exploitation OR erotica OR erotic OR adult OR nudity OR nudism OR burlesque OR drugs)";
+    /* the plain "popular" front page is what everyone sees first: keep atrocity footage and horror for a search or the genre */
+    const calm = (!words && !cat) ? " AND -title:(nazi OR holocaust OR \"concentration camps\") AND -subject:(horror OR holocaust OR \"concentration camps\" OR atrocities OR propaganda)" : "";
+    const url = "https://archive.org/advancedsearch.php?q=" + encodeURIComponent(scope + " AND mediatype:movies AND -access-restricted-item:true" + playable + family + calm + terms) +
+      "&fl[]=identifier&fl[]=title&fl[]=year&fl[]=runtime&fl[]=downloads&sort[]=downloads+desc&rows=" + ARCHIVE_ROWS + "&page=" + page + "&output=json";
     const j = await getJson(url);
-    return ((j.response && j.response.docs) || []).filter(d => /^[A-Za-z0-9._-]{1,100}$/.test(d.identifier || "")).map(d => ({
+    const docs = (j.response && j.response.docs) || [];
+    return { more: docs.length >= ARCHIVE_ROWS && page < 50, items: docs.filter(d => /^[A-Za-z0-9._-]{1,100}$/.test(d.identifier || "")).map(d => ({
       id: d.identifier, title: clean(d.title, 140) || d.identifier, meta: [d.year ? String(d.year).slice(0, 4) : "", clean(d.runtime, 20)].filter(Boolean).join(" · "),
       thumb: "https://archive.org/services/img/" + encodeURIComponent(d.identifier)
-    }));
+    })) };
   }
   /* best browser-playable MP4 of an item: h.264 (≈480p) → MPEG4 → 512Kb */
   async function archivePlay(id) {
@@ -86,15 +110,17 @@ function createDiscover(options) {
     const url = httpsOnly(s.url_resolved || s.url), codec = String(s.codec || "").toUpperCase();
     return !!url && !/\.m3u8(\?|$)/i.test(url) && PLAYABLE_RADIO_CODECS.has(codec) && s.lastcheckok === 1;
   }
-  async function radioSearch(q, country) {
-    const p = new URLSearchParams({ limit: "60", order: "clickcount", reverse: "true", hidebroken: "true", is_https: "true" });
-    if (q) p.set("name", q); if (country && /^[A-Z]{2}$/.test(country)) p.set("countrycode", country);
+  async function radioSearch(q, country, cat, page) {
+    page = page || 1;
+    const p = new URLSearchParams({ limit: String(RADIO_ROWS), offset: String((page - 1) * RADIO_ROWS), order: "clickcount", reverse: "true", hidebroken: "true", is_https: "true" });
+    if (q) p.set("name", q); if (country && /^[A-Z]{2}$/.test(country)) p.set("countrycode", country); if (RADIO_TAGS[cat]) p.set("tag", RADIO_TAGS[cat]);
     const list = await radioGet("/json/stations/search?" + p.toString());
-    return (Array.isArray(list) ? list : []).filter(radioOk).slice(0, 30).map(s => ({
+    const raw = Array.isArray(list) ? list : [];
+    return { more: raw.length >= RADIO_ROWS && page < 10, items: raw.filter(radioOk).map(s => ({
       id: clean(s.stationuuid, 40), title: clean(s.name, 100), meta: [clean(s.country, 40), String(s.codec || "").toUpperCase(), s.bitrate ? s.bitrate + " kbps" : ""].filter(Boolean).join(" · "),
       thumb: httpsOnly(s.favicon),
       url: httpsOnly(s.url_resolved || s.url)   // lets the browser start the stream inside the tap itself (Safari's autoplay rule)
-    }));
+    })) };
   }
   async function radioPlay(uuid) {
     if (!/^[0-9a-f-]{36}$/i.test(uuid)) throw Object.assign(new Error("bad id"), { code: "bad_request" });
@@ -105,16 +131,20 @@ function createDiscover(options) {
   }
 
   /* ---------------- PeerTube (SepiaSearch index) ---------------- */
-  async function peertubeSearch(q, lang) {
-    const p = new URLSearchParams({ count: "24", start: "0", nsfw: "false", isLive: "false", durationMin: "120" });
+  async function peertubeSearch(q, lang, cat, page) {
+    page = page || 1;
+    const start = (page - 1) * PEERTUBE_ROWS;
+    const p = new URLSearchParams({ count: String(PEERTUBE_ROWS), start: String(start), nsfw: "false", isLive: "false", durationMin: "120" });
     if (q) { p.set("search", q); p.set("sort", "-match"); } else { p.set("sort", "-views"); if (lang) p.append("languageOneOf", lang); p.append("languageOneOf", "en"); }
+    if (PEERTUBE_CATS[cat]) p.set("categoryOneOf", String(PEERTUBE_CATS[cat]));
     const j = await getJson("https://sepiasearch.org/api/v1/search/videos?" + p.toString());
-    return ((j && j.data) || []).map(v => {
+    const data = (j && j.data) || [];
+    return { more: data.length >= PEERTUBE_ROWS && (+j.total || 0) > start + PEERTUBE_ROWS && page < 20, items: data.map(v => {
       let host = ""; try { host = new URL(v.url).host; } catch (e) {}
       if (!host || !/^[0-9a-f-]{36}$/i.test(v.uuid || "")) return null;
       const mins = Math.round((+v.duration || 0) / 60);
       return { id: host + "/" + v.uuid, title: clean(v.name, 140), meta: [clean((v.account && v.account.displayName) || (v.channel && v.channel.displayName), 50), mins ? mins + " min" : ""].filter(Boolean).join(" · "), thumb: httpsOnly(v.thumbnailUrl) };
-    }).filter(Boolean);
+    }).filter(Boolean) };
   }
   async function safeHost(host) {
     host = String(host || "").toLowerCase();
@@ -144,13 +174,15 @@ function createDiscover(options) {
       catch (e) { const code = e && e.code; res.status(code === "bad_request" ? 400 : code === "not_playable" ? 422 : 502).json({ error: code || "upstream" }); }
     };
   }
-  router.get("/archive", handler(async req => { const q = query(req), page = Math.min(20, Math.max(1, parseInt(req.query.page, 10) || 1)); return { items: await cached("ia|" + q + "|" + page, () => archiveSearch(q, page)) }; }));
+  const page = (req, max) => Math.min(max, Math.max(1, parseInt(req.query.page, 10) || 1));
+  const cat = (req, list) => { const c = clean(req.query.cat, 20); return Object.prototype.hasOwnProperty.call(list, c) ? c : ""; };
+  router.get("/archive", handler(async req => { const q = query(req), c = cat(req, FILM_CATS), pg = page(req, 50); return cached("ia|" + q + "|" + c + "|" + pg, () => archiveSearch(q, pg, c)); }));
   router.get("/archive/play", handler(async req => cached("iap|" + clean(req.query.id, 100), () => archivePlay(clean(req.query.id, 100)))));
-  router.get("/radio", handler(async req => { const q = query(req), c = clean(req.query.country, 2).toUpperCase(); return { items: await cached("rb|" + q + "|" + c, () => radioSearch(q, c)) }; }));
+  router.get("/radio", handler(async req => { const q = query(req), c = clean(req.query.country, 2).toUpperCase(), t = cat(req, RADIO_TAGS), pg = page(req, 10); return cached("rb|" + q + "|" + c + "|" + t + "|" + pg, () => radioSearch(q, c, t, pg)); }));
   router.get("/radio/play", handler(async req => radioPlay(clean(req.query.id, 40))));
-  router.get("/peertube", handler(async req => { const q = query(req), l = /^[a-z]{2}$/.test(String(req.query.lang || "")) ? String(req.query.lang) : ""; return { items: await cached("pt|" + q + "|" + l, () => peertubeSearch(q, l)) }; }));
+  router.get("/peertube", handler(async req => { const q = query(req), l = /^[a-z]{2}$/.test(String(req.query.lang || "")) ? String(req.query.lang) : "", c = cat(req, PEERTUBE_CATS), pg = page(req, 20); return cached("pt|" + q + "|" + l + "|" + c + "|" + pg, () => peertubeSearch(q, l, c, pg)); }));
   router.get("/peertube/play", handler(async req => cached("ptp|" + clean(req.query.id, 120), () => peertubePlay(clean(req.query.id, 120)))));
-  return { router, _internal: { archivePlay, radioSearch, peertubePlay, safeHost } };
+  return { router, _internal: { archiveSearch, archivePlay, radioSearch, peertubePlay, safeHost } };
 }
 
 module.exports = { createDiscover };

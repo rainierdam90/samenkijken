@@ -719,7 +719,14 @@
   .disc-btn{ flex:1 1 0; padding:8px 6px; border-radius:10px; border:1px solid var(--line); background:transparent; color:var(--muted); font:inherit; font-size:13px; cursor:pointer }
   .disc-btn.active{ border-color:var(--amber); color:var(--txt,#f6efe5); background:rgba(233,163,59,.12) }
   .disc-note{ margin:8px 0 10px!important; font-size:12px!important }
-  .disc-grid{ display:grid; grid-template-columns:repeat(auto-fill,minmax(150px,1fr)); gap:10px; max-height:52vh; overflow-y:auto; padding:2px }
+  /* genres: always all visible (wrap), so nobody has to discover a sideways scroll */
+  .disc-cats{ display:flex; flex-wrap:wrap; gap:6px; margin:10px 0 0 }
+  .disc-cat{ padding:5px 11px; border-radius:999px; border:1px solid var(--line); background:transparent; color:var(--muted); font:inherit; font-size:12.5px; cursor:pointer; white-space:nowrap }
+  .disc-cat.active{ border-color:var(--amber); color:var(--txt,#f6efe5); background:rgba(233,163,59,.12) }
+  /* one scroll area (the dialog itself): a scroll box inside a scroll box gets stuck on phones */
+  .disc-grid{ display:grid; grid-template-columns:repeat(auto-fill,minmax(150px,1fr)); gap:10px; padding:2px }
+  .disc-more{ display:block; margin:14px auto 2px; min-width:180px }
+  .disc-more[hidden]{ display:none }
   .disc-card{ display:flex; flex-direction:column; gap:4px; text-align:left; background:var(--panel-2); border:1px solid var(--line); border-radius:12px; padding:6px; color:inherit; font:inherit; cursor:pointer; min-width:0 }
   .disc-card:hover,.disc-card:focus-visible{ border-color:var(--amber) }
   .disc-card.busy{ opacity:.55; pointer-events:none }
@@ -730,7 +737,7 @@
   .disc-title{ font-size:13px; font-weight:600; line-height:1.3; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden }
   .disc-meta{ font-size:11.5px; color:var(--muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis }
   .disc-empty{ grid-column:1/-1; text-align:center; color:var(--muted); padding:24px 8px; font-size:13px }
-  @media (max-width:560px){ .disc-grid{ grid-template-columns:repeat(2,minmax(0,1fr)); max-height:58vh } }
+  @media (max-width:560px){ .disc-grid{ grid-template-columns:repeat(2,minmax(0,1fr)) } }
   /* radio: a calm card instead of a black video area */
   .radio-card{ position:absolute; inset:0; z-index:4; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:8px; pointer-events:none; background:radial-gradient(circle at 50% 40%, rgba(233,163,59,.22), rgba(16,14,12,.96) 62%); text-align:center; padding:20px }
   .radio-card[hidden]{ display:none }
