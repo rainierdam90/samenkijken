@@ -72,6 +72,15 @@ test("heavy room helpers load locally and only when needed", () => {
   assert.ok(fs.statSync(path.join(ROOT, "public", "vendor", "hls-1.6.16.min.js")).size > 100 * 1024);
 });
 
+test("big phone videos are shrunk on the device before upload, with the original as fallback", () => {
+  const m = appJs.match(/import\("(\/vendor\/mediabunny-[\d.]+\.min\.mjs)"\)/);
+  assert.ok(m, "the video shrinker loads its library lazily from /vendor");
+  assert.ok(fs.statSync(path.join(ROOT, "public", m[1])).size > 100 * 1024);
+  assert.match(appJs, /new MB\.Quality\(\{ bitrate:SHRINK_BITRATE \}\)/);   // a bare number is not a bitrate in Mediabunny
+  assert.match(appJs, /isVideoTrack\(\)\|\|d\.track\.isAudioTrack\(\); \}\)\) return null/);   // never ship a video without its sound
+  assert.match(publicMarkup, /id="xferSkip"/);
+});
+
 test("IPTV supports secure provider login, shared browsing, HLS and host subtitles", () => {
   assert.match(publicMarkup, /id="iptvBtn"/);
   assert.match(publicMarkup, /id="iptvServer"[^>]*type="url"/);

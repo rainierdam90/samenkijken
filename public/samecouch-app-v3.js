@@ -275,7 +275,7 @@
         cam_help_desktop:"Camera or microphone is blocked. Click the camera or lock icon in the address bar, choose Allow, then reload the page.",
         owner_only:"Only the person who created this room can change this.",rename_saved:"Room name saved — your link stays the same.",pass_wait:"Too many wrong passwords — try again in {n} min.",
         invite_join:"You've been invited to the room “{room}”. Enter your name to join.",name_tip_room:"Tip: pick a name others can't guess, or set a password in Room settings.",contact:"Contact",room_settings_btn:"Room settings",
-        share_uploading:"Uploading {p}% — keep this screen open",share_upload_done:"Uploaded ✓ — you can lock your phone now.",share_upload_fail:"Upload failed — check your connection and try again.",share_waiting:"Waiting for the upload… {p}%"},
+        share_uploading:"Uploading {p}% — keep this screen open",share_upload_done:"Uploaded ✓ — you can lock your phone now.",share_upload_fail:"Upload failed — check your connection and try again.",share_shrinking:"Making the video lighter {p}%",share_shrinking_hint:"so it sends much faster — keep this screen open",share_send_original:"Send original",share_waiting:"Waiting for the upload… {p}%"},
       nl:{fq1_a:"Ja, helemaal. Kamers, videobellen, samen kijken, chat en jullie herinneringenmuur zijn allemaal gratis. Herinneringen blijven bewaard tot 12 maanden nadat de kamer voor het laatst is gebruikt.",
         fq4_a:"Jullie kamer bestaat alleen voor wie de link heeft, en wie de kamer maakte kan een wachtwoord instellen. Gesprekken zijn versleuteld van apparaat tot apparaat; lukt een directe verbinding niet, dan lopen ze versleuteld via onze relayserver, die ze niet kan lezen. Video's en foto's die je deelt staan maximaal 6 uur op onze server.",
         foot:"Gesprekken zijn versleuteld van apparaat tot apparaat. Chat en gedeelde video's lopen via onze server zodat iedereen in de kamer ze krijgt — zie Privacy.",
@@ -300,7 +300,7 @@
         cam_help_desktop:"Camera of microfoon is geblokkeerd. Klik op het camera- of slotpictogram in de adresbalk, kies Toestaan en laad de pagina opnieuw.",
         owner_only:"Alleen wie deze kamer heeft gemaakt kan dit wijzigen.",rename_saved:"Kamernaam opgeslagen — jullie link blijft hetzelfde.",pass_wait:"Te vaak een verkeerd wachtwoord — probeer het over {n} min opnieuw.",
         invite_join:"Je bent uitgenodigd in de kamer “{room}”. Vul je naam in om mee te doen.",name_tip_room:"Tip: kies een naam die anderen niet raden, of zet een wachtwoord in Kamerinstellingen.",contact:"Contact",room_settings_btn:"Kamerinstellingen",
-        share_uploading:"Uploaden {p}% — houd dit scherm open",share_upload_done:"Geüpload ✓ — je kunt je telefoon nu vergrendelen.",share_upload_fail:"Uploaden mislukt — controleer je verbinding en probeer het opnieuw.",share_waiting:"Wachten op de upload… {p}%"}
+        share_uploading:"Uploaden {p}% — houd dit scherm open",share_upload_done:"Geüpload ✓ — je kunt je telefoon nu vergrendelen.",share_upload_fail:"Uploaden mislukt — controleer je verbinding en probeer het opnieuw.",share_shrinking:"Video lichter maken {p}%",share_shrinking_hint:"dan verstuurt hij veel sneller — houd dit scherm open",share_send_original:"Origineel sturen",share_waiting:"Wachten op de upload… {p}%"}
     };
     Object.keys(LAUNCHCOPY).forEach(function(k){ if(I18N[k]) Object.keys(LAUNCHCOPY[k]).forEach(function(j){ I18N[k][j]=LAUNCHCOPY[k][j]; }); });
     var DISCCOPY={
@@ -2174,6 +2174,7 @@
       xferPillEl.classList.toggle("paused",!!opts.paused); xferPillEl.classList.toggle("failed",!!opts.failed);
       if(xferPauseEl){ xferPauseEl.hidden=!opts.pause; xferPauseEl.textContent=opts.paused?tr("xfer_resume"):tr("xfer_pause"); }
       if(xferRetryEl) xferRetryEl.hidden=!opts.retry;
+      if($("xferSkip")){ $("xferSkip").hidden=!opts.skip; $("xferSkip").textContent=tr("share_send_original"); }
       xferPillEl.hidden=false; if(stage) stage.classList.add("xfer-open"); if(typeof updateWakeLock==="function") updateWakeLock();
     }
     function hideXfer(){ if(xferPillEl) xferPillEl.hidden=true; if(stage) stage.classList.remove("xfer-open"); if(typeof updateWakeLock==="function") updateWakeLock(); }
@@ -2364,13 +2365,63 @@
       img.onerror=function(){ URL.revokeObjectURL(url); cb(f); };
       img.src=url;
     }
+    /* Phone videos are huge (1080p/4K: often 100–400 MB a minute). Like messaging apps, re-encode them on the
+       device to 720p before uploading, so far less has to go over the phone's connection. Uses the browser's own
+       (hardware) encoder through WebCodecs, via Mediabunny 1.61.4 (MPL-2.0, public/vendor, loaded only when needed).
+       Unsupported browser, unknown/very long video or any error → the original is sent, exactly as before. */
+    var SHRINK_MIN_BYTES=20*1024*1024, SHRINK_MAX_SECONDS=20*60, SHRINK_SHORT_SIDE=720, SHRINK_BITRATE=2500000, mbLoad=null, shrinkJob=null, shareGen=0;
+    function canShrinkVideo(){ return typeof VideoEncoder==="function"&&typeof VideoDecoder==="function"&&!!(window.Blob&&Blob.prototype.stream); }
+    function shrinkShareVideo(f,onProgress){
+      if(!f||!/^video\//i.test(f.type||"")||f.size<SHRINK_MIN_BYTES||!canShrinkVideo()) return Promise.resolve(null);
+      var job={ cancelled:false, conv:null }; shrinkJob=job;
+      if(!mbLoad) mbLoad=import("/vendor/mediabunny-1.61.4.min.mjs");
+      return mbLoad.then(function(MB){
+        if(job.cancelled) return null;
+        var input=new MB.Input({ source:new MB.BlobSource(f), formats:MB.ALL_FORMATS }), target=new MB.BufferTarget();
+        return input.getDurationFromMetadata().catch(function(){ return null; }).then(function(dur){
+          if(job.cancelled||!(dur>0)||dur>SHRINK_MAX_SECONDS) return null;   // the result is built in memory: skip unknown-length and very long videos
+          var output=new MB.Output({ format:new MB.Mp4OutputFormat({ fastStart:false }), target:target });   // index at the end: the upload sends the last chunk second anyway
+          return MB.Conversion.init({ input:input, output:output, tracks:"primary", showWarnings:false,
+            video:function(track){ var w=track.displayWidth, h=track.displayHeight, s=Math.min(1,SHRINK_SHORT_SIDE/Math.max(1,Math.min(w,h))); return { width:Math.max(2,Math.round(w*s/2)*2), height:Math.max(2,Math.round(h*s/2)*2), fit:"fill", codec:"avc", quality:new MB.Quality({ bitrate:SHRINK_BITRATE }), forceTranscode:true }; },
+            audio:{ codec:"aac" }   // phone audio is AAC already → copied as-is
+          }).then(function(conv){
+            if(job.cancelled) return null;
+            if(!conv.isValid||conv.discardedTracks.some(function(d){ return d.track.isVideoTrack()||d.track.isAudioTrack(); })) return null;   // never trade the sound or picture for bytes
+            job.conv=conv; conv.onProgress=function(p){ if(!job.cancelled&&onProgress) onProgress(p); };
+            return conv.execute().then(function(){
+              var buf=target.buffer; if(job.cancelled||!buf) return null;
+              return buf.byteLength<f.size*0.8?new Blob([buf],{type:"video/mp4"}):null;   // hardly smaller → keep the original
+            });
+          });
+        });
+      }).catch(function(e){ if(!job.cancelled){ try{ console.warn("video shrink skipped",e); }catch(x){} } return null; }).then(function(b){ if(shrinkJob===job) shrinkJob=null; return b; });
+    }
+    function skipShrink(){ var j=shrinkJob; if(!j) return; j.cancelled=true; if(j.conv){ try{ var p=j.conv.cancel(); if(p&&p.catch) p.catch(function(){}); }catch(e){} } }
+    if($("xferSkip")) $("xferSkip").addEventListener("click",skipShrink);   // "send original": stop shrinking this video, upload it untouched
+    function mp4Name(n){ n=String(n||"video"); return /\.[a-z0-9]{2,4}$/i.test(n)?n.replace(/\.[a-z0-9]{2,4}$/i,".mp4"):n+".mp4"; }
     function startSharing(files){
       if(!files||!files.length) return;
       if(shareMode) setCompanionTransfer(tr("comp_preparing"),0,"","active");
-      var arr=Array.prototype.slice.call(files), prepared=new Array(arr.length), pending=arr.length;
+      skipShrink();   // a newer selection replaces one still being shrunk
+      var arr=Array.prototype.slice.call(files), prepared=new Array(arr.length), pending=arr.length, vids=[], vi=0, gen=++shareGen;
+      function ready(){ if(--pending===0&&gen===shareGen){ shareUploadBusy=false; reallyStartSharing(prepared); } }
       arr.forEach(function(f,idx){
-        shrinkShareImage(f, function(g){ prepared[idx]={ blob:g, name:f.name||"", mime:(g.type||f.type||"") }; if(--pending===0) reallyStartSharing(prepared); });
+        if(/^video\//i.test(f.type||"")&&f.size>=SHRINK_MIN_BYTES&&canShrinkVideo()){ vids.push(idx); return; }
+        shrinkShareImage(f, function(g){ prepared[idx]={ blob:g, name:f.name||"", mime:(g.type||f.type||"") }; ready(); });
       });
+      if(vids.length){ shareUploadBusy=true; if(typeof updateWakeLock==="function") updateWakeLock(); }   // keep the screen awake while encoding
+      /* one video at a time: phones have one hardware encoder */
+      (function nextVideo(){
+        if(vi>=vids.length||gen!==shareGen) return;
+        var idx=vids[vi++], f=arr[idx], of=vids.length>1?" ("+vi+"/"+vids.length+")":"";
+        var show=function(p){ var pct=Math.floor((+p||0)*100), txt=tr("share_shrinking").replace("{p}",String(pct))+of; showXfer(txt,pct,tr("share_shrinking_hint"),{ skip:true }); if(shareMode) setCompanionTransfer(txt,pct,tr("share_shrinking_hint"),"active"); };
+        show(0);
+        shrinkShareVideo(f,show).then(function(b){
+          prepared[idx]=b?{ blob:b, name:mp4Name(f.name), mime:"video/mp4" }:{ blob:f, name:f.name||"", mime:f.type||"" };
+          if(vi>=vids.length) showXfer(tr("share_uploading").replace("{p}","0"),0,"",{});
+          nextVideo(); ready();
+        });
+      })();
     }
     /* ===================== Share via the server: upload ONCE, everyone streams ===================== */
     var hasShareUpload=false, shareUploadBusy=false, shareSessions={}, srvProg={};
@@ -2443,6 +2494,7 @@
     }
     function shareDelete(s){ if(!s||!s.id) return; try{ fetch(httpBase()+"/share/"+s.id+"?t="+encodeURIComponent(s.upToken),{ method:"DELETE" }).catch(function(){}); }catch(e){} }
     function shareCancelAll(){
+      shareGen++; skipShrink();   // a share still being shrunk never starts uploading
       Object.keys(shareSessions).forEach(function(k){ var s=shareSessions[k]; s.cancelled=true; Object.keys(s.xhrs||{}).forEach(function(n){ try{ s.xhrs[n].abort(); }catch(e){} }); shareDelete(s); });
       shareSessions={}; shareUploadBusy=false; if(typeof updateWakeLock==="function") updateWakeLock();
     }
