@@ -129,7 +129,7 @@
     /* Only fully translated languages are offered (a half-English table reads as a broken app). nl + en are
        built in; every other language is a complete pack in /i18n/<code>.json, fetched only by someone who uses
        it, so the app stays light for everyone else. A test checks every pack has every key and placeholder. */
-    var LANG_PACKS = ["de","fr","es","pt","ru","ar","zh","ja","ko","hi","ur","id"];
+    var LANG_PACKS = ["de","fr","es","pt","ru","ar","zh","ja","ko","hi","ur","id","tl","bn","ta","ml"];
     LANG_ORDER = ["nl","en"].concat(LANG_PACKS);
 
     /* strings for the desktop share modal + phone companion (en + nl; rest fall back to en) */
