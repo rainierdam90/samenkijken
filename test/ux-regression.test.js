@@ -72,6 +72,25 @@ test("heavy room helpers load locally and only when needed", () => {
   assert.ok(fs.statSync(path.join(ROOT, "public", "vendor", "hls-1.6.16.min.js")).size > 100 * 1024);
 });
 
+test("every offered language pack is complete: all keys, same placeholders, no leftover English", () => {
+  const code = appJs.slice(appJs.indexOf("var I18N = {"), appJs.indexOf("var amOwner=false")) + "\n;globalThis.__I18N=I18N;globalThis.__PACKS=LANG_PACKS;globalThis.__ORDER=LANG_ORDER;";
+  const ctx = { navigator: { languages: ["en"] }, localStorage: { getItem() { return null; } } };
+  vm.createContext(ctx); vm.runInContext(code, ctx);
+  const en = ctx.__I18N.en, keys = Object.keys(en), holes = (s) => (String(s).match(/\{[a-z]+\}/g) || []).sort().join(",");
+  assert.deepEqual([...ctx.__ORDER].slice(0, 2), ["nl", "en"]);
+  for (const lang of ctx.__PACKS) {
+    const file = path.join(ROOT, "public", "i18n", lang + ".json");
+    const pack = JSON.parse(fs.readFileSync(file, "utf8"));
+    const missing = keys.filter(k => typeof pack[k] !== "string" || (en[k] !== "" && pack[k].trim() === ""));
+    assert.deepEqual(missing, [], `${lang}.json is missing keys`);
+    const badHoles = keys.filter(k => holes(pack[k]) !== holes(en[k]));
+    assert.deepEqual(badHoles, [], `${lang}.json changes {placeholders}`);
+    const english = keys.filter(k => en[k].length > 25 && pack[k] === en[k]);
+    assert.deepEqual(english, [], `${lang}.json still has English sentences`);
+    assert.ok(ctx.__ORDER.includes(lang), `${lang} is offered in the menu`);
+  }
+});
+
 test("big phone videos are shrunk on the device before upload, with the original as fallback", () => {
   const m = appJs.match(/import\("(\/vendor\/mediabunny-[\d.]+\.min\.mjs)"\)/);
   assert.ok(m, "the video shrinker loads its library lazily from /vendor");
