@@ -36,7 +36,7 @@
     <a class="lang" href="/privacy.html" hreflang="en" lang="en">English</a>
   </div>
   <h1>Privacyverklaring</h1>
-  <p class="upd">Laatst bijgewerkt: 30 oktober 2026</p>
+  <p class="upd">Laatst bijgewerkt: 2 november 2026</p>
 
   <p>SameCouch is een gratis website waarop je samen video's kijkt, elkaar ziet en hoort, chat en een gedeelde herinneringenmuur bijhoudt. Op deze pagina leggen we in gewone taal uit om welke gegevens het gaat, waarom, wie er nog meer bij betrokken is, hoe lang we iets bewaren en welke rechten je hebt. We volgen de Europese privacywet (de AVG, in het Engels GDPR).</p>
 
@@ -89,7 +89,7 @@
   <p>Als je een melding wilt krijgen wanneer er iemand in een kamer is, of een herinnering voor een kijkavond instelt, bewaren we het pushabonnement van je browser (een technisch adres van je browser) en je naam. Dat bewaren we tot je meldingen uitzet, je browser het abonnement intrekt of de kamer wordt verwijderd. Een herinnering wordt verwijderd zodra die is verstuurd. De melding zelf wordt bezorgd via de pushdienst van de maker van je browser (bijvoorbeeld Google, Apple, Mozilla of Microsoft).</p>
 
   <h3>Bezoekersstatistieken</h3>
-  <p>Om te tellen hoeveel verschillende bezoekers we per dag hebben, bewaart de server een versleutelde code die van je IP-adres is gemaakt (een HMAC-hash met geheime sleutel) en die elke dag anders is. Je echte IP-adres slaan we hiervoor nooit op. Deze codes worden na 120 dagen verwijderd. We gebruiken geen analysediensten en geen trackingcookies.</p>
+  <p>Om te tellen hoeveel verschillende bezoekers we per dag hebben, bewaart de server een versleutelde code die van je IP-adres is gemaakt (een HMAC-hash met geheime sleutel) en die elke dag anders is. Je echte IP-adres slaan we hiervoor nooit op. Deze codes worden na 120 dagen verwijderd. Daarnaast tellen we per kamer de "kijkavonden": wanneer twee of meer mensen minstens vijf minuten samen in een kamer zijn, bewaren we de datum, hoe lang het duurde, met hoeveel mensen en of er iets werd afgespeeld, gekoppeld aan een versleutelde code van de kamer (niet de kamercode zelf). Namen, IP-adressen en wat er gekeken werd, slaan we daarbij niet op. Zo zien we of mensen terugkomen. Deze tellingen worden na 400 dagen verwijderd. Kom je binnen via een link met een campagnelabel (zoals <code>?via=producthunt</code>), dan tellen we dat label per dag en onthoudt je browser het 30 dagen, zodat een kamer die je daarna maakt aan dat kanaal wordt toegerekend. Zo'n label zegt niets over jou als persoon. We gebruiken geen analysediensten en geen trackingcookies.</p>
 
   <h3>Technische logbestanden, beveiliging en back-ups</h3>
   <ul>
@@ -100,7 +100,7 @@
   </ul>
 
   <h3>Opgeslagen op je eigen apparaat</h3>
-  <p>SameCouch gebruikt de lokale opslag van je browser (local storage) — geen trackingcookies — om te onthouden: je naam, je taal, de kamers die je hebt bezocht, de grootte van de cameravakjes en de sleutels waarmee je je eigen muurberichten kunt verwijderen. Alleen als je "Inloggegevens onthouden" aanvinkt, worden ook je IPTV-server, gebruikersnaam en wachtwoord daar opgeslagen, als leesbare tekst, op dat apparaat. Zet het vinkje uit of wis de sitegegevens in je browser om ze te verwijderen. Gebruik "Inloggegevens onthouden" niet op een gedeelde computer. Clips die je maakt met "Bewaar dit moment" worden alleen op je eigen apparaat opgenomen en blijven daar, tenzij je ze zelf opslaat of deelt; vraag de mensen in een clip om toestemming voordat je hem deelt. Deze gegevens blijven op je apparaat en worden alleen gebruikt om de functies te laten werken die je zelf kiest; je kunt ze altijd verwijderen via de instellingen van je browser.</p>
+  <p>SameCouch gebruikt de lokale opslag van je browser (local storage) — geen trackingcookies — om te onthouden: je naam, je taal, de kamers die je hebt bezocht, de grootte van de cameravakjes, of je een tip (zoals "Bewaar jullie bank") al hebt gezien, of IPTV op dat apparaat zichtbaar is en de sleutels waarmee je je eigen muurberichten kunt verwijderen. Alleen als je "Inloggegevens onthouden" aanvinkt, worden ook je IPTV-server, gebruikersnaam en wachtwoord daar opgeslagen, als leesbare tekst, op dat apparaat. Zet het vinkje uit of wis de sitegegevens in je browser om ze te verwijderen. Gebruik "Inloggegevens onthouden" niet op een gedeelde computer. Clips die je maakt met "Bewaar dit moment" worden alleen op je eigen apparaat opgenomen en blijven daar, tenzij je ze zelf opslaat of deelt; vraag de mensen in een clip om toestemming voordat je hem deelt. Deze gegevens blijven op je apparaat en worden alleen gebruikt om de functies te laten werken die je zelf kiest; je kunt ze altijd verwijderen via de instellingen van je browser.</p>
 
   <h3>Verbindingstest (optioneel)</h3>
   <p>Als je een verbindingstest start, wisselt je browser kleine testberichten uit met onze server en test hij de doorgeefserver. De testgegevens worden meteen weggegooid en er wordt niets opgenomen.</p>
@@ -115,6 +115,8 @@
     <tr><td>IPTV-login</td><td>Alleen in het servergeheugen; maximaal 12 uur</td></tr>
     <tr><td>Pushabonnement</td><td>Tot je het uitzet of de kamer wordt verwijderd; herinneringen tot ze zijn verstuurd</td></tr>
     <tr><td>Dagelijkse bezoekerscodes (gehasht IP-adres)</td><td>120 dagen</td></tr>
+    <tr><td>Kijkavonden (versleutelde kamercode, datum, duur, aantal mensen)</td><td>400 dagen</td></tr>
+    <tr><td>Geplande volgende kijkavond (tijd, titel, naam van wie hem plande)</td><td>Bij de kamer, tot de kamer wordt verwijderd</td></tr>
     <tr><td>Toegangslogbestanden van de server</td><td>14 dagen</td></tr>
     <tr><td>Versleutelde databaseback-ups</td><td>14 dagen</td></tr>
   </table>

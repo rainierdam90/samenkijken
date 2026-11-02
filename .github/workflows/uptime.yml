@@ -1,0 +1,31 @@
+# Free uptime monitor: every 10 minutes GitHub checks the site and the room server.
+# When a check fails twice in a row the run fails, and GitHub e-mails the repository
+# owner about the failed workflow (Settings → Notifications → Actions decides how).
+name: Uptime
+
+on:
+  schedule:
+    - cron: "*/10 * * * *"
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Check samecouch.com and the room server
+        run: |
+          check() {
+            for attempt in 1 2; do
+              code=$(curl -s -o /dev/null -w "%{http_code}" --max-time 20 "$1" || true)
+              if [ "$code" = "200" ]; then echo "OK   $1"; return 0; fi
+              echo "try $attempt: $1 answered ${code:-nothing}"; sleep 45
+            done
+            echo "::error::$1 is down (last answer: ${code:-nothing})"; return 1
+          }
+          failed=0
+          check "https://samecouch.com/" || failed=1
+          check "https://turn.watchmovietogether.com:8445/healthz" || failed=1
+          exit $failed

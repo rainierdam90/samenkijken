@@ -35,6 +35,16 @@ const FILM_CATS = {
 const RADIO_TAGS = { pop: "pop", rock: "rock", dance: "dance", top40: "top 40", "80s": "80s", "90s": "90s", jazz: "jazz", classical: "classical", chill: "chillout", news: "news", kids: "kids" };
 const PEERTUBE_CATS = { music: 1, films: 2, sports: 5, travel: 6, gaming: 7, comedy: 9, education: 13, science: 15, animals: 16, food: 18 };   // no "Kids": it is almost all re-uploaded TV series
 const ARCHIVE_ROWS = 24, RADIO_ROWS = 60, PEERTUBE_ROWS = 24;
+/* [Internet Archive identifier, title, year, minutes] — US public domain, each verified to resolve to a playable MP4 */
+const FEATURED_FILMS = [
+  ["his_girl_friday", "His Girl Friday", 1940, 92], ["royal_wedding", "Royal Wedding", 1951, 92], ["little_princess", "The Little Princess", 1939, 93],
+  ["TheGeneral1926", "The General", 1926, 79], ["MyManGodfrey1936", "My Man Godfrey", 1936, 95], ["gullivers_travels1939", "Gulliver's Travels", 1939, 73],
+  ["angel_and_the_badman", "Angel and the Badman", 1947, 100], ["the_inspector_general", "The Inspector General", 1949, 102], ["AStarIsBorn", "A Star Is Born", 1937, 111],
+  ["charlie_chaplin_film_fest", "Charlie Chaplin Festival", 1938, 77], ["TheRoadToBali", "Road to Bali", 1952, 91], ["NothingSacred", "Nothing Sacred", 1937, 74],
+  ["JungleBook", "Jungle Book", 1942, 105], ["meet_john_doe", "Meet John Doe", 1941, 123], ["dressed_to_kill", "Sherlock Holmes: Dressed to Kill", 1946, 72],
+  ["mclintok_widescreen", "McLintock!", 1963, 127], ["penny_serenade", "Penny Serenade", 1941, 119], ["TheStranger_0", "The Stranger", 1946, 91],
+  ["my_favorite_brunette", "My Favorite Brunette", 1947, 87]
+];
 
 function createDiscover(options) {
   const opts = options || {};
@@ -79,7 +89,7 @@ function createDiscover(options) {
     const playable = " AND format:(\"h.264\" OR \"MPEG4\" OR \"512Kb MPEG4\" OR \"h.264 IA\")";
     const family = " AND -title:(sex OR sexy OR nude OR nudist OR naked OR bares OR topless OR erotic OR stripper OR burlesque OR molester OR rape) AND -subject:(sex OR sexploitation OR exploitation OR erotica OR erotic OR adult OR nudity OR nudism OR burlesque OR drugs)";
     /* the plain "popular" front page is what everyone sees first: keep atrocity footage and horror for a search or the genre */
-    const calm = (!words && !cat) ? " AND -title:(nazi OR holocaust OR \"concentration camps\") AND -subject:(horror OR holocaust OR \"concentration camps\" OR atrocities OR propaganda)" : "";
+    const calm = (!words && !cat) ? " AND -title:(nazi OR holocaust OR \"concentration camps\" OR sobibor) AND -subject:(horror OR holocaust OR \"concentration camps\" OR atrocities OR propaganda)" : "";
     const url = "https://archive.org/advancedsearch.php?q=" + encodeURIComponent(scope + " AND mediatype:movies AND -access-restricted-item:true" + playable + family + calm + terms) +
       "&fl[]=identifier&fl[]=title&fl[]=year&fl[]=runtime&fl[]=downloads&sort[]=downloads+desc&rows=" + ARCHIVE_ROWS + "&page=" + page + "&output=json";
     const j = await getJson(url);
@@ -165,24 +175,34 @@ function createDiscover(options) {
     return { url, title: clean(v.name, 180), duration: Math.round(+v.duration || 0), live: false };
   }
 
+  /* "Film of the week": a hand-picked rotation of well-known public-domain classics (each checked to
+     have a playable MP4) — a safe, one-tap answer to "what shall we watch?" for an empty room. */
+  function featuredFilm(now) {
+    const week = Math.floor(((now || Date.now()) / 86400000 + 3) / 7);   // weeks since the epoch, turning over on Monday
+    const f = FEATURED_FILMS[week % FEATURED_FILMS.length];
+    return { id: f[0], title: f[1], meta: f[2] + " · " + f[3] + " min", thumb: "https://archive.org/services/img/" + encodeURIComponent(f[0]), week };
+  }
+
   const router = express.Router();
   function handler(fn) {
     return async (req, res) => {
       cors(req, res); res.setHeader("Cache-Control", "no-store");
       if (!limiter(clientIp(req))) return res.status(429).json({ error: "rate_limited" });
       try { res.json(await fn(req)); }
-      catch (e) { const code = e && e.code; res.status(code === "bad_request" ? 400 : code === "not_playable" ? 422 : 502).json({ error: code || "upstream" }); }
+      /* only our own string codes reach the browser: an aborted (timed-out) fetch carries the numeric DOMException code 20 */
+      catch (e) { const code = e && typeof e.code === "string" ? e.code : ""; res.status(code === "bad_request" ? 400 : code === "not_playable" ? 422 : 502).json({ error: code || "upstream" }); }
     };
   }
   const page = (req, max) => Math.min(max, Math.max(1, parseInt(req.query.page, 10) || 1));
   const cat = (req, list) => { const c = clean(req.query.cat, 20); return Object.prototype.hasOwnProperty.call(list, c) ? c : ""; };
+  router.get("/featured", handler(async () => featuredFilm()));
   router.get("/archive", handler(async req => { const q = query(req), c = cat(req, FILM_CATS), pg = page(req, 50); return cached("ia|" + q + "|" + c + "|" + pg, () => archiveSearch(q, pg, c)); }));
   router.get("/archive/play", handler(async req => cached("iap|" + clean(req.query.id, 100), () => archivePlay(clean(req.query.id, 100)))));
   router.get("/radio", handler(async req => { const q = query(req), c = clean(req.query.country, 2).toUpperCase(), t = cat(req, RADIO_TAGS), pg = page(req, 10); return cached("rb|" + q + "|" + c + "|" + t + "|" + pg, () => radioSearch(q, c, t, pg)); }));
   router.get("/radio/play", handler(async req => radioPlay(clean(req.query.id, 40))));
   router.get("/peertube", handler(async req => { const q = query(req), l = /^[a-z]{2}$/.test(String(req.query.lang || "")) ? String(req.query.lang) : "", c = cat(req, PEERTUBE_CATS), pg = page(req, 20); return cached("pt|" + q + "|" + l + "|" + c + "|" + pg, () => peertubeSearch(q, l, c, pg)); }));
   router.get("/peertube/play", handler(async req => cached("ptp|" + clean(req.query.id, 120), () => peertubePlay(clean(req.query.id, 120)))));
-  return { router, _internal: { archiveSearch, archivePlay, radioSearch, peertubePlay, safeHost } };
+  return { router, _internal: { archiveSearch, archivePlay, radioSearch, peertubePlay, safeHost, featuredFilm } };
 }
 
 module.exports = { createDiscover };

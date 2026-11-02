@@ -126,6 +126,16 @@
       <div class="card"><div class="n" id="v7">0</div><div class="l">Last 7 days (sum of daily uniques)</div></div>
     </div>
     <div class="vlist" id="visitorsList"><div class="empty">No visitor data yet.</div></div>
+    <div class="seclabel">Couch nights <span class="sub">2+ people together for 5+ min · the number that matters</span><button class="ref" id="nRefresh">Refresh</button></div>
+    <div class="cards four">
+      <div class="card live"><div class="n" id="nWeek">–</div><div class="l">Couch nights, last 7 days</div><div class="s" id="nWeekS"></div></div>
+      <div class="card"><div class="n" id="nCouches">–</div><div class="l">Active couches (rooms), last 7 days</div><div class="s" id="nCouchesS"></div></div>
+      <div class="card"><div class="n" id="nReturn">–</div><div class="l">Came back within 7 days</div><div class="s" id="nReturnS"></div></div>
+      <div class="card"><div class="n" id="nAvg">–</div><div class="l">Avg. night (min)</div><div class="s" id="nAvgS"></div></div>
+    </div>
+    <div class="vlist" id="nightsList"><div class="empty">No couch nights yet.</div></div>
+    <div class="seclabel">Channels <span class="sub">last 30 days · share links with ?via=name (e.g. samecouch.com/?via=producthunt) to see which channel brings couches that actually meet</span></div>
+    <div class="vlist" id="channelsList"><div class="empty">No tagged visits yet.</div></div>
     <div class="grid2">
       <div class="pane">
         <h2>Rooms <span class="sub" id="roomsSub">live</span></h2>
@@ -185,10 +195,11 @@
   }
   var authed=false;
   function handle(m){
-    if(m.type==="admin_ok"){ authed=true; setConn("ok"); showDash(); if(watching){ ws.send(JSON.stringify({ type:"admin_watch", room:watching })); } send({ type:"admin_system" }); send({ type:"admin_overview" }); return; }
+    if(m.type==="admin_ok"){ authed=true; setConn("ok"); showDash(); if(watching){ ws.send(JSON.stringify({ type:"admin_watch", room:watching })); } send({ type:"admin_system" }); send({ type:"admin_overview" }); send({ type:"admin_nights" }); return; }
     if(m.type==="admin_denied"){ authed=false; $("loginErr").textContent="Wrong password."; try{ sessionStorage.removeItem("wmt_admin_pw"); }catch(e){} try{ ws.close(); }catch(e){} return; }
     if(m.type==="stats"){ renderStats(m); return; }
     if(m.type==="visitors"){ renderVisitors(m); return; }
+    if(m.type==="nights"){ renderNights(m); return; }
     if(m.type==="chatlog"){ if(m.room===watching) renderChatlog(m.messages||[]); return; }
     if(m.type==="chat"){ if(m.room===watching) appendChat(m); return; }
     if(m.type==="reports"){ renderReports(m.items||[], m.blocked||[]); return; }
@@ -316,6 +327,31 @@
     });
   }
   function requestVisitors(){ if(ws&&ws.readyState===1&&authed) ws.send(JSON.stringify({ type:"admin_visitors" })); }
+  function renderNights(n){
+    var w=n.week||{}, rr=n.returnRate||{};
+    $("nWeek").textContent=w.nights||0;
+    $("nWeekS").textContent=(w.withVideo||0)+"% watched something · "+(w.groups3||0)+"% with 3+ people";
+    $("nCouches").textContent=w.couches||0;
+    $("nCouchesS").textContent=(w.newCouches||0)+" new · "+(w.returningCouches||0)+" returning · "+(n.repeatCouches||0)+" of "+(n.totalCouches||0)+" ever met on 2+ days";
+    $("nReturn").textContent=rr.pct==null?"–":rr.pct+"%";
+    $("nReturnS").textContent=rr.cohort?(rr.returned+" of "+rr.cohort+" couches that first met 7–37 days ago"):"needs a week of data";
+    $("nAvg").textContent=w.avgMin||0;
+    $("nAvgS").textContent="last 7 days";
+    var ch=n.channels||[], cb=$("channelsList"); cb.innerHTML="";
+    if(!ch.length) cb.innerHTML='<div class="empty">No tagged visits yet.</div>';
+    ch.forEach(function(c){ var row=document.createElement("div"); row.className="vrow"; var lab=document.createElement("div"); lab.className="vd"; lab.textContent=c.via+" · "+c.landings+" landing"+(c.landings===1?"":"s")+" · "+c.couches+" couch"+(c.couches===1?"":"es"); var sp=document.createElement("div"); sp.className="vbarwrap"; var bar=document.createElement("div"); bar.className="vbar"; bar.style.width=Math.min(100,Math.round(c.nights/Math.max(1,ch[0].nights)*100))+"%"; sp.appendChild(bar); var v=document.createElement("div"); v.className="vn"; v.textContent=c.nights; row.appendChild(lab); row.appendChild(sp); row.appendChild(v); cb.appendChild(row); });
+    var days=n.days||[], box=$("nightsList");
+    if(!days.length){ box.innerHTML='<div class="empty">No couch nights yet.</div>'; return; }
+    var max=days.reduce(function(a,d){ return Math.max(a,d.nights); },1);
+    box.innerHTML="";
+    days.forEach(function(d){
+      var row=document.createElement("div"); row.className="vrow";
+      var lab=document.createElement("div"); lab.className="vd"; lab.textContent=fmtDay(d.day)+" · "+d.couches+" couch"+(d.couches===1?"":"es")+" · "+d.avgMin+" min avg";
+      var bw=document.createElement("div"); bw.className="vbarwrap"; var bar=document.createElement("div"); bar.className="vbar"; bar.style.width=Math.round(d.nights/max*100)+"%"; bw.appendChild(bar);
+      var c=document.createElement("div"); c.className="vn"; c.textContent=d.nights;
+      row.appendChild(lab); row.appendChild(bw); row.appendChild(c); box.appendChild(row);
+    });
+  }
 
   function renderStats(s){
     $("cActive").textContent=s.activeConversations||0;
@@ -374,6 +410,7 @@
   $("pw").addEventListener("keydown", function(e){ if(e.key==="Enter") doLogin(); });
   $("vRefresh").addEventListener("click", requestVisitors);
   $("sRefresh").addEventListener("click", function(){ send({ type:"admin_system" }); });
+  $("nRefresh").addEventListener("click", function(){ send({ type:"admin_nights" }); });
   $("oRefresh").addEventListener("click", function(){ send({ type:"admin_overview" }); });
   ["ovSearch","fMedia","fContent","fNoPass","fPass","fEmpty","fLive","fBlocked"].forEach(function(id){ $(id).addEventListener(id==="ovSearch"?"input":"change", renderOverview); });
   setInterval(function(){ if(authed&&!document.hidden) send({ type:"admin_system" }); }, 20000);

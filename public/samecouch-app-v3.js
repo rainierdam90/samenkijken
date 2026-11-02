@@ -328,6 +328,19 @@
         dc_films:"Films",dc_music:"Muziek",dc_animals:"Dieren & natuur",dc_travel:"Reizen",dc_science:"Wetenschap & tech",dc_education:"Leren",dc_gaming:"Gaming",dc_food:"Eten",dc_sports:"Sport"}
     };
     Object.keys(DISCCOPY).forEach(function(k){ if(I18N[k]) Object.keys(DISCCOPY[k]).forEach(function(j){ I18N[k][j]=DISCCOPY[k][j]; }); });
+    var GROWCOPY={
+      en:{ia_title:"Open SameCouch in your browser",ia_body:"You opened this inside {app}. Video calls and films often don't work in that built-in browser.",ia_open:"Open in browser",ia_ios:"Tap ••• (top right) and choose “Open in browser” or “Open in Safari”.",ia_copied:"Link copied — paste it into Safari or Chrome.",
+        save_title:"Keep your couch 🛋️",save_body:"Put SameCouch on your home screen and get a nudge when someone's on the couch.",save_install:"Add to home screen",save_ios:"Tap the share icon, then “Add to Home Screen”.",
+        next_title:"Same time next week? 📅",next_body:"{when} — everyone can get a reminder.",next_yes:"Plan it",next_other:"Another time",next_planned:"Next movie night: {when}",next_by:"{name} planned the next movie night 📅",cal_add:"Add to calendar",plan_next:"Plan the next movie night",
+        ms_nights:"Movie night number {n} together 🎉",feat_week:"Film of the week",feat_watch:"Watch together",
+        wa_invite:"{name} invites you to the couch 🛋️ Let's watch together on SameCouch — no app or account needed:",share_more:"More…"},
+      nl:{ia_title:"Open SameCouch in je browser",ia_body:"Je hebt dit geopend in {app}. Videobellen en films werken vaak niet in die ingebouwde browser.",ia_open:"Open in browser",ia_ios:"Tik op ••• (rechtsboven) en kies „Open in browser” of „Open in Safari”.",ia_copied:"Link gekopieerd — plak hem in Safari of Chrome.",
+        save_title:"Bewaar jullie bank 🛋️",save_body:"Zet SameCouch op je beginscherm en krijg een seintje als er iemand op de bank zit.",save_install:"Op beginscherm zetten",save_ios:"Tik op het deel-icoon en kies „Zet op beginscherm”.",
+        next_title:"Zelfde tijd volgende week? 📅",next_body:"{when} — iedereen kan een herinnering krijgen.",next_yes:"Plan het",next_other:"Andere tijd",next_planned:"Volgende kijkavond: {when}",next_by:"{name} heeft de volgende kijkavond gepland 📅",cal_add:"In agenda zetten",plan_next:"Plan de volgende kijkavond",
+        ms_nights:"Kijkavond nummer {n} samen 🎉",feat_week:"Film van de week",feat_watch:"Samen kijken",
+        wa_invite:"{name} nodigt je uit op de bank 🛋️ Kijk samen op SameCouch — geen app of account nodig:",share_more:"Meer…"}
+    };
+    Object.keys(GROWCOPY).forEach(function(k){ if(I18N[k]) Object.keys(GROWCOPY[k]).forEach(function(j){ I18N[k][j]=GROWCOPY[k][j]; }); });
     var amOwner=false, roomOwned=false, roomLabel="";
     var landingMode="home";
 
@@ -338,7 +351,11 @@
       for(var i=0;i<list.length;i++){ var c=String(list[i]||"").toLowerCase().slice(0,2); if(LANG_ORDER.indexOf(c)>=0) return c; }
       return "en";
     }
-    var lang = (function(){ try{ return localStorage.getItem("wmt_lang")||""; }catch(e){ return ""; } })();
+    var lang = (function(){
+      var q=""; try{ q=(new URLSearchParams(location.search).get("lang")||"").toLowerCase(); }catch(e){}
+      if(q&&LANG_ORDER.indexOf(q)>=0){ try{ localStorage.setItem("wmt_lang",q); }catch(e){} return q; }   // a translated landing page opens the app in its own language
+      try{ return localStorage.getItem("wmt_lang")||""; }catch(e){ return ""; }
+    })();
     if(!lang||!I18N[lang]||LANG_ORDER.indexOf(lang)<0) lang=detectLang();
     function tr(k){ return (I18N[lang]&&I18N[lang][k]) || I18N.en[k] || k; }
     var langPackState={};
@@ -395,6 +412,7 @@
       setText("pkt_discover",tr("disc_tab")); setText("discoverBtnTxt",tr("disc_tab")); setText("discGo",tr("disc_search")); setText("disc_archive",tr("disc_films")); setText("disc_radio",tr("disc_radio")); setText("disc_peertube",tr("disc_peertube")); setText("radioCardSub",tr("radio_live")); if(typeof updateRadioBtn==="function") updateRadioBtn(); if(typeof renderDiscCats==="function"){ renderDiscCats(); updateDiscMore(); }
       var ds=(typeof discSrc==="string"&&discSrc)||"archive"; if($("discQ")) $("discQ").placeholder=tr("disc_ph_"+ds); setText("discNote",tr("disc_note_"+ds));
       var lp=$("ld_privacy"), lt=$("ld_terms"); if(lp) lp.href=lang==="nl"?"/privacy-nl.html":"/privacy.html"; if(lt) lt.href=lang==="nl"?"/terms-nl.html":"/terms.html";
+      setText("planNextTxt",tr("plan_next")); setText("shareMoreTxt",tr("share_more")); setText("featK",tr("feat_week")); setText("featGo","▶ "+tr("feat_watch"));
     }
 
     /* ===================== Elements ===================== */
@@ -422,9 +440,11 @@
     var myName=(function(){ try{ return localStorage.getItem("wmt_name")||""; }catch(e){ return ""; } })();
     var shareUrl="";
     function initRoom(){ shareUrl=location.href; if(linkText) linkText.textContent=shareUrl; if(roomShow) roomShow.textContent=roomCode; updateShareLinks(); }
+    /* the invite says who is asking — a named invitation gets opened far more often than a bare link */
+    function inviteText(){ var n=String(myName||"").trim(); return (n&&n!==tr("guest"))?tr("wa_invite").replace("{name}",n):tr("wa_msg"); }
     function updateShareLinks(){
       if(!shareUrl) return;
-      var msg=tr("wa_msg")+" "+shareUrl;
+      var msg=inviteText()+" "+shareUrl;
       if(shareWa) shareWa.href="https://wa.me/?text="+encodeURIComponent(msg);
       if(shareMail) shareMail.href="mailto:?subject="+encodeURIComponent(tr("mail_subj"))+"&body="+encodeURIComponent(msg);
     }
@@ -475,7 +495,7 @@
       peer=new Peer(myPeerId, { host:peerCfg.host, port:peerCfg.port, path:peerCfg.path, secure:peerCfg.secure, debug:1, config:{ iceServers:ICE_SERVERS } });
       peer.on("open", function(){
         dbg();
-        if(rt&&rt.readyState===1&&joined){ rtSend({ type:"join", room:roomCode, name:myName, peerId:myPeerId, pass:roomPass, owner:ownerKeyFor(roomCode) }); }   // rebuilt signaling mid-session → re-announce (roster answer re-calls everyone)
+        if(rt&&rt.readyState===1&&joined){ rtSend({ type:"join", room:roomCode, name:myName, peerId:myPeerId, pass:roomPass, owner:ownerKeyFor(roomCode), via:viaTag() }); }   // rebuilt signaling mid-session → re-announce (roster answer re-calls everyone)
         else connectRT();
       });
       peer.on("call", function(call){
@@ -697,7 +717,7 @@
     var audioUnlockArmed=false;
     function armAudioUnlock(){ if(audioUnlockArmed) return; audioUnlockArmed=true; toast(tr("tap_hear"),6000); document.addEventListener("click", function once(){ document.removeEventListener("click",once); Object.keys(peers).forEach(function(id){ var a=peers[id].audioEl; if(a&&a.play) a.play().catch(function(){}); }); }, { once:true }); }
 
-    function updatePresenceStatus(){ var n=Object.keys(peers).length; setStatus(n>0?"connected":"waiting"); if(curCam!=="ok") setCamStatus(curCam); }   // refresh "waiting" ↔ "connecting" as people come and go
+    function updatePresenceStatus(){ var n=Object.keys(peers).length; setStatus(n>0?"connected":"waiting"); if(curCam!=="ok") setCamStatus(curCam); if(typeof nightPresence==="function") nightPresence(); }   // refresh "waiting" ↔ "connecting" as people come and go
     function recomputeAuthority(){ if(shareMode){ isAuthority=false; diag.role="companion (share only)"; return; } isAuthority=!!isHost; diag.role=isAuthority?"host (sync authority)":"guest"; }
 
     /* ---- control plane ---- */
@@ -706,7 +726,7 @@
       clearTimeout(rtRetryTimer); rtRetryTimer=null;
       if(rt){ try{ rt.onclose=null; rt.onmessage=null; rt.close(); }catch(e){} }   // never two live control sockets (a zombie would later broadcast us as "left")
       try{ rt=new WebSocket(rtUrl()); }catch(e){ toast(tr("err_rt"),8000); return; }
-      rt.onopen=function(){ rtReady=true; rtSend({ type:"join", room:roomCode, name:myName, peerId:myPeerId, pass:roomPass, owner:ownerKeyFor(roomCode) }); dbg(); };
+      rt.onopen=function(){ rtReady=true; rtSend({ type:"join", room:roomCode, name:myName, peerId:myPeerId, pass:roomPass, owner:ownerKeyFor(roomCode), via:viaTag() }); dbg(); };
       rt.onmessage=function(ev){ var m; try{ m=JSON.parse(ev.data); }catch(e){ return; } handleRT(m); };
       rt.onclose=function(){ rtReady=false; joined=false; if(!closing){ scheduleConnLost(); setStatus("peer-present"); clearTimeout(rtRetryTimer); rtRetryTimer=setTimeout(function(){ if(!closing) connectRT(); },3000); } };
       rt.onerror=function(){};
@@ -725,6 +745,7 @@
           joined=true; if(m.you&&m.you.name) myName=m.you.name;
           hideConnecting(); if(typeof playIntroZoom==="function") setTimeout(playIntroZoom,200); isHost=!!m.host; amOwner=!!m.owner; roomOwned=!!m.owned; if(typeof m.label==="string") applyRoomLabel(m.label); if(isHost&&!roomOwned){ var ownKey=makeOwnerKey(roomCode); if(ownKey) rtSend({ type:"claim-owner", owner:ownKey }); } hideConnLost(); roomHasPass=!!m.hasPass; if(passModalEl) passModalEl.classList.remove("show"); updateHostControls(); wallKey=m.wallKey||""; if(hasWall) fetchWall(); if(typeof refreshWallDelButtons==="function") refreshWallDelButtons(); roomExpiresAt=m.expiresAt||0; maybeShowExpiryBanner();
           if(typeof setQueueState==="function") setQueueState(m.queue||[]); if(typeof setHighlights==="function") setHighlights(m.highlights||[]);
+          updateShareLinks(); if(m.nextNight&&typeof onNextNight==="function") onNextNight(m.nextNight,true); if(typeof showFeatured==="function") showFeatured();
           if(typeof applyTheme==="function"){ roomDecor=Array.isArray(m.decor)?m.decor:roomDecor; applyTheme(m.theme||"classic"); }
           (m.peers||[]).forEach(function(pp){ if(pp.peerId===myPeerId) return; peers[pp.peerId]=peers[pp.peerId]||{}; peers[pp.peerId].name=pp.name||tr("guest"); schedulePeerHint(pp.peerId); if(shouldInitiate(myPeerId,pp.peerId)) callPeer(pp.peerId); });
           recomputeAuthority(); updatePresenceStatus(); renderCams();
@@ -765,7 +786,9 @@
         case "subtitle": if(m&&typeof m.vtt==="string"&&typeof m.url==="string"){ if(applySubtitlePayload({url:m.url,name:m.name||"subtitles.srt",lang:m.lang||"und",vtt:m.vtt},false)) toast(tr("sub_received"),4500); } break;
         case "iptv-subtitle-track": if(m&&m.subtitle&&currentMedia&&currentMedia.iptv&&m.subtitle.mediaUrl===currentMedia.url){ streamIptvSubtitle(m.subtitle,false); } break;
         case "subclock": applySubClock(m); break;
-        case "iptv-source": if(iptvController) iptvController.setSource(m&&m.source&&m.source.token?m.source:null); break;
+        case "iptv-source": if(iptvController) iptvController.setSource(m&&m.source&&m.source.token?m.source:null); iptvRoomSource=!!(m&&m.source&&m.source.token); updateIptvVisibility(); break;
+        case "milestone": if(m.nights>1){ toast(tr("ms_nights").replace("{n}",m.nights),8000); spawnReaction("🎉","",null); } break;
+        case "next-night": onNextNight(m,false); break;
         case "iptv-source-error": if(iptvController) iptvController.setSource(null); toast(tr("iptv_err_expired"),6500); break;
         case "iptv-nav": if(iptvController) iptvController.applyNavigation(m); break;
         case "video": if(typeof m.url==="string"){
@@ -1482,7 +1505,7 @@
       }).catch(function(e){ toast((e&&e.message==="not_playable")?tr("disc_not_playable"):tr("disc_error"),6500); }).then(function(){ if(btn) btn.classList.remove("busy"); });
     }
     function startDiscover(src,d,it){
-      var title=String(d.title||it.title||"").slice(0,180), live=!!d.live, dur=+d.duration||0, kind=(src==="radio")?"radio":src;   // "radio" shows the radio card for everyone
+      var title=String(it.title||d.title||"").slice(0,180), live=!!d.live, dur=+d.duration||0, kind=(src==="radio")?"radio":src;   // "radio" shows the radio card for everyone
       applyMedia("file",d.url,kind,{ title:title, live:live, duration:dur });
       if(currentMedia) currentMedia.mine=true;
       rtSend({ type:"video", mode:"file", url:d.url, id:kind, title:title, live:live, duration:dur });
@@ -3334,29 +3357,39 @@
     function calDates(ms){ function f(d){ return d.getUTCFullYear()+pad2(d.getUTCMonth()+1)+pad2(d.getUTCDate())+"T"+pad2(d.getUTCHours())+pad2(d.getUTCMinutes())+"00Z"; } return { start:f(new Date(ms)), end:f(new Date(ms+2*3600*1000)) }; }
     function gcalUrl(info){ var cd=calDates(info.at); return "https://calendar.google.com/calendar/render?action=TEMPLATE&text="+encodeURIComponent(tr("cal_event")+": "+info.title)+"&dates="+cd.start+"/"+cd.end+"&details="+encodeURIComponent(info.url); }
     function downloadIcs(info){ var cd=calDates(info.at);
-      var ics=["BEGIN:VCALENDAR","VERSION:2.0","PRODID:-//SameCouch//EN","BEGIN:VEVENT","UID:"+info.code+"@samecouch.com","DTSTAMP:"+calDates(Date.now()).start,"DTSTART:"+cd.start,"DTEND:"+cd.end,"SUMMARY:"+tr("cal_event")+": "+info.title,"DESCRIPTION:"+info.url,"URL:"+info.url,"END:VEVENT","END:VCALENDAR"].join("\r\n");
+      var ics=["BEGIN:VCALENDAR","VERSION:2.0","PRODID:-//SameCouch//EN","BEGIN:VEVENT","UID:"+info.code+"-"+info.at+"@samecouch.com","DTSTAMP:"+calDates(Date.now()).start,"DTSTART:"+cd.start,"DTEND:"+cd.end,"SUMMARY:"+tr("cal_event")+": "+info.title,"DESCRIPTION:"+info.url,"URL:"+info.url,"END:VEVENT","END:VCALENDAR"].join("\r\n");
       var a=document.createElement("a"); a.href="data:text/calendar;charset=utf-8,"+encodeURIComponent(ics); a.download="watch-party.ics"; document.body.appendChild(a); a.click(); setTimeout(function(){ a.remove(); },120);
     }
     var schedModal=$("schedModal"), schWhen=$("schWhen"), schWhat=$("schWhat"), schCreate=$("schCreate"), schStep1=$("schStep1"), schStep2=$("schStep2"), schLink=$("schLink"), schCopy=$("schCopy"), schGoNow=$("schGoNow"), schX=$("schedX"), schGcal=$("schGcal"), schIcs=$("schIcs");
-    var schedInfo=null;
-    function openSched(){
+    var schedInfo=null, schedRoom="";
+    /* opts.room plans the next night in the room you are in (same link); without it a new room is made */
+    function openSched(opts){
       if(!schedModal) return;
-      var d=new Date(Date.now()+3600*1000); d.setSeconds(0,0);
+      opts=(opts&&opts.at)?opts:{};   // a click passes an Event
+      schedRoom=opts.room||"";
+      var d=new Date(opts.at||Date.now()+3600*1000); d.setSeconds(0,0);
       if(schWhen) schWhen.value=d.getFullYear()+"-"+pad2(d.getMonth()+1)+"-"+pad2(d.getDate())+"T"+pad2(d.getHours())+":"+pad2(d.getMinutes());
+      if(schWhat&&opts.at) schWhat.value=opts.title||"";
       if(schStep1) schStep1.style.display=""; if(schStep2) schStep2.style.display="none";
+      schedModal.classList.add("show");
+    }
+    function showSchedDone(info, sameRoom){
+      schedInfo=info;
+      if(schLink) schLink.value=info.url;
+      if(schGcal) schGcal.href=gcalUrl(info);
+      setInviteShare($("schWa"), $("schMail"), info);
+      ensureConfig().then(function(){ if($("schRemind")) $("schRemind").style.display=hasPush?"":"none"; });
+      if(schGoNow) schGoNow.style.display=sameRoom?"none":"";
+      if(schStep1) schStep1.style.display="none"; if(schStep2) schStep2.style.display="";
       schedModal.classList.add("show");
     }
     function createInvite(){
       var v=schWhen&&schWhen.value; var ms=v?new Date(v).getTime():0;
       if(!ms||ms<Date.now()-60000){ toast(tr("sch_pasttime")); return; }
       var title=(schWhat&&schWhat.value.trim())||tr("sch_default_title");
-      var code=rand5()+rand5();
-      schedInfo={ code:code, at:ms, title:title, url:buildSchedLink(code,ms,title) };
-      if(schLink) schLink.value=schedInfo.url;
-      if(schGcal) schGcal.href=gcalUrl(schedInfo);
-      setInviteShare($("schWa"), $("schMail"), schedInfo);
-      ensureConfig().then(function(){ if($("schRemind")) $("schRemind").style.display=hasPush?"":"none"; });
-      if(schStep1) schStep1.style.display="none"; if(schStep2) schStep2.style.display="";
+      var code=schedRoom||(rand5()+rand5());
+      if(schedRoom) announceNextNight(ms,title);
+      showSchedDone({ code:code, at:ms, title:title, url:buildSchedLink(code,ms,title) }, !!schedRoom);
     }
     function fmtWhen(ms){ try{ return new Date(ms).toLocaleString(lang||"en",{ dateStyle:"medium", timeStyle:"short" }); }catch(e){ return new Date(ms).toLocaleString(); } }   // follow the chosen language (nl → 24h + DD-MM), not the browser default
     function inviteMsg(info){ return tr("wa_msg")+" \""+info.title+"\" — "+fmtWhen(info.at)+"\n"+info.url; }
@@ -3434,6 +3467,141 @@
     if($("notifyMeBtn")) $("notifyMeBtn").addEventListener("click", function(){ notifyMe($("notifyMeBtn")); });
     ensureConfig().then(function(){ if(hasPush && $("notifyMeBtn") && !shareMode) $("notifyMeBtn").style.display=""; });
 
+    /* ===================== Growth: nudges, keep the couch, plan the next night ===================== */
+    /* one small card at the bottom of the screen — for suggestions that must never block the film */
+    var nudgeEl=null, nudgeTimer=null;
+    function hideNudge(){ clearTimeout(nudgeTimer); if(nudgeEl) nudgeEl.classList.remove("show"); }
+    function showNudge(o){
+      if(!nudgeEl){ nudgeEl=document.createElement("div"); nudgeEl.className="nudge"; nudgeEl.setAttribute("role","status"); document.body.appendChild(nudgeEl); }
+      nudgeEl.innerHTML="";
+      var x=document.createElement("button"); x.type="button"; x.className="nudge-x"; x.setAttribute("aria-label","Close"); x.textContent="×"; x.addEventListener("click",hideNudge); nudgeEl.appendChild(x);
+      var t=document.createElement("div"); t.className="nudge-t"; t.textContent=o.title; nudgeEl.appendChild(t);
+      if(o.body){ var b=document.createElement("div"); b.className="nudge-b"; b.textContent=o.body; nudgeEl.appendChild(b); }
+      var row=document.createElement("div"); row.className="nudge-a";
+      (o.actions||[]).forEach(function(a){ if(!a) return; var btn=document.createElement("button"); btn.type="button"; btn.className="btn"+(a.primary?" primary":""); btn.textContent=a.label; btn.addEventListener("click",function(){ if(!a.keep) hideNudge(); a.fn(btn); }); row.appendChild(btn); });
+      nudgeEl.appendChild(row);
+      requestAnimationFrame(function(){ nudgeEl.classList.add("show"); });
+      clearTimeout(nudgeTimer); if(o.ttl) nudgeTimer=setTimeout(hideNudge,o.ttl);
+    }
+
+    /* Links opened from Instagram, TikTok, Facebook… land in that app's own browser, where camera and
+       video often fail without a clear error. Say so once, with a way out. */
+    function inAppName(){
+      var ua=navigator.userAgent||"", list=[["Instagram",/Instagram/i],["Facebook",/FBAN|FBAV|FB_IAB|FBIOS/i],["TikTok",/musical_ly|BytedanceWebview|TikTok|trill_/i],["Snapchat",/Snapchat/i],["LinkedIn",/LinkedInApp/i],["LINE",/\bLine\//],["WeChat",/MicroMessenger/i],["Pinterest",/Pinterest/i]];
+      for(var i=0;i<list.length;i++){ if(list[i][1].test(ua)) return list[i][0]; }
+      return "";
+    }
+    function showInAppHint(){
+      var app=inAppName(); if(!app) return;
+      try{ if(sessionStorage.getItem("wmt_ia_seen")) return; sessionStorage.setItem("wmt_ia_seen","1"); }catch(e){}
+      var android=/Android/i.test(navigator.userAgent||""), url=location.href;
+      showNudge({ title:tr("ia_title"), body:tr("ia_body").replace("{app}",app)+(android?"":" "+tr("ia_ios")), actions:[
+        android?{ label:tr("ia_open"), primary:true, fn:function(){ location.href="intent://"+location.host+location.pathname+location.search+"#Intent;scheme=https;package=com.android.chrome;S.browser_fallback_url="+encodeURIComponent(url)+";end"; } }:null,
+        { label:tr("copy"), primary:!android, keep:true, fn:function(){ if(navigator.clipboard&&navigator.clipboard.writeText) navigator.clipboard.writeText(url).then(function(){ toast(tr("ia_copied"),6000); }).catch(function(){ toast(url,9000); }); else toast(url,9000); } }
+      ]});
+    }
+
+    /* IPTV is for people who bring their own subscription: it is not shown to new visitors. A device
+       that has used it (remembered login) keeps it; any other device opens samecouch.com/?iptv=1 once
+       (?iptv=0 hides it again). Guests still see it while someone in their room has a provider connected. */
+    var IPTV_FLAG="wmt_iptv_on", iptvRoomSource=false;
+    function iptvUnlocked(){ try{ return localStorage.getItem(IPTV_FLAG)==="1"||!!localStorage.getItem("wmt_iptv_login_v1"); }catch(e){ return false; } }
+    /* campaign tag (?via=producthunt or ?utm_source=…): counted once per landing, remembered for 30 days
+       so a room created later is attributed to the channel that brought this person in */
+    function readVia(){
+      var v=String(params.get("via")||params.get("utm_source")||"").toLowerCase().replace(/[^a-z0-9_-]/g,"").slice(0,24);
+      if(v.length<2) return;
+      try{ localStorage.setItem("wmt_via",JSON.stringify({ v:v, t:Date.now() })); }catch(e){}
+      try{ fetch(httpBase()+"/via?c="+encodeURIComponent(v),{ method:"POST", keepalive:true }).catch(function(){}); }catch(e){}
+    }
+    function viaTag(){ try{ var o=JSON.parse(localStorage.getItem("wmt_via")||"null"); return (o&&o.v&&Date.now()-o.t<30*86400000)?o.v:""; }catch(e){ return ""; } }
+    function readUrlSwitches(){
+      readVia();
+      var q=params.get("iptv"), tagged=["via","utm_source","utm_medium","utm_campaign","utm_content","utm_term"].some(function(k){ return params.has(k); });
+      if(q===null&&!params.has("lang")&&!tagged) return;
+      if(q!==null){ try{ if(q==="0"||q==="off") localStorage.removeItem(IPTV_FLAG); else localStorage.setItem(IPTV_FLAG,"1"); }catch(e){} }
+      ["iptv","lang","via","utm_source","utm_medium","utm_campaign","utm_content","utm_term"].forEach(function(k){ params.delete(k); }); var qs=params.toString();   // ?lang= was already applied (and remembered) when the page loaded
+      try{ history.replaceState(null,"",location.pathname+(qs?"?"+qs:"")+location.hash); }catch(e){}   // never pass the switch on through a shared room link
+    }
+    function updateIptvVisibility(){ document.body.classList.toggle("iptv-off", !(hasIptv&&(iptvUnlocked()||iptvRoomSource))); }
+    ensureConfig().then(updateIptvVisibility);
+
+    /* A "couch night" is the time this device spent with at least one other person in the room. It
+       drives the two moments that bring people back: keeping the couch (home screen + "someone's here"
+       push) and planning the next night before everyone drifts off. */
+    var nightSince=0, nightMs=0, nightStartAt=0, nextNight=null, nextToastShown=false;
+    function nightTotal(){ return nightMs+(nightSince?Date.now()-nightSince:0); }
+    function nightPresence(){
+      var n=Object.keys(peers).length;
+      if(placeholder) placeholder.classList.toggle("alone", n===0);
+      if(n>0&&!nightSince){ nightSince=Date.now(); if(!nightStartAt) nightStartAt=nightSince; }
+      else if(n===0&&nightSince){ nightMs+=Date.now()-nightSince; nightSince=0; if(nightMs>=30*60000) offerNextNight(); }
+    }
+    function nextWeekAt(){ var d=new Date((nightStartAt||Date.now())+7*86400000); d.setMinutes(Math.round(d.getMinutes()/15)*15,0,0); return d.getTime(); }
+    function offerNextNight(){
+      if(shareMode||!roomCode) return;
+      if(nextNight&&nextNight.at>Date.now()) return;
+      var k="wmt_next_"+roomCode; try{ if(Date.now()-(+localStorage.getItem(k)||0)<6*86400000) return; localStorage.setItem(k,String(Date.now())); }catch(e){ return; }
+      var at=nextWeekAt();
+      showNudge({ title:tr("next_title"), body:tr("next_body").replace("{when}",fmtWhen(at)), actions:[
+        { label:tr("next_yes"), primary:true, fn:function(){ var title=roomLabel||tr("sch_default_title"); announceNextNight(at,title); showSchedDone({ code:roomCode, at:at, title:title, url:buildSchedLink(roomCode,at,title) }, true); } },
+        { label:tr("next_other"), fn:function(){ openSched({ room:roomCode, at:at, title:roomLabel||"" }); } }
+      ]});
+    }
+    function announceNextNight(at,title){ nextNight={ at:at, title:title, by:myName }; rtSend({ type:"next-night", at:at, title:title }); }
+    function onNextNight(n, replay){
+      if(!n||!(n.at>Date.now())) return;
+      nextNight={ at:n.at, title:n.title||"", by:n.by||"" };
+      var title=n.title||roomLabel||tr("sch_default_title"), info={ code:roomCode, at:n.at, title:title, url:buildSchedLink(roomCode,n.at,title) };
+      if(replay){ if(!nextToastShown){ nextToastShown=true; setTimeout(function(){ toast(tr("next_planned").replace("{when}",fmtWhen(n.at)),6000); },2500); } return; }
+      showNudge({ title:tr("next_by").replace("{name}",n.by||tr("others")), body:tr("next_planned").replace("{when}",fmtWhen(n.at)), ttl:45000, actions:[
+        hasPush?{ label:tr("remind"), primary:true, fn:function(){ remindMe(info); } }:null,
+        { label:tr("cal_add"), primary:!hasPush, fn:function(){ downloadIcs(info); } }
+      ]});
+    }
+    /* a finished film (not a clip) after a real evening together is the natural moment to plan the next one */
+    movie.addEventListener("ended", function(){ if((+movie.duration||0)>=20*60&&Object.keys(peers).length>0&&nightTotal()>=15*60000) offerNextNight(); });
+    if($("planNextBtn")) $("planNextBtn").addEventListener("click", function(){ openSched({ room:roomCode, at:(nextNight&&nextNight.at>Date.now())?nextNight.at:nextWeekAt(), title:roomLabel||"" }); });
+
+    /* after a good first evening: put the couch on the home screen and switch on "tell me when someone's here" */
+    var deferredInstall=null;
+    window.addEventListener("beforeinstallprompt", function(e){ e.preventDefault(); deferredInstall=e; });
+    window.addEventListener("appinstalled", function(){ deferredInstall=null; });
+    function isStandalone(){ try{ return matchMedia("(display-mode: standalone)").matches||navigator.standalone===true; }catch(e){ return false; } }
+    function isIOS(){ var ua=navigator.userAgent||""; return /iPad|iPhone|iPod/.test(ua)||(navigator.platform==="MacIntel"&&navigator.maxTouchPoints>1); }
+    function offerSaveCouch(){
+      if(shareMode||!roomCode) return;
+      var k="wmt_saved_"+roomCode; try{ if(localStorage.getItem(k)) return; }catch(e){ return; }
+      var nb=$("notifyMeBtn");
+      var canInstall=!isStandalone()&&!!(deferredInstall||(isIOS()&&!inAppName()));
+      var canNotify=hasPush&&!(nb&&nb.disabled)&&("PushManager" in window)&&("Notification" in window)&&Notification.permission!=="denied";
+      if(!canInstall&&!canNotify) return;
+      try{ localStorage.setItem(k,String(Date.now())); }catch(e){}
+      showNudge({ title:tr("save_title"), body:tr("save_body"), actions:[
+        canInstall?{ label:tr("save_install"), primary:true, keep:!deferredInstall, fn:function(){ if(deferredInstall){ var p=deferredInstall; deferredInstall=null; p.prompt(); } else toast(tr("save_ios"),9000); } }:null,
+        canNotify?{ label:tr("notify_me"), primary:!canInstall, fn:function(){ notifyMe(nb); } }:null
+      ]});
+    }
+    setInterval(function(){ if(joined&&nightTotal()>=20*60000) offerSaveCouch(); },60000);
+
+    /* Film of the week (a public-domain classic, the same for everyone that week) on the empty stage */
+    var featured=null, featReq=null;
+    function showFeatured(){
+      var pn=$("planNextBtn"); if(pn) pn.style.display=shareMode?"none":"";
+      var card=$("featCard"); if(!card||shareMode) return;
+      if(!featReq) featReq=fetch(httpBase()+"/discover/featured").then(function(r){ return r.ok?r.json():null; }).catch(function(){ return null; });
+      featReq.then(function(f){
+        if(!f||!f.id) return; featured=f;
+        if($("featImg")) $("featImg").src=f.thumb||""; setText("featT",f.title||""); setText("featM",f.meta||"");
+        card.hidden=false;
+      });
+    }
+    if($("featCard")) $("featCard").addEventListener("click", function(){ if(featured) playDiscover("archive", featured, $("featCard")); });
+    if($("shareMore")&&navigator.share){
+      $("shareMore").hidden=false;
+      $("shareMore").addEventListener("click", function(){ trackShare(); navigator.share({ title:"SameCouch", text:inviteText(), url:shareUrl }).catch(function(){}); });
+    }
+
     /* ===================== Feature: room password (host-controlled) ===================== */
     var roomPass="", isHost=false, roomHasPass=false, passMode="enter", passModalEl=$("passModal");
     function updateHostControls(){ var tsb=$("topSettingsBtn"); if(tsb) tsb.style.display=(isHost&&!shareMode)?"":"none"; var b=$("roomLockBtn"); if(b){ b.style.display=(isHost&&!shareMode)?"":"none"; var t=$("roomLockTxt"); if(t) t.textContent=tr("room_settings_btn"); } var wb=$("wallLockBtn"); if(wb){ wb.style.display=(isHost&&!shareMode)?"":"none"; var wt=$("wallLockTxt"); if(wt) wt.textContent=tr("room_settings_btn"); } var pk=$("peerKick"); if(pk) pk.style.display=(isHost&&!shareMode)?"":"none"; }
@@ -3457,7 +3625,7 @@
       if(v===(roomLabel||"")){ setText("passNameMsg",""); return; }
       setText("passNameMsg",tr("rename_saving")); rtSend({ type:"room-rename", label:v });
     }
-    function passSubmit(){ var v=($("passInput")&&$("passInput").value)||""; if(passMode==="enter"){ if(!v){ setText("passErr",tr("pass_wrong")); return; } roomPass=v; rtSend({ type:"join", room:roomCode, name:myName, peerId:myPeerId, pass:roomPass, owner:ownerKeyFor(roomCode) }); } else { rtSend({ type:"set-pass", password:v }); if(passModalEl) passModalEl.classList.remove("show"); } }
+    function passSubmit(){ var v=($("passInput")&&$("passInput").value)||""; if(passMode==="enter"){ if(!v){ setText("passErr",tr("pass_wrong")); return; } roomPass=v; rtSend({ type:"join", room:roomCode, name:myName, peerId:myPeerId, pass:roomPass, owner:ownerKeyFor(roomCode), via:viaTag() }); } else { rtSend({ type:"set-pass", password:v }); if(passModalEl) passModalEl.classList.remove("show"); } }
     if($("roomLockBtn")) $("roomLockBtn").addEventListener("click", openRoomSettings);
     if($("topSettingsBtn")) $("topSettingsBtn").addEventListener("click", openRoomSettings);   // reachable while something is playing (the welcome card is gone then)
     if($("passNameSave")) $("passNameSave").addEventListener("click", submitRename);
@@ -3600,7 +3768,7 @@
     if($("wallWatchBtn")) $("wallWatchBtn").addEventListener("click", function(){ openPicker(); });
     if($("wallInviteBtn")) $("wallInviteBtn").addEventListener("click", function(){
       trackShare();
-      if(navigator.share){ navigator.share({ title:"SameCouch", text:tr("wa_msg"), url:shareUrl }).catch(function(){}); }
+      if(navigator.share){ navigator.share({ title:"SameCouch", text:inviteText(), url:shareUrl }).catch(function(){}); }
       else copyText(shareUrl);
     });
     if($("wallLockBtn")) $("wallLockBtn").addEventListener("click", function(){ openRoomSettings(); });
@@ -3880,7 +4048,9 @@
     }
 
     (function start(){
+      readUrlSwitches(); updateIptvVisibility();
       fillLangSelect($("langSel")); fillLangSelect($("langSelL")); applyLang(); applyCamSize(); setupIptvClient();
+      setTimeout(showInAppHint, 1200);
       if(ldName&&myName) ldName.value=myName;
       // phone companion via scanned QR: join this room without a camera, go straight to sharing
       if(roomCode && params.get("share")==="1"){

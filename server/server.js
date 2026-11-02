@@ -798,6 +798,19 @@ app.post("/push-subscribe", async (req, res) => {
   res.json({ ok: true });
 });
 
+/* ---- where visitors come from: a campaign tag in the link (?via=producthunt, ?utm_source=…), counted
+   per day — no IP, no cookie. A room created after such a visit remembers the tag, so couch nights can
+   be attributed to the channel that brought the couch in. ---- */
+const viaLimiter = makeLimiter(20, 10 * 60 * 1000);
+function cleanVia(v) { const s = String(v || "").toLowerCase().replace(/[^a-z0-9_-]/g, "").slice(0, 24); return s.length >= 2 ? s : ""; }
+app.options("/via", (req, res) => { cors(req, res); res.setHeader("Access-Control-Allow-Methods", "POST,OPTIONS"); res.sendStatus(204); });
+app.post("/via", (req, res) => {
+  cors(req, res);
+  const via = cleanVia(req.query.c);
+  if (via && viaLimiter(clientIp(req))) store.addViaVisit(todayStr(), via);
+  res.sendStatus(204);
+});
+
 /* ---- "Tell me when the room comes alive": store a push sub per room, fire when an empty room gets its first arrival ---- */
 const roomSubs = new Map();        // roomCode -> Map(endpoint -> { sub, name })
 const roomNotifiedAt = new Map();  // roomCode -> ts (cooldown so we don't spam)
@@ -1077,6 +1090,83 @@ function metricsSnapshot() {
 function rosterArr(room) {
   const a = []; room.members.forEach(v => a.push({ peerId: v.peerId, name: v.name })); return a;
 }
+
+/* ---- couch nights: two or more people together in one room (aggregate, privacy-friendly) ----
+   A night starts when a second person arrives and ends 3 minutes after the room drops below two,
+   so a network blip doesn't split one evening in two. Only a salted hash of the room code, the day,
+   the length and the head-count are kept — never names, IP addresses or what was watched. */
+const NIGHT_MIN_MS = +process.env.NIGHT_MIN_MS || 5 * 60000, NIGHT_GRACE_MS = +process.env.NIGHT_GRACE_MS || 3 * 60000, NIGHT_KEEP_DAYS = 400;   // env overrides are for tests
+const NIGHT_MILESTONES = [3, 5, 10, 25, 50, 100, 250, 500];
+let nightsClosing = false;
+function nightKey(code) { return crypto.createHmac("sha256", WALL_TOKEN_SECRET).update("night|" + code).digest("hex").slice(0, 24); }
+function finishNight(r, night) {
+  if (night.since) { night.activeMs += Date.now() - night.since; night.since = 0; }
+  clearTimeout(night.timer);
+  if (r._night === night) r._night = null;
+  if (night.activeMs >= NIGHT_MIN_MS) store.addNight({ roomHash: night.key, day: night.day, startedAt: night.startedAt, durationMs: night.activeMs, peak: night.peak, played: night.played, via: night.via });
+}
+function nightCheck(code, r) {
+  if (nightsClosing) return;
+  const n = r.members.size, now = Date.now(), night = r._night;
+  if (n >= 2) {
+    if (night) {
+      if (!night.since) { clearTimeout(night.timer); night.timer = null; night.since = now; }   // back together within the grace period
+      night.peak = Math.max(night.peak, n);
+      return;
+    }
+    const fresh = r._night = { key: nightKey(code), day: todayStr(), startedAt: now, since: now, activeMs: 0, peak: n, played: !!(r.media && r.media.url), via: r.via || "", timer: null };
+    /* "movie night number N together" — counted in distinct days, announced once per day */
+    store.nightDays(fresh.key, NIGHT_MIN_MS, fresh.day).then(c => {
+      const nth = c.days + 1;
+      if (!c.today && r._night === fresh && NIGHT_MILESTONES.includes(nth)) broadcastRoom(r, { type: "milestone", nights: nth });
+    }).catch(() => {});
+    return;
+  }
+  if (night && night.since) {   // dropped below two → wait a little before calling it a night
+    night.activeMs += now - night.since; night.since = 0;
+    night.timer = setTimeout(() => finishNight(r, night), NIGHT_GRACE_MS);
+    if (night.timer.unref) night.timer.unref();
+  }
+}
+function flushNights() { nightsClosing = true; rooms.forEach(r => { if (r._night) finishNight(r, r._night); }); }
+async function nightsReport() {
+  const now = Date.now(), D = 86400000;
+  const [rows, firsts, landings] = await Promise.all([store.nightsSince(now - 60 * D, NIGHT_MIN_MS), store.nightFirsts(NIGHT_MIN_MS), store.viaVisits(new Date(now - 30 * D).toISOString().slice(0, 10))]);
+  const firstOf = new Map(firsts.map(f => [f.roomHash, f.first]));
+  const byDay = new Map(), byRoom = new Map();
+  rows.forEach(n => {
+    let list = byRoom.get(n.roomHash); if (!list) byRoom.set(n.roomHash, list = []); list.push(n);
+    if (n.startedAt < now - 30 * D) return;
+    let d = byDay.get(n.day); if (!d) byDay.set(n.day, d = { day: n.day, nights: 0, couches: new Set(), ms: 0 });
+    d.nights++; d.couches.add(n.roomHash); d.ms += n.durationMs;
+  });
+  const week = rows.filter(n => n.startedAt >= now - 7 * D), weekCouches = new Set(week.map(n => n.roomHash));
+  let newCouches = 0; weekCouches.forEach(h => { if ((firstOf.get(h) || 0) >= now - 7 * D) newCouches++; });
+  /* 7-day return: of the couches whose first night was 7–37 days ago, how many met again on another day within a week */
+  let cohort = 0, returned = 0;
+  byRoom.forEach((list, h) => {
+    const first = firstOf.get(h) || 0;
+    if (first < now - 37 * D || first > now - 7 * D) return;
+    cohort++;
+    const firstDay = new Date(first).toISOString().slice(0, 10);
+    if (list.some(n => n.day !== firstDay && n.startedAt > first && n.startedAt <= first + 7 * D)) returned++;
+  });
+  /* per channel, last 30 days: landings with the tag, and the couch nights of rooms created after such a visit */
+  const channels = new Map(), chan = v => { let c = channels.get(v); if (!c) channels.set(v, c = { via: v, landings: 0, nights: 0, couches: new Set() }); return c; };
+  landings.forEach(l => { chan(l.via).landings += l.n; });
+  rows.forEach(n => { if (n.via && n.startedAt >= now - 30 * D) { const c = chan(n.via); c.nights++; c.couches.add(n.roomHash); } });
+  const avgMin = list => list.length ? Math.round(list.reduce((s, n) => s + n.durationMs, 0) / list.length / 60000) : 0;
+  return {
+    week: { nights: week.length, couches: weekCouches.size, newCouches, returningCouches: weekCouches.size - newCouches, avgMin: avgMin(week),
+      withVideo: week.length ? Math.round(week.filter(n => n.played).length / week.length * 100) : 0,
+      groups3: week.length ? Math.round(week.filter(n => n.peak >= 3).length / week.length * 100) : 0 },
+    returnRate: { cohort, returned, pct: cohort ? Math.round(returned / cohort * 100) : null },
+    repeatCouches: firsts.filter(f => f.days >= 2).length, totalCouches: firsts.length,
+    channels: [...channels.values()].map(c => ({ via: c.via, landings: c.landings, nights: c.nights, couches: c.couches.size })).sort((a, b) => b.nights - a.nights || b.landings - a.landings),
+    days: [...byDay.values()].sort((a, b) => (a.day < b.day ? 1 : -1)).map(d => ({ day: d.day, nights: d.nights, couches: d.couches.size, avgMin: Math.round(d.ms / d.nights / 60000) }))
+  };
+}
+setInterval(() => store.pruneNights(Date.now() - NIGHT_KEEP_DAYS * 86400000), 12 * 3600000).unref();
 function sendJSON(ws, obj) { if (ws.readyState === 1) { try { ws.send(JSON.stringify(obj)); } catch (e) {} } }
 function broadcastRoom(room, obj, exceptWs) { room.members.forEach((v, w) => { if (w !== exceptWs) sendJSON(w, obj); }); }
 
@@ -1119,6 +1209,7 @@ function leaveRoom(ws) {
       if (next) { r.host = next.peerId; broadcastRoom(r, { type: "host", peerId: r.host }); }
     }
     r.lastActivity = Date.now();
+    nightCheck(ws._room, r);
     if (r.members.size === 0 && r.chat.length === 0) rooms.delete(ws._room);
   }
   if (ws._joinedAt) { metrics.sessionsEnded++; metrics.sessionMsTotal += Date.now() - ws._joinedAt; ws._joinedAt = 0; }   // record session length
@@ -1268,6 +1359,10 @@ wss.on("connection", (ws) => {
       sendJSON(ws, { type: "visitors", today: todayStr(), days: await visitorsReport(30) });
       return;
     }
+    if (ws._isAdmin && m.type === "admin_nights") {
+      sendJSON(ws, Object.assign({ type: "nights", ts: Date.now() }, await nightsReport()));
+      return;
+    }
     if (ws._isAdmin && m.type === "admin_watch") {
       const code = String(m.room || "");
       ws._watch = code || null;
@@ -1283,7 +1378,7 @@ wss.on("connection", (ws) => {
       const r = getRoom(code);
       // NOTE: the persisted host peerId is NOT restored — peer ids are random per session, so a stored
       // host can never match anyone again (it made room settings unreachable in existing rooms).
-      if (!r._loadP) { r._loadP = store.getRoom(code).then(row => { if (row) { if (row.passHash) r.pass = row.passHash; if (row.expiresAt) r._expiresAt = row.expiresAt; if (row.theme) r.theme = row.theme; if (row.decor) { try { r.decor = JSON.parse(row.decor); } catch (e) {} } if (row.label) r.label = row.label; if (row.owner) r.owner = row.owner; } }).catch(() => {}); }
+      if (!r._loadP) { r._loadP = store.getRoom(code).then(row => { if (row) { if (row.passHash) r.pass = row.passHash; if (row.expiresAt) r._expiresAt = row.expiresAt; if (row.theme) r.theme = row.theme; if (row.decor) { try { r.decor = JSON.parse(row.decor); } catch (e) {} } if (row.label) r.label = row.label; if (row.owner) r.owner = row.owner; if (row.nextNight) { try { r.nextNight = JSON.parse(row.nextNight); } catch (e) {} } if (row.via) r.via = row.via; } }).catch(() => {}); }
       await r._loadP;   // restore a persisted lock/owner (awaited so the password check sees it; concurrent joins share one load)
       if (blockedRoomCodes.has(code)) { sendJSON(ws, { type: "blocked" }); return; }   // closed by the operator after an abuse report
       const ipKey = roomIpKey(ws._ip), nowJ = Date.now();
@@ -1324,7 +1419,10 @@ wss.on("connection", (ws) => {
       if (isOwner && r.host !== ws._peerId) { r.host = ws._peerId; broadcastRoom(r, { type: "host", peerId: r.host }, ws); }
       else if (!hostLive) {
         r.host = ws._peerId; store.ensureRoom(code, ws._peerId); broadcastRoom(r, { type: "host", peerId: r.host }, ws);
-        if (!r.owner && ownerHash) { r.owner = (await store.claimOwner(code, ownerHash)) || ownerHash; ws._isOwner = safeEqual(ownerHash, r.owner); }   // a new room is claimed by its creator
+        if (!r.owner && ownerHash) {   // a new room is claimed by its creator (and remembers which channel brought them)
+          r.owner = (await store.claimOwner(code, ownerHash)) || ownerHash; ws._isOwner = safeEqual(ownerHash, r.owner);
+          const via = cleanVia(m.via); if (via && !r.via && ws._isOwner) { r.via = via; store.setRoomVia(code, via); }
+        }
       }
       store.touchRoom(code);   // using the room keeps it (and its memories) for another retention period
       if (!r._expiresAt && store.enabled()) r._expiresAt = Date.now() + store.freeDays() * 86400000;   // paywall-era banner date (only sent when PAYWALL=on)
@@ -1332,8 +1430,9 @@ wss.on("connection", (ws) => {
       r.lastActivity = Date.now();
       if (!ws._joinedAt) { ws._joinedAt = Date.now(); metrics.joins++; }   // count this session join once
       // tell the joiner who is already here; tell others someone joined
-      sendJSON(ws, { type: "roster", you: { peerId: ws._peerId, name: ws._name }, peers: rosterArr(r), host: r.host === ws._peerId, owner: !!ws._isOwner, owned: !!r.owner, label: r.label || "", hasPass: !!r.pass, expiresAt: PAYWALL_ON ? (r._expiresAt || 0) : 0, theme: r.theme || "", decor: Array.isArray(r.decor) ? r.decor : [], wallKey: wallTokenFor(code), queue: queueState(r), highlights: (r.highlights || []).slice(-100) });
+      sendJSON(ws, { type: "roster", you: { peerId: ws._peerId, name: ws._name }, peers: rosterArr(r), host: r.host === ws._peerId, owner: !!ws._isOwner, owned: !!r.owner, label: r.label || "", hasPass: !!r.pass, expiresAt: PAYWALL_ON ? (r._expiresAt || 0) : 0, theme: r.theme || "", decor: Array.isArray(r.decor) ? r.decor : [], wallKey: wallTokenFor(code), queue: queueState(r), highlights: (r.highlights || []).slice(-100), nextNight: (r.nextNight && r.nextNight.at > Date.now()) ? r.nextNight : null });
       broadcastRoom(r, { type: "peer-joined", peerId: ws._peerId, name: ws._name }, ws);
+      nightCheck(code, r);
       if (r.iptvSource && iptvService.hasSession(r.iptvSource.token)) sendJSON(ws, { type: "iptv-source", source: r.iptvSource });   // hasSession, not publicSession: a join must not renew the TTL
       else if (r.iptvSource) { r.iptvSource = null; r.iptvNav = null; }
       if (r.iptvSource && r.iptvNav) sendJSON(ws, { type: "iptv-nav", ...r.iptvNav });
@@ -1441,6 +1540,16 @@ wss.on("connection", (ws) => {
     }
     if (m.type === "ev") {   // lightweight client analytics events (aggregate only)
       if (m.name === "share") metrics.shares++;
+      return;
+    }
+    /* "same time next week?" — the planned next night is kept with the room and shown to (re)joiners */
+    if (m.type === "next-night") {
+      const at = Math.round(Number(m.at) || 0);
+      if (at < Date.now() || at > Date.now() + 90 * 86400000) return;
+      const title = String(m.title || "").replace(/[\u0000-\u001f]/g, " ").trim().slice(0, 80);
+      r.nextNight = { at, title, by: ws._name };
+      store.setNextNight(ws._room, JSON.stringify(r.nextNight));
+      broadcastRoom(r, { type: "next-night", at, title, by: ws._name }, ws);
       return;
     }
     if (m.type === MSG.REACT) {
@@ -1586,6 +1695,7 @@ wss.on("connection", (ws) => {
       }).filter(sub => /^https?:\/\//i.test(sub.url)) : [];
       if (!r.media || r.media.url !== url || !SUBTITLE_MODES.has(mode)) { r.subtitle = null; r.iptvSubtitle = null; r.subclock = null; }
       r.media = url ? { mode, url, id, title, live, duration, iptv, iptvFallback, iptvSubtitles } : null;   // remember what's playing → replay to (re)joiners so a missed link never stays blank
+      if (url && r._night) r._night.played = true;
       broadcastRoom(r, { type: "video", from: ws._peerId, mode, url, id, title, live, duration, iptv, iptvFallback, iptvSubtitles }, ws);
       return;
     }
@@ -1725,6 +1835,7 @@ setInterval(() => {
    instead of waiting for a ping timeout, then exit. */
 function shutdown(sig) {
   console.log("[shutdown] " + sig + " — closing " + wss.clients.size + " control sockets");
+  try { flushNights(); } catch (e) {}   // a restart must not lose the evenings that are still running
   wss.clients.forEach(ws => { try { ws.close(1012, "restart"); } catch (e) {} });
   try { if (shareUpload) shareUpload.close(); } catch (e) {}
   try { server.close(); } catch (e) {}

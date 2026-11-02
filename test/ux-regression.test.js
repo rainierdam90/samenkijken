@@ -459,3 +459,22 @@ test("fullscreen controls return on activity and auto-hide above subtitles", () 
   assert.match(html, /"mousemove","pointerdown","touchstart"/);
   assert.match(html, /document\.addEventListener\("fullscreenchange",fullscreenStateChanged\)/);
 });
+
+test("growth: IPTV stays out of sight for new visitors, in-app browsers get a way out, nights get planned", () => {
+  /* IPTV: hidden unless this device used it, unlocked it with ?iptv=1, or the room has a provider connected */
+  assert.match(appCss, /body\.iptv-off #iptvBtn\{display:none!important\}/);
+  assert.match(appJs, /function updateIptvVisibility\(\)\{ document\.body\.classList\.toggle\("iptv-off", !\(hasIptv&&\(iptvUnlocked\(\)\|\|iptvRoomSource\)\)\); \}/);
+  assert.match(appJs, /localStorage\.getItem\("wmt_iptv_login_v1"\)/);
+  assert.match(appJs, /readUrlSwitches\(\); updateIptvVisibility\(\);/);
+  assert.match(appJs, /\["iptv","lang","via","utm_source",[^\]]*\]\.forEach\(function\(k\)\{ params\.delete\(k\); \}\)/, "no switch or campaign tag travels along in a shared room link");
+  /* in-app browsers (Instagram, TikTok, Facebook…) */
+  assert.match(appJs, /Instagram",\/Instagram\/i\]/);
+  assert.match(appJs, /intent:\/\/"\+location\.host/);
+  /* the nudges and the planned next night use the room's own link and the server relay */
+  assert.match(appJs, /rtSend\(\{ type:"next-night", at:at, title:title \}\)/);
+  assert.match(appJs, /case "next-night": onNextNight\(m,false\)/);
+  assert.match(appJs, /case "milestone":/);
+  assert.match(appJs, /fetch\(httpBase\(\)\+"\/discover\/featured"\)/);
+  assert.match(publicMarkup, /id="featCard"/); assert.match(publicMarkup, /id="planNextBtn"/); assert.match(publicMarkup, /id="shareMore"/);
+  assert.match(serverSource, /if \(m\.type === "next-night"\)/);
+});

@@ -75,3 +75,15 @@ test("PeerTube: refuses private/bogus hosts and picks the best file up to 720p",
   const live = createDiscover({ blockedIp, lookup: PUBLIC, fetchImpl: fakeFetch({ "https://tube.example/api/v1/videos/": Object.assign({}, video, { isLive: true }) }) });
   await assert.rejects(live._internal.peertubePlay("tube.example/" + uuid), e => e.code === "not_playable");
 });
+
+test("Film of the week: one hand-picked classic for everyone, changing every Monday", () => {
+  const d = createDiscover({ blockedIp, fetchImpl: fakeFetch({}) });
+  const monday = Date.UTC(2026, 10, 2, 12), sunday = Date.UTC(2026, 10, 8, 20), nextMonday = Date.UTC(2026, 10, 9, 1);
+  const a = d._internal.featuredFilm(monday), b = d._internal.featuredFilm(sunday), c = d._internal.featuredFilm(nextMonday);
+  assert.equal(a.id, b.id, "the same film all week");
+  assert.notEqual(a.id, c.id, "a new film next week");
+  assert.match(a.id, /^[A-Za-z0-9_.-]+$/); assert.match(a.meta, /^\d{4} · \d+ min$/);
+  assert.equal(a.thumb, "https://archive.org/services/img/" + a.id);
+  const seen = new Set(); for (let w = 0; w < 60; w++) seen.add(d._internal.featuredFilm(monday + w * 7 * 86400000).id);
+  assert.ok(seen.size >= 15, "the rotation covers the whole list");
+});

@@ -36,7 +36,7 @@
     <a class="lang" href="/privacy-nl.html" hreflang="nl" lang="nl">Nederlands</a>
   </div>
   <h1>Privacy Policy</h1>
-  <p class="upd">Last updated: 30 October 2026</p>
+  <p class="upd">Last updated: 2 November 2026</p>
 
   <p>SameCouch is a free website where you can watch videos together, see and hear each other, chat and keep a shared memories wall. This page explains in plain language what information is involved, why, who else is involved, how long things are kept and what your rights are. It follows the European privacy law (the GDPR, called AVG in the Netherlands).</p>
 
@@ -89,7 +89,7 @@
   <p>If you ask to be notified when someone is in a room, or set a watch-party reminder, we store your browser's push subscription (a technical address for your browser) and your name. This is kept until you turn notifications off, your browser cancels the subscription, or the room is deleted. A reminder is deleted once it has been sent. The notification itself is delivered by your browser maker's push service (for example Google, Apple, Mozilla or Microsoft).</p>
 
   <h3>Visitor statistics</h3>
-  <p>To count how many different visitors we have each day, the server stores a scrambled code made from your IP address (a keyed HMAC hash) that changes every day. We never store your actual IP address for this. These codes are deleted after 120 days. We don't use analytics services or tracking cookies.</p>
+  <p>To count how many different visitors we have each day, the server stores a scrambled code made from your IP address (a keyed HMAC hash) that changes every day. We never store your actual IP address for this. These codes are deleted after 120 days. We also count "couch nights" per room: when two or more people are in a room together for at least five minutes, we keep the date, how long it lasted, how many people were there and whether something was played, linked to a scrambled code of the room (not the room code itself). We don't store names, IP addresses or what was watched with it. This tells us whether people come back. These counts are deleted after 400 days. If you arrive through a link with a campaign tag (such as <code>?via=producthunt</code>), we count that tag per day and your browser remembers it for 30 days, so a room you create afterwards is credited to that channel. Such a tag says nothing about you as a person. We don't use analytics services or tracking cookies.</p>
 
   <h3>Technical logs, security and backups</h3>
   <ul>
@@ -100,7 +100,7 @@
   </ul>
 
   <h3>Saved on your own device</h3>
-  <p>SameCouch uses your browser's local storage — not tracking cookies — to remember: your name, your language, the rooms you visited, the size of the camera tiles, and the keys that let you remove your own wall posts. Only if you tick "Remember login" are your IPTV server, username and password also saved there, in plain text, on that device. Untick it, or clear your browser's site data, to remove them. Do not use "Remember login" on a shared computer. Clips made with "Save this moment" are recorded only on your own device and stay there unless you choose to save or share them yourself; please ask the people in a clip before sharing it. This information stays on your device and is only used to make the features you choose work; you can delete it at any time through your browser settings.</p>
+  <p>SameCouch uses your browser's local storage — not tracking cookies — to remember: your name, your language, the rooms you visited, the size of the camera tiles, whether you have already seen a tip (such as "Keep your couch"), whether IPTV is shown on that device, and the keys that let you remove your own wall posts. Only if you tick "Remember login" are your IPTV server, username and password also saved there, in plain text, on that device. Untick it, or clear your browser's site data, to remove them. Do not use "Remember login" on a shared computer. Clips made with "Save this moment" are recorded only on your own device and stay there unless you choose to save or share them yourself; please ask the people in a clip before sharing it. This information stays on your device and is only used to make the features you choose work; you can delete it at any time through your browser settings.</p>
 
   <h3>Connection check (optional)</h3>
   <p>If you start a connection check, your browser exchanges small test messages with our server and tests the relay server. The test data is thrown away immediately and nothing is recorded.</p>
@@ -115,6 +115,8 @@
     <tr><td>IPTV login</td><td>Server memory only; at most 12 hours</td></tr>
     <tr><td>Push subscription</td><td>Until you turn it off or the room is deleted; reminders until sent</td></tr>
     <tr><td>Daily visitor codes (hashed IP)</td><td>120 days</td></tr>
+    <tr><td>Couch nights (scrambled room code, date, length, number of people)</td><td>400 days</td></tr>
+    <tr><td>Planned next movie night (time, title, name of who planned it)</td><td>With the room, until the room is deleted</td></tr>
     <tr><td>Server access logs</td><td>14 days</td></tr>
     <tr><td>Encrypted database backups</td><td>14 days</td></tr>
   </table>

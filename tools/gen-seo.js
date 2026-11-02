@@ -10,13 +10,14 @@ const fs = require("fs");
 const path = require("path");
 
 const SITE = "https://samecouch.com";
+const { LOCALES, TRANSLATED } = require("./seo-locales");
 const OUT = path.join(__dirname, "..", "public");
 
 /* ---- shared fragments ---- */
 const COMMON_WHAT = {
   h2: "What is SameCouch?",
   paras: [
-    "SameCouch is a private living room in your browser for people who are far apart. You watch YouTube, Vimeo or your own videos in perfect sync, see and hear each other in small floating webcam bubbles, react with emoji, and leave photos and notes on a shared memories wall that's still there the next time you both come back.",
+    "SameCouch is a private living room in your browser for people who are far apart. You watch YouTube, Vimeo, your own videos or free classic films in perfect sync, see and hear each other in small floating webcam bubbles, react with emoji, and leave photos and notes on a shared memories wall that's still there the next time you both come back.",
     "There is no app to install and no account to create. You make a room with one click, send the link on WhatsApp, and you're together — usually in under ten seconds."
   ]
 };
@@ -217,6 +218,7 @@ const PAGES = [
     sections: [
       { h2: "Make it a ritual", bullets: [
         "Schedule your movie night and you'll both get a reminder.",
+        "After the film, plan the same time next week in one tap.",
         "Keep one fixed room link — it becomes 'your place'.",
         "Save reaction clips of the moments that made you laugh.",
         "Leave notes on the memories wall between dates."
@@ -341,8 +343,13 @@ const PAGES = [
 /* ---- template ---- */
 function esc(s){ return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;"); }
 
-function render(p, all) {
+/* p.lang is set on translated pages; group lists every language version of the same page (for hreflang) */
+function render(p, all, group) {
+  const lang = p.lang || "en", L = LOCALES[lang];
   const others = all.filter(x => x.slug !== p.slug);
+  const versions = group || [];
+  const alternates = versions.length > 1 ? versions.map(v => `<link rel="alternate" hreflang="${v.lang}" href="${SITE}/${v.slug}.html" />`).concat(`<link rel="alternate" hreflang="x-default" href="${SITE}/${versions[0].slug}.html" />`).join("\n") + "\n" : "";
+  const langNav = versions.length > 1 ? `<nav class="langs" aria-label="${esc(L.also)}">${esc(L.also)}: ` + versions.filter(v => v.lang !== lang).map(v => `<a href="/${v.slug}.html" hreflang="${v.lang}" lang="${v.lang}">${esc(LOCALES[v.lang].name)}</a>`).join(" · ") + `</nav>` : "";
   const faqLd = {
     "@context": "https://schema.org", "@type": "FAQPage",
     "mainEntity": p.faq.map(f => ({ "@type": "Question", "name": f.q, "acceptedAnswer": { "@type": "Answer", "text": f.a } }))
@@ -355,14 +362,14 @@ function render(p, all) {
   }).join("\n");
 
   return `<!DOCTYPE html>
-<html lang="en">
+<html lang="${lang}">
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>${esc(p.title)}</title>
 <meta name="description" content="${esc(p.desc)}" />
 <link rel="canonical" href="${SITE}/${p.slug}.html" />
-<meta property="og:type" content="article" />
+${alternates}<meta property="og:type" content="article" />
 <meta property="og:site_name" content="SameCouch" />
 <meta property="og:title" content="${esc(p.h1)}" />
 <meta property="og:description" content="${esc(p.desc)}" />
@@ -394,25 +401,27 @@ function render(p, all) {
   .more a:hover{color:var(--amber2);border-color:rgba(244,177,74,.5)}
   footer{margin-top:44px;border-top:1px solid var(--line);padding-top:16px;font-size:12px;color:#6f655c}
   footer a{color:#8a7f74}
+  .langs{margin-top:14px;font-size:12.5px;color:#6f655c}.langs a{color:var(--muted)}
 </style>
 </head>
 <body>
 <main>
   <a class="brand" href="/"><span class="bulb"></span>Same<i>Couch</i></a>
+  ${langNav}
   <div class="kicker">${esc(p.kicker)}</div>
   <h1>${esc(p.h1)}</h1>
   ${p.intro.map(t => `<p>${esc(t)}</p>`).join("\n  ")}
-  <a class="cta" href="/">Create your private room — it's free</a>
-  <div class="ctasub">No app · No sign-up · Works on any phone</div>
+  <a class="cta" href="${lang === "en" ? "/" : "/?lang=" + lang}">${esc(L.cta)}</a>
+  <div class="ctasub">${esc(L.ctasub)}</div>
   ${sections}
-  <h2>Frequently asked questions</h2>
+  <h2>${esc(L.faq)}</h2>
   ${p.faq.map(f => `<div class="faq"><b>${esc(f.q)}</b><span>${esc(f.a)}</span></div>`).join("\n  ")}
-  <a class="cta" href="/">Start watching together now</a>
-  <h2>More ways to be together</h2>
+  <a class="cta" href="${lang === "en" ? "/" : "/?lang=" + lang}">${esc(L.cta2)}</a>
+  <h2>${esc(L.more)}</h2>
   <div class="more">
     ${others.map(o => `<a href="/${o.slug}.html">${esc(o.h1)}</a>`).join("\n    ")}
   </div>
-  <footer><a href="/">SameCouch</a> · <a href="/privacy.html">Privacy</a> · <a href="/terms.html">Terms</a></footer>
+  <footer><a href="/">SameCouch</a> · <a href="${L.privacy[1]}">${esc(L.privacy[0])}</a> · <a href="${L.terms[1]}">${esc(L.terms[0])}</a></footer>
 </main>
 </body>
 </html>
@@ -421,8 +430,16 @@ function render(p, all) {
 
 /* ---- emit pages ---- */
 let written = 0;
+const groupOf = (enSlug) => { const tr = TRANSLATED[enSlug]; if (!tr) return null; return [{ lang: "en", slug: enSlug }].concat(Object.keys(tr).map(l => ({ lang: l, slug: tr[l].slug }))); };
 for (const p of PAGES) {
-  fs.writeFileSync(path.join(OUT, p.slug + ".html"), render(p, PAGES));
+  fs.writeFileSync(path.join(OUT, p.slug + ".html"), render(p, PAGES, groupOf(p.slug)));
+  written++;
+}
+/* translated pages: "more ways" links to the other pages in the same language */
+const localized = [];
+for (const enSlug of Object.keys(TRANSLATED)) for (const l of Object.keys(TRANSLATED[enSlug])) localized.push(Object.assign({ lang: l, base: enSlug }, TRANSLATED[enSlug][l]));
+for (const p of localized) {
+  fs.writeFileSync(path.join(OUT, p.slug + ".html"), render(p, localized.filter(x => x.lang === p.lang), groupOf(p.base)));
   written++;
 }
 
@@ -430,6 +447,7 @@ for (const p of PAGES) {
 const urls = [
   { loc: SITE + "/", pr: "1.0", cf: "weekly" },
   ...PAGES.map(p => ({ loc: `${SITE}/${p.slug}.html`, pr: "0.8", cf: "monthly" })),
+  ...localized.map(p => ({ loc: `${SITE}/${p.slug}.html`, pr: "0.7", cf: "monthly" })),
   { loc: SITE + "/privacy.html", pr: "0.3", cf: "yearly" },
   { loc: SITE + "/terms.html", pr: "0.3", cf: "yearly" },
   { loc: SITE + "/privacy-nl.html", pr: "0.3", cf: "yearly" },

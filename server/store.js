@@ -113,7 +113,14 @@ function makeSqlite() {
     CREATE INDEX IF NOT EXISTS idx_reports_status ON reports (status, ts);
     CREATE TABLE IF NOT EXISTS blocked_rooms (code TEXT PRIMARY KEY, ts INTEGER);
     CREATE TABLE IF NOT EXISTS meta (key TEXT PRIMARY KEY, value TEXT);
+    CREATE TABLE IF NOT EXISTS couch_nights (id INTEGER PRIMARY KEY AUTOINCREMENT, roomHash TEXT, day TEXT, startedAt INTEGER, durationMs INTEGER, peak INTEGER, played INTEGER);
+    CREATE INDEX IF NOT EXISTS idx_nights_room ON couch_nights (roomHash, day);
+    CREATE INDEX IF NOT EXISTS idx_nights_start ON couch_nights (startedAt);
   `);
+  try { db.exec("ALTER TABLE rooms ADD COLUMN nextNight TEXT"); } catch (e) {}      // the next planned watch night (JSON {at,title,by})
+  try { db.exec("ALTER TABLE rooms ADD COLUMN via TEXT"); } catch (e) {}            // campaign tag of the visit that created the room (?via=…)
+  try { db.exec("ALTER TABLE couch_nights ADD COLUMN via TEXT"); } catch (e) {}
+  db.exec("CREATE TABLE IF NOT EXISTS via_visits (day TEXT, via TEXT, n INTEGER, PRIMARY KEY (day, via))");
   /* One-time switch from the old "10 days unless you pay" model (never enforced) to "12 months
      after last use": give every existing room a full retention period from today so nothing that
      people already posted disappears the moment pruning is switched on. */
@@ -126,7 +133,17 @@ function makeSqlite() {
   ready = true;
   console.log("[store] persistence ON (SQLite " + DB_PATH + ")");
   return {
-    async getRoom(code) { try { var r = db.prepare("SELECT passHash, host, expiresAt, theme, decor, label, owner FROM rooms WHERE code=?").get(code); return r ? { passHash: r.passHash, host: r.host, expiresAt: r.expiresAt || 0, theme: r.theme || null, decor: r.decor || null, label: r.label || null, owner: r.owner || null } : null; } catch (e) { return null; } },
+    async getRoom(code) { try { var r = db.prepare("SELECT passHash, host, expiresAt, theme, decor, label, owner, nextNight, via FROM rooms WHERE code=?").get(code); return r ? { passHash: r.passHash, host: r.host, expiresAt: r.expiresAt || 0, theme: r.theme || null, decor: r.decor || null, label: r.label || null, owner: r.owner || null, nextNight: r.nextNight || null, via: r.via || null } : null; } catch (e) { return null; } },
+    async setRoomVia(code, via) { try { db.prepare("UPDATE rooms SET via=? WHERE code=? AND via IS NULL").run(via, code); } catch (e) {} },
+    async addViaVisit(day, via) { try { db.prepare("INSERT INTO via_visits (day, via, n) VALUES (?, ?, 1) ON CONFLICT(day, via) DO UPDATE SET n = n + 1").run(day, via); } catch (e) {} },
+    async viaVisits(sinceDay) { try { return db.prepare("SELECT via, SUM(n) AS n FROM via_visits WHERE day >= ? GROUP BY via").all(sinceDay); } catch (e) { return []; } },
+    async setNextNight(code, json) { try { db.prepare("UPDATE rooms SET nextNight=? WHERE code=?").run(json || null, code); } catch (e) {} },
+    /* couch nights: aggregate usage (salted room hash, day, length, head-count) — no names, IPs or titles */
+    async addNight(n) { try { db.prepare("INSERT INTO couch_nights (roomHash, day, startedAt, durationMs, peak, played, via) VALUES (?, ?, ?, ?, ?, ?, ?)").run(n.roomHash, n.day, n.startedAt, n.durationMs, n.peak, n.played ? 1 : 0, n.via || null); } catch (e) {} },
+    async nightDays(roomHash, minMs, today) { try { var r = db.prepare("SELECT COUNT(DISTINCT day) AS days, COALESCE(SUM(day = ?), 0) AS today FROM couch_nights WHERE roomHash=? AND durationMs>=?").get(today, roomHash, minMs); return { days: r.days || 0, today: r.today || 0 }; } catch (e) { return { days: 0, today: 0 }; } },
+    async nightsSince(ts, minMs) { try { return db.prepare("SELECT roomHash, day, startedAt, durationMs, peak, played, via FROM couch_nights WHERE startedAt>=? AND durationMs>=? ORDER BY startedAt ASC").all(ts, minMs); } catch (e) { return []; } },
+    async nightFirsts(minMs) { try { return db.prepare("SELECT roomHash, MIN(startedAt) AS first, COUNT(DISTINCT day) AS days FROM couch_nights WHERE durationMs>=? GROUP BY roomHash").all(minMs); } catch (e) { return []; } },
+    async pruneNights(before) { try { db.prepare("DELETE FROM couch_nights WHERE startedAt < ?").run(before); } catch (e) {} },
     async touchRoom(code) { try { db.prepare("INSERT INTO rooms (code, createdAt, expiresAt) VALUES (?, ?, ?) ON CONFLICT(code) DO UPDATE SET expiresAt = excluded.expiresAt").run(code, Date.now(), Date.now() + RETENTION_MS); } catch (e) {} },
     async setLabel(code, label) { try { db.prepare("INSERT INTO rooms (code, createdAt, expiresAt, label) VALUES (?, ?, ?, ?) ON CONFLICT(code) DO UPDATE SET label = excluded.label").run(code, Date.now(), Date.now() + RETENTION_MS, label || null); return true; } catch (e) { return false; } },
     /* the first owner key that arrives wins; returns the stored owner hash afterwards */
@@ -252,5 +269,14 @@ module.exports = {
   addRoomSub: (r, e, s, n, l) => impl && impl.addRoomSub ? impl.addRoomSub(r, e, s, n, l) : Promise.resolve(false),
   getRoomSubs: (r) => impl && impl.getRoomSubs ? impl.getRoomSubs(r) : Promise.resolve([]),
   delRoomSub: (r, e) => impl && impl.delRoomSub ? impl.delRoomSub(r, e) : noop(),
-  pruneExpired: () => impl && impl.pruneExpired ? impl.pruneExpired() : noop()
+  pruneExpired: () => impl && impl.pruneExpired ? impl.pruneExpired() : noop(),
+  setNextNight: (c, j) => impl && impl.setNextNight ? impl.setNextNight(c, j) : noop(),
+  addNight: (n) => impl && impl.addNight ? impl.addNight(n) : noop(),
+  nightDays: (h, ms, d) => impl && impl.nightDays ? impl.nightDays(h, ms, d) : Promise.resolve({ days: 0, today: 0 }),
+  nightsSince: (ts, ms) => impl && impl.nightsSince ? impl.nightsSince(ts, ms) : Promise.resolve([]),
+  nightFirsts: (ms) => impl && impl.nightFirsts ? impl.nightFirsts(ms) : Promise.resolve([]),
+  pruneNights: (b) => impl && impl.pruneNights ? impl.pruneNights(b) : noop(),
+  setRoomVia: (c, v) => impl && impl.setRoomVia ? impl.setRoomVia(c, v) : noop(),
+  addViaVisit: (d, v) => impl && impl.addViaVisit ? impl.addViaVisit(d, v) : noop(),
+  viaVisits: (d) => impl && impl.viaVisits ? impl.viaVisits(d) : Promise.resolve([])
 };
