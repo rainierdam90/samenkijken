@@ -87,3 +87,28 @@ test("Film of the week: one hand-picked classic for everyone, changing every Mon
   const seen = new Set(); for (let w = 0; w < 60; w++) seen.add(d._internal.featuredFilm(monday + w * 7 * 86400000).id);
   assert.ok(seen.size >= 15, "the rotation covers the whole list");
 });
+
+test("Discover rides out a slow or failing Internet Archive: one retry, then the last good list", async () => {
+  let calls = 0, mode = "flaky";
+  const docs = [{ identifier: "a_film", title: "A film" }];
+  const fetchImpl = async () => {
+    calls++;
+    if (mode === "down" || (mode === "flaky" && calls === 1)) return { ok: false, status: 503, text: async () => "" };
+    return { ok: true, status: 200, text: async () => JSON.stringify({ response: { docs } }) };
+  };
+  const d = createDiscover({ blockedIp, fetchImpl });
+  const first = await d._internal.archiveSearch("", 1, "western");   // the first attempt fails, the quiet retry succeeds
+  assert.equal(first.items[0].id, "a_film"); assert.equal(calls, 2);
+
+  const realNow = Date.now; let now = realNow();
+  Date.now = () => now;
+  try {
+    const key = "ia||western|1", load = () => d._internal.archiveSearch("", 1, "western");
+    await d._internal.cached(key, load);
+    mode = "down"; now += 11 * 60000;   // past the fresh window, and archive.org is down
+    const served = await d._internal.cached(key, load);
+    assert.deepEqual(served, first, "the remembered list is served instantly instead of an error");
+    now += 25 * 3600000;   // after a day without a successful refresh the error does surface
+    await assert.rejects(d._internal.cached(key, load));
+  } finally { Date.now = realNow; }
+});

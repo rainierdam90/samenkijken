@@ -584,5 +584,9 @@
 "feat_week": "Pelikula ng linggo",
 "feat_watch": "Manood nang sabay",
 "wa_invite": "Iniimbitahan ka ni {name} sa sofa 🛋️ Manood tayo nang sabay sa SameCouch — walang app o account:",
-"share_more": "Iba pa…"
+"share_more": "Iba pa…",
+"pick_lead_youtube": "Mag-paste ng YouTube link — sabay-sabay na manonood ang lahat.",
+"pick_lead_vimeo": "Mag-paste ng Vimeo link — sabay-sabay na manonood ang lahat.",
+"pick_lead_url": "Ang direktang link sa video file (.mp4 o .webm) ay gagana para sa lahat.",
+"pick_lead_device": "Magbahagi ng mga larawan at video mula sa device na ito — kinokompres muna ang malalaking video."
 }

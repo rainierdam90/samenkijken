@@ -584,5 +584,9 @@
 "feat_week": "Film minggu ini",
 "feat_watch": "Tonton bersama",
 "wa_invite": "{name} mengajak kamu ke sofa 🛋️ Yuk nonton bareng di SameCouch — tanpa aplikasi atau akun:",
-"share_more": "Lainnya…"
+"share_more": "Lainnya…",
+"pick_lead_youtube": "Tempel tautan YouTube — semua menonton bersamaan.",
+"pick_lead_vimeo": "Tempel tautan Vimeo — semua menonton bersamaan.",
+"pick_lead_url": "Tautan langsung ke file video (.mp4 atau .webm) diputar untuk semua.",
+"pick_lead_device": "Bagikan foto dan video dari perangkat ini — video besar dikompres dulu."
 }

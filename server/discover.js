@@ -55,7 +55,10 @@ function createDiscover(options) {
   const clientIp = opts.clientIp || (req => req.socket && req.socket.remoteAddress);
   const cors = opts.cors || ((req, res) => res.setHeader("Access-Control-Allow-Origin", "*"));
   const cache = new Map();   // key -> { ts, data }
-  const TTL = 10 * 60000, MAX_CACHE = 400;
+  /* lists are served from memory: fresh for 10 min, then still served instantly (and refreshed behind
+     the scenes) for up to a day — so a slow or briefly failing upstream never shows up as an error */
+  const TTL = 10 * 60000, STALE_MS = 24 * 3600000, MAX_CACHE = 600;
+  const inflight = new Map();   // key -> promise: concurrent identical lookups share one upstream request
 
   async function getJson(url, ms) {
     const ctrl = new AbortController(); const t = setTimeout(() => ctrl.abort(), ms || 9000);
@@ -67,12 +70,29 @@ function createDiscover(options) {
       return JSON.parse(text);
     } finally { clearTimeout(t); }
   }
+  /* the Internet Archive search API is sometimes slow or briefly fails: one quiet retry before giving up */
+  async function getJsonRetry(url, ms) {
+    try { return await getJson(url, ms); }
+    catch (e) { await new Promise(r => setTimeout(r, 700)); return getJson(url, ms); }
+  }
+  function refresh(key, fn) {
+    if (inflight.has(key)) return inflight.get(key);
+    const p = (async () => {
+      try {
+        const data = await fn();
+        cache.delete(key); cache.set(key, { ts: Date.now(), data });
+        if (cache.size > MAX_CACHE) cache.delete(cache.keys().next().value);
+        return data;
+      } finally { inflight.delete(key); }
+    })();
+    inflight.set(key, p);
+    return p;
+  }
   async function cached(key, fn) {
-    const hit = cache.get(key); if (hit && Date.now() - hit.ts < TTL) return hit.data;
-    const data = await fn();
-    cache.set(key, { ts: Date.now(), data });
-    if (cache.size > MAX_CACHE) cache.delete(cache.keys().next().value);
-    return data;
+    const hit = cache.get(key), age = hit ? Date.now() - hit.ts : Infinity;
+    if (age < TTL) return hit.data;
+    if (age < STALE_MS) { refresh(key, fn).catch(() => {}); return hit.data; }
+    return refresh(key, fn);
   }
   const clean = (s, n) => String(s == null ? "" : s).replace(/[\u0000-\u001f]/g, " ").trim().slice(0, n || 160);
   const query = (req) => clean(req.query.q, 100);
@@ -92,7 +112,7 @@ function createDiscover(options) {
     const calm = (!words && !cat) ? " AND -title:(nazi OR holocaust OR \"concentration camps\" OR sobibor) AND -subject:(horror OR holocaust OR \"concentration camps\" OR atrocities OR propaganda)" : "";
     const url = "https://archive.org/advancedsearch.php?q=" + encodeURIComponent(scope + " AND mediatype:movies AND -access-restricted-item:true" + playable + family + calm + terms) +
       "&fl[]=identifier&fl[]=title&fl[]=year&fl[]=runtime&fl[]=downloads&sort[]=downloads+desc&rows=" + ARCHIVE_ROWS + "&page=" + page + "&output=json";
-    const j = await getJson(url);
+    const j = await getJsonRetry(url, 10000);
     const docs = (j.response && j.response.docs) || [];
     return { more: docs.length >= ARCHIVE_ROWS && page < 50, items: docs.filter(d => /^[A-Za-z0-9._-]{1,100}$/.test(d.identifier || "")).map(d => ({
       id: d.identifier, title: clean(d.title, 140) || d.identifier, meta: [d.year ? String(d.year).slice(0, 4) : "", clean(d.runtime, 20)].filter(Boolean).join(" · "),
@@ -102,7 +122,7 @@ function createDiscover(options) {
   /* best browser-playable MP4 of an item: h.264 (≈480p) → MPEG4 → 512Kb */
   async function archivePlay(id) {
     if (!/^[A-Za-z0-9._-]{1,100}$/.test(id)) throw Object.assign(new Error("bad id"), { code: "bad_request" });
-    const j = await getJson("https://archive.org/metadata/" + encodeURIComponent(id), 12000);
+    const j = await getJsonRetry("https://archive.org/metadata/" + encodeURIComponent(id), 12000);
     if (j.is_dark || (j.metadata && /restricted/i.test(String(j.metadata["access-restricted-item"] || "")))) throw Object.assign(new Error("restricted"), { code: "not_playable" });
     const rank = f => /^h\.264$/i.test(f.format) ? 0 : /^h\.264 ia$/i.test(f.format) ? 1 : /^mpeg4$/i.test(f.format) ? 2 : /512kb mpeg4/i.test(f.format) ? 3 : 9;
     const files = (j.files || []).filter(f => /\.mp4$/i.test(f.name || "") && f.private !== "true" && rank(f) < 9).sort((a, b) => rank(a) - rank(b) || (+b.size || 0) - (+a.size || 0));
@@ -196,13 +216,20 @@ function createDiscover(options) {
   const page = (req, max) => Math.min(max, Math.max(1, parseInt(req.query.page, 10) || 1));
   const cat = (req, list) => { const c = clean(req.query.cat, 20); return Object.prototype.hasOwnProperty.call(list, c) ? c : ""; };
   router.get("/featured", handler(async () => featuredFilm()));
+  /* keep the film genres (and the featured film) ready: clicking a genre should never wait on archive.org */
+  function warm() {
+    const jobs = ["", ...Object.keys(FILM_CATS)].map(c => () => cached("ia||" + c + "|1", () => archiveSearch("", 1, c)));
+    jobs.push(() => { const f = featuredFilm(); return cached("iap|" + f.id, () => archivePlay(f.id)); });
+    jobs.reduce((chain, job, i) => chain.then(() => new Promise(r => setTimeout(r, i ? 1500 : 0))).then(job).catch(() => {}), Promise.resolve());
+  }
+  if (opts.warm) { setTimeout(warm, 5000).unref(); setInterval(warm, 3 * 3600000).unref(); }
   router.get("/archive", handler(async req => { const q = query(req), c = cat(req, FILM_CATS), pg = page(req, 50); return cached("ia|" + q + "|" + c + "|" + pg, () => archiveSearch(q, pg, c)); }));
   router.get("/archive/play", handler(async req => cached("iap|" + clean(req.query.id, 100), () => archivePlay(clean(req.query.id, 100)))));
   router.get("/radio", handler(async req => { const q = query(req), c = clean(req.query.country, 2).toUpperCase(), t = cat(req, RADIO_TAGS), pg = page(req, 10); return cached("rb|" + q + "|" + c + "|" + t + "|" + pg, () => radioSearch(q, c, t, pg)); }));
   router.get("/radio/play", handler(async req => radioPlay(clean(req.query.id, 40))));
   router.get("/peertube", handler(async req => { const q = query(req), l = /^[a-z]{2}$/.test(String(req.query.lang || "")) ? String(req.query.lang) : "", c = cat(req, PEERTUBE_CATS), pg = page(req, 20); return cached("pt|" + q + "|" + l + "|" + c + "|" + pg, () => peertubeSearch(q, l, c, pg)); }));
   router.get("/peertube/play", handler(async req => cached("ptp|" + clean(req.query.id, 120), () => peertubePlay(clean(req.query.id, 120)))));
-  return { router, _internal: { archiveSearch, archivePlay, radioSearch, peertubePlay, safeHost, featuredFilm } };
+  return { router, _internal: { archiveSearch, archivePlay, radioSearch, peertubePlay, safeHost, featuredFilm, cached } };
 }
 
 module.exports = { createDiscover };

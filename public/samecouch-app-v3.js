@@ -333,12 +333,14 @@
         save_title:"Keep your couch 🛋️",save_body:"Put SameCouch on your home screen and get a nudge when someone's on the couch.",save_install:"Add to home screen",save_ios:"Tap the share icon, then “Add to Home Screen”.",
         next_title:"Same time next week? 📅",next_body:"{when} — everyone can get a reminder.",next_yes:"Plan it",next_other:"Another time",next_planned:"Next movie night: {when}",next_by:"{name} planned the next movie night 📅",cal_add:"Add to calendar",plan_next:"Plan the next movie night",
         ms_nights:"Movie night number {n} together 🎉",feat_week:"Film of the week",feat_watch:"Watch together",
-        wa_invite:"{name} invites you to the couch 🛋️ Let's watch together on SameCouch — no app or account needed:",share_more:"More…"},
+        wa_invite:"{name} invites you to the couch 🛋️ Let's watch together on SameCouch — no app or account needed:",share_more:"More…",
+        pick_lead_youtube:"Paste a YouTube link — everyone watches in sync.",pick_lead_vimeo:"Paste a Vimeo link — everyone watches in sync.",pick_lead_url:"A direct link to a video file (.mp4 or .webm) plays for everyone.",pick_lead_device:"Share photos and videos from this device — big videos are compressed first."},
       nl:{ia_title:"Open SameCouch in je browser",ia_body:"Je hebt dit geopend in {app}. Videobellen en films werken vaak niet in die ingebouwde browser.",ia_open:"Open in browser",ia_ios:"Tik op ••• (rechtsboven) en kies „Open in browser” of „Open in Safari”.",ia_copied:"Link gekopieerd — plak hem in Safari of Chrome.",
         save_title:"Bewaar jullie bank 🛋️",save_body:"Zet SameCouch op je beginscherm en krijg een seintje als er iemand op de bank zit.",save_install:"Op beginscherm zetten",save_ios:"Tik op het deel-icoon en kies „Zet op beginscherm”.",
         next_title:"Zelfde tijd volgende week? 📅",next_body:"{when} — iedereen kan een herinnering krijgen.",next_yes:"Plan het",next_other:"Andere tijd",next_planned:"Volgende kijkavond: {when}",next_by:"{name} heeft de volgende kijkavond gepland 📅",cal_add:"In agenda zetten",plan_next:"Plan de volgende kijkavond",
         ms_nights:"Kijkavond nummer {n} samen 🎉",feat_week:"Film van de week",feat_watch:"Samen kijken",
-        wa_invite:"{name} nodigt je uit op de bank 🛋️ Kijk samen op SameCouch — geen app of account nodig:",share_more:"Meer…"}
+        wa_invite:"{name} nodigt je uit op de bank 🛋️ Kijk samen op SameCouch — geen app of account nodig:",share_more:"Meer…",
+        pick_lead_youtube:"Plak een YouTube-link — iedereen kijkt gelijk mee.",pick_lead_vimeo:"Plak een Vimeo-link — iedereen kijkt gelijk mee.",pick_lead_url:"Een directe link naar een videobestand (.mp4 of .webm) speelt bij iedereen.",pick_lead_device:"Deel foto's en video's van dit apparaat — grote video's worden eerst gecomprimeerd."}
     };
     Object.keys(GROWCOPY).forEach(function(k){ if(I18N[k]) Object.keys(GROWCOPY[k]).forEach(function(j){ I18N[k][j]=GROWCOPY[k][j]; }); });
     var amOwner=false, roomOwned=false, roomLabel="";
@@ -381,7 +383,7 @@
       var nameField=$("ld_name"); if(nameField&&nameField.getAttribute("aria-invalid")==="true") setText("ld_name_error",tr("name_required"));
       setText("fast_noapp",tr("fast_noapp")); setText("fast_private",tr("fast_private")); setText("fast_sync",tr("fast_sync"));
       if(typeof updateLoadBtn==="function") updateLoadBtn(); else setText("loadBtn",tr("load"));
-      setPh("urlInput",tr("url_ph")); setText("shareLbl",tr("share")); setText("browseBtn","\u25B6 "+tr("browse")); setText("iptvBtn",tr("iptv_btn")); if(!copyBusy) setText("copyBtn",tr("copy"));
+      setPh("urlInput",tr("url_ph")); setText("shareLbl",tr("share")); setText("browseBtn","\u25B6 "+tr("browse")); setText("iptvBtn",tr("iptv_btn")); setText("discIptv",tr("iptv_btn")); if(!copyBusy) setText("copyBtn",tr("copy"));
       setText("ph_kicker",tr("ph_kicker")); setText("ph_title",tr("ph_title")); setText("ph_roomlbl",tr("room_code")); setText("ph_note",tr("ph_note"));
       setText("ph_sharehint",tr("share_hint")); setText("shareWaTxt",tr("wa")); setText("shareMailTxt",tr("email")); if(!shareCopyBusy) setText("shareCopyTxt",tr("copy_s"));
       setStatus(curStatus); setCamStatus(curCam); setText("selfLabel",tr("you")); setText("peerLabel",tr("others"));
@@ -412,7 +414,7 @@
       setText("pkt_discover",tr("disc_tab")); setText("discoverBtnTxt",tr("disc_tab")); setText("discGo",tr("disc_search")); setText("disc_archive",tr("disc_films")); setText("disc_radio",tr("disc_radio")); setText("disc_peertube",tr("disc_peertube")); setText("radioCardSub",tr("radio_live")); if(typeof updateRadioBtn==="function") updateRadioBtn(); if(typeof renderDiscCats==="function"){ renderDiscCats(); updateDiscMore(); }
       var ds=(typeof discSrc==="string"&&discSrc)||"archive"; if($("discQ")) $("discQ").placeholder=tr("disc_ph_"+ds); setText("discNote",tr("disc_note_"+ds));
       var lp=$("ld_privacy"), lt=$("ld_terms"); if(lp) lp.href=lang==="nl"?"/privacy-nl.html":"/privacy.html"; if(lt) lt.href=lang==="nl"?"/terms-nl.html":"/terms.html";
-      setText("planNextTxt",tr("plan_next")); setText("shareMoreTxt",tr("share_more")); setText("featK",tr("feat_week")); setText("featGo","▶ "+tr("feat_watch"));
+      setText("planNextTxt",tr("plan_next")); if(typeof updatePickLead==="function") updatePickLead(); setText("shareMoreTxt",tr("share_more")); setText("featK",tr("feat_week")); setText("featGo","▶ "+tr("feat_watch"));
     }
 
     /* ===================== Elements ===================== */
@@ -1406,12 +1408,15 @@
     loadBtn.addEventListener("click", function(){ if(linkActive()&&!urlChanged()) stopWatching(); else loadUrl(urlInput.value); });
 
     /* ---- content picker (tabs: YouTube / Vimeo / Link / This device / Your phone) ---- */
-    var pickerEl=$("picker"), pickKind="youtube";
+    var pickerEl=$("picker"), pickKind="discover";   // free films & radio first: something to browse beats an empty link field
+    var PICK_ICONS={ youtube:"▶️", vimeo:"🎞️", url:"🔗", device:"📁", phone:"📱" };
+    function updatePickLead(){ setText("pickIc",PICK_ICONS[pickKind]||"▶️"); setText("pickLead",(pickKind==="phone"||pickKind==="discover")?"":tr("pick_lead_"+(pickKind==="vimeo"||pickKind==="url"||pickKind==="device"?pickKind:"youtube"))); }
     function setPickTab(k){
       pickKind=k;
       [].slice.call(document.querySelectorAll(".pick-tab")).forEach(function(b){ b.classList.toggle("active", b.getAttribute("data-k")===k); });
       var isDevice=(k==="device"), isPhone=(k==="phone"), isDisc=(k==="discover"), isUrl=!isDevice&&!isPhone&&!isDisc;
       if($("pickDiscover")) $("pickDiscover").style.display=isDisc?"":"none"; if(pickerEl) pickerEl.classList.toggle("discover",isDisc); if(isDisc) discEnsure();
+      if($("pickSimple")) $("pickSimple").style.display=isDisc?"none":""; updatePickLead(); if($("pickBody")) $("pickBody").scrollTop=0;
       if($("pickUrlRow")) $("pickUrlRow").style.display=isUrl?"flex":"none";
       if($("pickHint")) $("pickHint").style.display=(k==="youtube")?"":"none";
       if($("pickFileRow")) $("pickFileRow").style.display=isDevice?"":"none";
@@ -1462,7 +1467,7 @@
     function discKey(src,it){ return src==="radio"?String((it.title||"")+"|"+(it.meta||"")).toLowerCase():src==="archive"?String(it.title||it.id).toLowerCase().replace(/[^a-z0-9]+/g,""):String(it.id); }   // directories list some stations/films twice ("McLintock!" and "Mclintock")
     function discFresh(src,items,seen){ return items.filter(function(it){ var k=discKey(src,it); if(seen[k]) return false; seen[k]=1; return true; }); }
     function discMessage(text){ var grid=$("discGrid"); if(!grid) return; grid.innerHTML=""; var e=document.createElement("div"); e.className="disc-empty"; e.textContent=text; grid.appendChild(e); }
-    function discSearch(more){
+    function discSearch(more, retry){
       var src=discSrc, cur=discLoaded[src];
       if(more&&(!cur||!cur.more||discBusy)) return;
       var q=more?cur.q:((($("discQ")&&$("discQ").value)||"").trim()), cat=more?cur.cat:(discCat[src]||""), page=more?cur.page+1:1, req=++discReq;
@@ -1473,7 +1478,11 @@
         if(req!==discReq) return; var items=(d&&Array.isArray(d.items))?d.items:[];
         if(more){ var seen={}; cur.items.forEach(function(it){ seen[discKey(src,it)]=1; }); items=discFresh(src,items,seen); cur.items=cur.items.concat(items); cur.page=page; cur.more=!!(d&&d.more); if(discSrc===src) appendDisc(items,src); }
         else { discLoaded[src]={ q:q, cat:cat, page:1, more:!!(d&&d.more), items:discFresh(src,items,{}) }; if(discSrc===src) renderDisc(discLoaded[src].items); }
-      }).catch(function(){ if(req!==discReq) return; if(more) toast(tr("disc_error"),5000); else discMessage(tr("disc_error")); }).then(function(){ if(req===discReq){ discBusy=false; updateDiscMore(); } });
+      }).catch(function(){
+        if(req!==discReq) return;
+        if(!retry){ setTimeout(function(){ if(req===discReq) discSearch(more,true); },1200); return; }   // a busy directory usually answers the second time: try once more before showing an error
+        if(more) toast(tr("disc_error"),5000); else discMessage(tr("disc_error"));
+      }).then(function(){ if(req===discReq){ discBusy=false; updateDiscMore(); } });
     }
     function renderDisc(items){
       var grid=$("discGrid"); if(!grid) return; grid.innerHTML="";
@@ -1518,12 +1527,12 @@
     function updateRadioBtn(){ var b=$("radioPlay"); if(!b||!movie) return; var on=!movie.paused; b.classList.toggle("on",on); setText("radioPlayIc",on?"❚❚":"▶"); setText("radioPlayTxt",tr(on?"radio_pause":"radio_play")); }
     if($("radioPlay")) $("radioPlay").addEventListener("click",function(e){ e.stopPropagation(); if(movie.paused){ playgate.hidden=true; playMedia(true); } else pauseMedia(); });
     movie.addEventListener("play",updateRadioBtn); movie.addEventListener("pause",updateRadioBtn);
-    [].slice.call(document.querySelectorAll(".disc-btn")).forEach(function(b){ b.addEventListener("click",function(){ setDiscSrc(b.getAttribute("data-src")); }); });
+    [].slice.call(document.querySelectorAll(".disc-btn[data-src]")).forEach(function(b){ b.addEventListener("click",function(){ setDiscSrc(b.getAttribute("data-src")); }); });   // the IPTV tab opens its own library instead
     if($("discGo")) $("discGo").addEventListener("click",function(){ discSearch(); });
     if($("discMore")){
       $("discMore").addEventListener("click",function(){ discSearch(true); });
       /* scrolling to the end of the list loads the next page by itself; the button stays as the fallback */
-      if(typeof IntersectionObserver==="function"){ try{ var discMoreCard=$("discMore").closest(".modal-card"); new IntersectionObserver(function(es){ es.forEach(function(e){ if(e.isIntersecting&&!$("discMore").hidden&&pickerEl&&pickerEl.classList.contains("show")) discSearch(true); }); },{ root:discMoreCard||null, rootMargin:"0px 0px 240px 0px" }).observe($("discMore")); }catch(e){} }
+      if(typeof IntersectionObserver==="function"){ try{ var discMoreCard=$("discMore").closest(".pick-body"); new IntersectionObserver(function(es){ es.forEach(function(e){ if(e.isIntersecting&&!$("discMore").hidden&&pickerEl&&pickerEl.classList.contains("show")) discSearch(true); }); },{ root:discMoreCard||null, rootMargin:"0px 0px 240px 0px" }).observe($("discMore")); }catch(e){} }
     }
     if($("discQ")) $("discQ").addEventListener("keydown",function(e){ if(e.key==="Enter"&&!e.isComposing){ e.preventDefault(); discSearch(); } });
     /* Enter always means "play this link": with a video already playing it used to hit the Stop button
@@ -4044,7 +4053,10 @@
         toast:toast,
         tr:tr
       });
-      if(iptvBtn) iptvBtn.addEventListener("click",function(){ if(iptvController) iptvController.open(); });
+      /* IPTV opens from the top bar and from its tab under Discover (which closes the picker first) */
+      function openIptv(){ if(!iptvController) return; if(pickerEl) pickerEl.classList.remove("show"); iptvController.open(); }
+      if(iptvBtn) iptvBtn.addEventListener("click",openIptv);
+      if($("discIptv")) $("discIptv").addEventListener("click",openIptv);
     }
 
     (function start(){

@@ -698,7 +698,7 @@
     .cams{ bottom:calc(122px + env(safe-area-inset-bottom)) }                        /* above the two-row control bar */
     .stage.file-mode .cams{ bottom:calc(186px + env(safe-area-inset-bottom)) }
     .stage.chat-open .cams{ top:12px; bottom:auto }
-    /* phones: sharing family photos/videos is the everyday action — IPTV goes behind the menu */
+    /* phones: sharing family photos/videos is the everyday action — IPTV goes behind the menu (and stays under Discover) */
     .topbar > #shareMediaBtn{ display:inline-flex!important }
     .topbar > #discoverBtn{ display:inline-flex!important }   /* free films & radio: always one tap away on phones too */
     .topbar > #iptvBtn{ display:none }
@@ -907,5 +907,13 @@
   .feat-t{font-weight:700;font-size:15px;line-height:1.3;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .feat-m{font-size:12px;color:var(--muted)}
   .feat-go{flex:0 0 auto;font-size:13px;font-weight:700;color:var(--amber-2);white-space:nowrap}
-  body.iptv-off #iptvBtn{display:none!important}
+  body.iptv-off #iptvBtn,body.iptv-off #discIptv{display:none!important}
+  /* the picker keeps one size for every tab, so switching tabs never makes the window jump */
+  #picker .modal-card{max-width:760px;height:min(660px,calc(100vh - 44px));height:min(660px,calc(100dvh - 44px));display:flex;flex-direction:column;overflow:hidden}
+  #picker .pick-tabs{flex:0 0 auto}
+  .pick-body{flex:1 1 auto;min-height:0;overflow-y:auto;overscroll-behavior:contain;margin:0 -6px;padding:0 6px}
+  .pick-simple{min-height:100%;display:flex;flex-direction:column;justify-content:center;width:100%;max-width:520px;margin:0 auto;padding:6px 0 28px;text-align:center}
+  .pick-ic{font-size:46px;line-height:1;margin-bottom:12px}
+  .pick-lead{color:var(--muted);font-size:14.5px;line-height:1.5;margin:0 0 18px}.pick-lead:empty{display:none}
+  .pick-simple .pick-row{text-align:left}
   @media(max-width:420px){.feat-go{display:none}}

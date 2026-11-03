@@ -584,5 +584,9 @@
 "feat_week": "Film de la semaine",
 "feat_watch": "Regarder ensemble",
 "wa_invite": "{name} vous invite sur le canapé 🛋️ Regardons ensemble sur SameCouch — sans appli ni compte :",
-"share_more": "Plus…"
+"share_more": "Plus…",
+"pick_lead_youtube": "Collez un lien YouTube — tout le monde regarde en même temps.",
+"pick_lead_vimeo": "Collez un lien Vimeo — tout le monde regarde en même temps.",
+"pick_lead_url": "Un lien direct vers un fichier vidéo (.mp4 ou .webm) se lit chez tout le monde.",
+"pick_lead_device": "Partagez des photos et vidéos de cet appareil — les grosses vidéos sont d'abord compressées."
 }

@@ -584,5 +584,9 @@
 "feat_week": "本周电影",
 "feat_watch": "一起看",
 "wa_invite": "{name} 邀请你来沙发上坐坐 🛋️ 一起在 SameCouch 看吧——无需应用或账号：",
-"share_more": "更多…"
+"share_more": "更多…",
+"pick_lead_youtube": "粘贴 YouTube 链接——大家同步观看。",
+"pick_lead_vimeo": "粘贴 Vimeo 链接——大家同步观看。",
+"pick_lead_url": "视频文件（.mp4 或 .webm）的直接链接，所有人都能播放。",
+"pick_lead_device": "分享此设备上的照片和视频——大视频会先压缩。"
 }

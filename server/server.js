@@ -189,7 +189,7 @@ try {
 
 /* ---- Discover: free, legal things to watch/listen to together (Internet Archive, radio, PeerTube) ---- */
 const { createDiscover } = require("./discover");
-app.use("/discover", createDiscover({ makeLimiter, clientIp, cors, blockedIp }).router);
+app.use("/discover", createDiscover({ makeLimiter, clientIp, cors, blockedIp, warm: !process.env.NODE_TEST_CONTEXT && process.env.DISCOVER_WARM !== "0" }).router);
 
 const jsonSmall = express.json({ limit: "16kb" });   // most POSTs are tiny
 const jsonWall = express.json({ limit: "8mb" });     // wall photos + voice/video messages (client-side capped)

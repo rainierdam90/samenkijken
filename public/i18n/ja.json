@@ -584,5 +584,9 @@
 "feat_week": "今週の映画",
 "feat_watch": "いっしょに観る",
 "wa_invite": "{name} さんがソファに招待しています 🛋️ SameCouch でいっしょに観よう — アプリもアカウントも不要：",
-"share_more": "その他…"
+"share_more": "その他…",
+"pick_lead_youtube": "YouTube のリンクを貼り付けると、みんなで同時に観られます。",
+"pick_lead_vimeo": "Vimeo のリンクを貼り付けると、みんなで同時に観られます。",
+"pick_lead_url": "動画ファイル（.mp4 または .webm）への直接リンクは、全員で再生できます。",
+"pick_lead_device": "この端末の写真や動画を共有できます。大きな動画は先に圧縮されます。"
 }
