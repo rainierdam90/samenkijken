@@ -460,16 +460,16 @@ test("fullscreen controls return on activity and auto-hide above subtitles", () 
   assert.match(html, /document\.addEventListener\("fullscreenchange",fullscreenStateChanged\)/);
 });
 
-test("growth: IPTV stays out of sight for new visitors, in-app browsers get a way out, nights get planned", () => {
-  /* IPTV: hidden unless this device used it, unlocked it with ?iptv=1, or the room has a provider connected */
+test("growth: IPTV shows for everyone it is offered to, in-app browsers get a way out, nights get planned", () => {
+  /* IPTV: visible for every visitor whenever the server offers it — no per-device unlock any more */
   assert.match(appCss, /body\.iptv-off #iptvBtn,body\.iptv-off #discIptv\{display:none!important\}/);
   /* IPTV opens from the top bar AND from a tab under Discover (next to Films, Radio, PeerTube) */
   assert.ok(publicMarkup.indexOf('id="iptvBtn"') < publicMarkup.indexOf('id="pickDiscover"'), "the top-bar IPTV button stays");
   assert.match(publicMarkup, /id="disc_peertube">[^<]*<\/button>\s*<button type="button" class="disc-btn" id="discIptv">/);
   assert.match(appJs, /if\(iptvBtn\) iptvBtn\.addEventListener\("click",openIptv\);\s*if\(\$\("discIptv"\)\) \$\("discIptv"\)\.addEventListener\("click",openIptv\);/);
   assert.match(appJs, /querySelectorAll\("\.disc-btn\[data-src\]"\)/, "the IPTV tab is not treated as a Discover source");
-  assert.match(appJs, /function updateIptvVisibility\(\)\{ document\.body\.classList\.toggle\("iptv-off", !\(hasIptv&&\(iptvUnlocked\(\)\|\|iptvRoomSource\)\)\); \}/);
-  assert.match(appJs, /localStorage\.getItem\("wmt_iptv_login_v1"\)/);
+  assert.match(appJs, /function updateIptvVisibility\(\)\{ document\.body\.classList\.toggle\("iptv-off", !hasIptv\); \}/);
+  assert.doesNotMatch(appJs, /iptvUnlocked|IPTV_FLAG/);
   assert.match(appJs, /readUrlSwitches\(\); updateIptvVisibility\(\);/);
   assert.match(appJs, /\["iptv","lang","via","utm_source",[^\]]*\]\.forEach\(function\(k\)\{ params\.delete\(k\); \}\)/, "no switch or campaign tag travels along in a shared room link");
   /* in-app browsers (Instagram, TikTok, Facebook…) */

@@ -2276,7 +2276,7 @@
         case "subtitle": if(m&&typeof m.vtt==="string"&&typeof m.url==="string"){ if(applySubtitlePayload({url:m.url,name:m.name||"subtitles.srt",lang:m.lang||"und",vtt:m.vtt},false)) toast(tr("sub_received"),4500); } break;
         case "iptv-subtitle-track": if(m&&m.subtitle&&currentMedia&&currentMedia.iptv&&m.subtitle.mediaUrl===currentMedia.url){ streamIptvSubtitle(m.subtitle,false); } break;
         case "subclock": applySubClock(m); break;
-        case "iptv-source": if(iptvController) iptvController.setSource(m&&m.source&&m.source.token?m.source:null); iptvRoomSource=!!(m&&m.source&&m.source.token); updateIptvVisibility(); break;
+        case "iptv-source": if(iptvController) iptvController.setSource(m&&m.source&&m.source.token?m.source:null); break;
         case "milestone": if(m.nights>1){ toast(tr("ms_nights").replace("{n}",m.nights),8000); spawnReaction("🎉","",null); } break;
         case "next-night": onNextNight(m,false); break;
         case "iptv-source-error": if(iptvController) iptvController.setSource(null); toast(tr("iptv_err_expired"),6500); break;
@@ -4998,11 +4998,6 @@
       ]});
     }
 
-    /* IPTV is for people who bring their own subscription: it is not shown to new visitors. A device
-       that has used it (remembered login) keeps it; any other device opens samecouch.com/?iptv=1 once
-       (?iptv=0 hides it again). Guests still see it while someone in their room has a provider connected. */
-    var IPTV_FLAG="wmt_iptv_on", iptvRoomSource=false;
-    function iptvUnlocked(){ try{ return localStorage.getItem(IPTV_FLAG)==="1"||!!localStorage.getItem("wmt_iptv_login_v1"); }catch(e){ return false; } }
     /* campaign tag (?via=producthunt or ?utm_source=…): counted once per landing, remembered for 30 days
        so a room created later is attributed to the channel that brought this person in */
     function readVia(){
@@ -5014,13 +5009,14 @@
     function viaTag(){ try{ var o=JSON.parse(localStorage.getItem("wmt_via")||"null"); return (o&&o.v&&Date.now()-o.t<30*86400000)?o.v:""; }catch(e){ return ""; } }
     function readUrlSwitches(){
       readVia();
-      var q=params.get("iptv"), tagged=["via","utm_source","utm_medium","utm_campaign","utm_content","utm_term"].some(function(k){ return params.has(k); });
-      if(q===null&&!params.has("lang")&&!tagged) return;
-      if(q!==null){ try{ if(q==="0"||q==="off") localStorage.removeItem(IPTV_FLAG); else localStorage.setItem(IPTV_FLAG,"1"); }catch(e){} }
+      var tagged=["iptv","lang","via","utm_source","utm_medium","utm_campaign","utm_content","utm_term"].some(function(k){ return params.has(k); });
+      if(!tagged) return;
+      try{ localStorage.removeItem("wmt_iptv_on"); }catch(e){}   // left over from when IPTV had to be unlocked per device (?iptv=1)
       ["iptv","lang","via","utm_source","utm_medium","utm_campaign","utm_content","utm_term"].forEach(function(k){ params.delete(k); }); var qs=params.toString();   // ?lang= was already applied (and remembered) when the page loaded
       try{ history.replaceState(null,"",location.pathname+(qs?"?"+qs:"")+location.hash); }catch(e){}   // never pass the switch on through a shared room link
     }
-    function updateIptvVisibility(){ document.body.classList.toggle("iptv-off", !(hasIptv&&(iptvUnlocked()||iptvRoomSource))); }
+    /* IPTV shows for everyone wherever the server offers it (people bring their own subscription and confirm it when connecting) */
+    function updateIptvVisibility(){ document.body.classList.toggle("iptv-off", !hasIptv); }
     ensureConfig().then(updateIptvVisibility);
 
     /* A "couch night" is the time this device spent with at least one other person in the room. It
